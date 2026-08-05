@@ -1,0 +1,65 @@
+{
+  "name": "cdbvs",
+  "displayName": "CDBVS",
+  "description": "A desktop VS Code editor for CastleDB .cdb files.",
+  "version": "0.1.0",
+  "publisher": "cdbvs",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./extension.js",
+  "activationEvents": [
+    "onLanguage:cdb",
+    "onCustomEditor:cdb.editor"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "cdb",
+        "aliases": ["CastleDB", "CDB"],
+        "extensions": [".cdb"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "customEditors": [
+      {
+        "viewType": "cdb.editor",
+        "displayName": "CDBVS Editor",
+        "selector": [
+          {
+            "filenamePattern": "*.cdb"
+          }
+        ],
+        "priority": "default"
+      }
+    ],
+    "commands": [
+      {
+        "command": "cdb.openEditor",
+        "title": "CDBVS: Open CastleDB Editor"
+      },
+      {
+        "command": "cdb.validate",
+        "title": "CDBVS: Validate Current File"
+      },
+      {
+        "command": "cdb.format",
+        "title": "CDBVS: Format Current File"
+      }
+    ],
+    "configuration": {
+      "title": "CDBVS",
+      "properties": {
+        "cdbvs.showHiddenSheets": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show CastleDB internal/hidden sheets in the editor."
+        }
+      }
+    }
+  }
+}
