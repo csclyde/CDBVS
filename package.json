@@ -3,8 +3,24 @@
   "displayName": "CDBVS",
   "description": "A desktop VS Code editor for CastleDB .cdb files.",
   "version": "0.1.0",
-  "publisher": "cdbvs",
+  "publisher": "CLYDE",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/csclyde/CDBVS.git"
+  },
+  "bugs": {
+    "url": "https://github.com/csclyde/CDBVS/issues"
+  },
+  "homepage": "https://github.com/csclyde/CDBVS#readme",
+  "preview": true,
+  "keywords": [
+    "CastleDB",
+    "CDB",
+    "database",
+    "JSON",
+    "editor"
+  ],
   "engines": {
     "vscode": "^1.80.0"
   },

@@ -1,0 +1,13 @@
+.git/**
+.gitignore
+.vscode/**
+
+agents.md
+debug.log
+plan.md
+test/**
+
+# The JavaScript compatibility layer is used at runtime; the original Haxe
+# sources remain in the repository for provenance but are not runtime files.
+vendor/castledb/cdb/**
+vendor/castledb/README.md

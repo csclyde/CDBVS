@@ -1,0 +1,13 @@
+# Packaged VS Code extensions
+*.vsix
+
+# Local dependencies and test tooling
+node_modules/
+.vscode-test/
+
+# Logs
+*.log
+
+# OS metadata
+.DS_Store
+Thumbs.db

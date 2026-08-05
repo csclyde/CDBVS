@@ -2,7 +2,7 @@
 
 ## Status
 
-The first working editor baseline is in place. The repository now contains a desktop VS Code extension with a custom `.cdb` editor, a spreadsheet-style webview, schema-aware primitive/reference controls, row/column/sheet editing, quick search, per-column filtering and sorting, and a raw JSON fallback. The reusable CastleDB Haxe `cdb` sources from `Cursemark\.haxelib\castle\git` are vendored under `vendor/castledb/cdb`, while the legacy level-editor sources are intentionally excluded.
+The first working editor baseline is in place. The repository now contains a desktop VS Code extension with a custom `.cdb` editor, a spreadsheet-style webview, schema-aware primitive/reference controls, row/column/sheet editing, quick search, per-column filtering and sorting, and a raw JSON fallback. The reusable CastleDB Haxe `cdb` sources from `Cursemark\.haxelib\castle\git` are vendored under `vendor/castledb/cdb`, while the legacy level-editor sources are intentionally excluded. Marketplace release metadata and packaging exclusions are also prepared; publisher registration, authentication, and final VSIX validation remain external steps.
 
 ## Completed
 
@@ -68,6 +68,7 @@ The first working editor baseline is in place. The repository now contains a des
 - Copied the reusable `cdb` Haxe model/parser sources and original license/readme into `vendor/castledb`.
 - Added `test/fixtures/sample.cdb` from the original repository for manual editor smoke testing.
 - Saved project scope, reuse guidance, and validation expectations in `agents.md`.
+- Added Marketplace metadata, a root MIT license, a release changelog, and `.vscodeignore` packaging rules.
 
 ## Next steps / unfinished pieces
 
@@ -78,7 +79,7 @@ These are intentionally still open for the next milestone:
 3. Add richer controls for remaining CastleDB values: tile positions, gradients, curves, dynamic values, and file/image pickers.
 4. Add reference validation and useful navigation from a reference cell to the target sheet/row.
 5. Match CastleDB separator/group behavior from the Haxe model, including separator titles, group materialization, and preserving separator metadata safely.
-6. Add VS Code integration tests and package the extension as a `.vsix` once the local Node/npm or VS Code extension test tooling is available.
+6. Add VS Code integration tests and run the final `.vsix` package/installation smoke test once Node/npm is available.
 7. Consider compiling or generating a shared JavaScript CastleDB core from the vendored Haxe model if the direct JavaScript port begins to diverge from CastleDB compatibility.
 8. Evaluate the legacy localization export and image-cleanup utilities for VS Code commands; the legacy open/recent/save-as/exit menus are intentionally replaced by VS Code's document and workspace lifecycle.
 
@@ -89,4 +90,5 @@ These are intentionally still open for the next milestone:
 - The sample fixture contains three list columns with matching sub-sheet schemas, including the nested `monsters@skills@sub` list schema used to verify recursive expansion paths.
 - The search/filter/sort pass passed PowerShell JSON and feature-presence checks. A full JavaScript syntax check and extension-host smoke test remain unavailable because Node/npm are not installed in this environment.
 - The refactor passed PowerShell module-existence, script-load-order, bootstrap-size, and JSON checks; Node/npm remain unavailable for a full JavaScript parser or VS Code extension-host test.
+- Release preparation passed manifest, license, changelog, and packaging-file checks; the publisher ID is still configured as `cdbvs` and must be created or confirmed in the Marketplace publisher account before publishing.
 - Keep the extension desktop-only and do not bring over the source repository's `src/lvl` or `Level.hx` level editor.

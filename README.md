@@ -46,7 +46,19 @@ The editor webview is split into small browser scripts: runtime/state, DOM helpe
 2. Press `F5` to launch an Extension Development Host.
 3. Open `test/fixtures/sample.cdb` or another `.cdb` file.
 
-The extension has no npm runtime dependencies. Packaging and automated extension tests are still planned; see [plan.md](plan.md).
+The extension has no npm runtime dependencies. Automated extension tests are still planned; see [plan.md](plan.md).
+
+## Packaging a release
+
+After installing Node.js 20 or newer:
+
+```powershell
+npm install --global @vscode/vsce
+vsce ls
+vsce package
+```
+
+Install the generated `.vsix` in a clean desktop VS Code window and smoke-test it before publishing. To publish through the Visual Studio Marketplace, authenticate with `vsce login <publisher-id>` and run `vsce publish`. The publisher ID must match the `publisher` value in `package.json`.
 
 ## Source reuse
 
