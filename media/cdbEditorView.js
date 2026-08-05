@@ -12,8 +12,16 @@
   const viewForSheet = CDBVS.viewForSheet;
   const rowsForView = CDBVS.rowsForView;
   const selectedRowIndex = CDBVS.selectedRowIndex;
+  const selectedCell = CDBVS.selectedCell;
+  const cellErrorKey = CDBVS.cellErrorKey;
+  const cellErrorsForSheet = CDBVS.cellErrorsForSheet;
   const selectRow = CDBVS.selectRow;
+  const selectCell = CDBVS.selectCell;
   const separatorIndex = CDBVS.separatorIndex;
+  const addSeparator = CDBVS.addSeparator;
+  const removeSeparator = CDBVS.removeSeparator;
+  const isSeparatorCollapsed = CDBVS.isSeparatorCollapsed;
+  const toggleSeparatorCollapsed = CDBVS.toggleSeparatorCollapsed;
   const currentSheet = CDBVS.currentSheet;
   const visibleSheets = CDBVS.visibleSheets;
   const makeCellEditor = CDBVS.makeCellEditor;
@@ -21,8 +29,16 @@
   const addColumn = CDBVS.addColumn;
   const insertSelectedRow = CDBVS.insertSelectedRow;
   const deleteSelectedRow = CDBVS.deleteSelectedRow;
+  const deleteSelectedCell = CDBVS.deleteSelectedCell;
+  const moveSelectedRow = CDBVS.moveSelectedRow;
+  const moveSelectedCell = CDBVS.moveSelectedCell;
+  const copySelectedRow = CDBVS.copySelectedRow;
+  const pasteSelectedRow = CDBVS.pasteSelectedRow;
   const openTypesEditor = CDBVS.openTypesEditor;
   const openColumnEditor = CDBVS.openColumnEditor;
+  const openNewColumnEditor = CDBVS.openNewColumnEditor;
+  const moveColumn = CDBVS.moveColumn;
+  const deleteColumn = CDBVS.deleteColumn;
   const openSheetEditor = CDBVS.openSheetEditor;
   const openFilterModal = CDBVS.openFilterModal;
 
@@ -107,11 +123,54 @@
     CDBVS.render();
   }
 
+  function editSeparatorTitle(sheet, separator, separatorPosition, titleSpan, label) {
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "separator-title-input";
+    input.value = titleSpan.textContent || "Section";
+    let finished = false;
+    const finish = (save) => {
+      if (finished) return;
+      finished = true;
+      if (!save) {
+        label.replaceChild(titleSpan, input);
+        return;
+      }
+      const title = input.value.trim() || "Section";
+      if (separator && typeof separator === "object") separator.title = title;
+      else {
+        if (!sheet.props || typeof sheet.props !== "object") sheet.props = {};
+        if (!Array.isArray(sheet.props.separatorTitles)) sheet.props.separatorTitles = [];
+        sheet.props.separatorTitles[separatorPosition] = title;
+      }
+      sendUpdate();
+      CDBVS.render();
+    };
+    label.replaceChild(input, titleSpan);
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        finish(true);
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        finish(false);
+      }
+    });
+    input.addEventListener("blur", () => finish(true));
+    input.focus();
+    input.select();
+  }
+
   function renderSeparatorRows(body, sheet, rowIndex) {
     (sheet.separators || []).forEach((separator, separatorPosition) => {
-      if (separatorIndex(separator) !== rowIndex) return;
+      const index = separatorIndex(separator);
+      if (index !== rowIndex) return;
       const row = document.createElement("tr");
       row.className = "separator-row";
+      row.addEventListener("contextmenu", (event) => {
+        event.preventDefault();
+        showSeparatorContextMenu(event, sheet, index);
+      });
       const cell = document.createElement("td");
       cell.colSpan = Math.max(1, (sheet.columns || []).length + 1);
       const props = sheet.props || {};
@@ -119,10 +178,146 @@
       const title = separator && typeof separator === "object" && separator.title
         ? separator.title
         : titles[separatorPosition];
-      cell.appendChild(makeElement("span", title || "Section", "separator-label"));
+      const collapsed = isSeparatorCollapsed(sheet, index);
+      const label = makeElement("span", null, "separator-label");
+      const toggle = makeButton(collapsed ? "\u25B6" : "\u25BC", () => {
+        toggleSeparatorCollapsed(sheet, index);
+        CDBVS.render();
+      }, "separator-toggle");
+      toggle.title = collapsed ? "Expand section" : "Collapse section";
+      toggle.setAttribute("aria-label", toggle.title);
+      toggle.setAttribute("aria-expanded", String(!collapsed));
+      label.appendChild(toggle);
+      const titleSpan = makeElement("span", title || "Section");
+      titleSpan.title = "Double-click to edit section name";
+      titleSpan.addEventListener("dblclick", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        editSeparatorTitle(sheet, separator, separatorPosition, titleSpan, label);
+      });
+      label.appendChild(titleSpan);
+      cell.appendChild(label);
       row.appendChild(cell);
       body.appendChild(row);
     });
+  }
+
+  function rowInCollapsedSection(sheet, rowIndex) {
+    const indexes = (sheet.separators || []).map(separatorIndex).filter((index) => Number.isInteger(index)).sort((left, right) => left - right);
+    let current = null;
+    indexes.forEach((index) => { if (index <= rowIndex) current = index; });
+    return current !== null && isSeparatorCollapsed(sheet, current);
+  }
+
+  function markRenderedRowSelected(rowElement) {
+    document.querySelectorAll(".table-wrap tr[data-row-index].row-selected").forEach((row) => row.classList.remove("row-selected"));
+    rowElement.classList.add("row-selected");
+  }
+
+  function selectRenderedRow(sheet, rowIndex, rowElement) {
+    selectRow(sheet, rowIndex);
+    document.querySelectorAll(".table-wrap td.cell-selected").forEach((cell) => cell.classList.remove("cell-selected"));
+    markRenderedRowSelected(rowElement);
+  }
+
+  function selectRenderedCell(sheet, rowIndex, columnIndex, rowElement, cellElement) {
+    selectCell(sheet, rowIndex, columnIndex);
+    document.querySelectorAll(".table-wrap td.cell-selected").forEach((cell) => cell.classList.remove("cell-selected"));
+    cellElement.classList.add("cell-selected");
+    markRenderedRowSelected(rowElement);
+  }
+
+  let contextMenu = null;
+  let contextMenuCleanup = null;
+
+  function closeContextMenu() {
+    if (contextMenuCleanup) contextMenuCleanup();
+    contextMenuCleanup = null;
+    if (contextMenu) contextMenu.remove();
+    contextMenu = null;
+  }
+
+  function showContextMenu(event, items) {
+    closeContextMenu();
+    const menu = makeElement("div", null, "context-menu");
+    menu.setAttribute("role", "menu");
+    items.forEach((item) => {
+      if (item.separator) {
+        menu.appendChild(makeElement("div", null, "context-menu-separator"));
+        return;
+      }
+      const button = makeButton(item.label, () => {
+        closeContextMenu();
+        item.action();
+      }, "context-menu-item");
+      button.setAttribute("role", "menuitem");
+      button.disabled = item.disabled === true;
+      menu.appendChild(button);
+    });
+    document.body.appendChild(menu);
+    contextMenu = menu;
+    const margin = 5;
+    const left = Math.min(event.clientX, Math.max(margin, window.innerWidth - menu.offsetWidth - margin));
+    const top = Math.min(event.clientY, Math.max(margin, window.innerHeight - menu.offsetHeight - margin));
+    menu.style.left = `${left}px`;
+    menu.style.top = `${top}px`;
+    const closeIfOutside = (pointerEvent) => {
+      if (!menu.contains(pointerEvent.target)) closeContextMenu();
+    };
+    contextMenuCleanup = () => document.removeEventListener("pointerdown", closeIfOutside);
+    setTimeout(() => document.addEventListener("pointerdown", closeIfOutside), 0);
+  }
+
+  function showRowContextMenu(event, sheet, rowIndex) {
+    const selected = selectedRowIndex(sheet);
+    const rowCount = Array.isArray(sheet.lines) ? sheet.lines.length : 0;
+    const hasSeparator = (sheet.separators || []).some((separator) => separatorIndex(separator) === rowIndex);
+    showContextMenu(event, [
+      { label: "Add Separator", action: () => addSeparator(sheet, rowIndex), disabled: hasSeparator },
+      { separator: true },
+      { label: "Insert row below", action: () => insertSelectedRow(sheet) },
+      { label: "Delete row", action: () => deleteSelectedRow(sheet) },
+      { separator: true },
+      { label: "Move row up", action: () => moveSelectedRow(sheet, -1), disabled: selected === null || selected <= 0 },
+      { label: "Move row down", action: () => moveSelectedRow(sheet, 1), disabled: selected === null || selected >= rowCount - 1 },
+      { separator: true },
+      { label: "Copy row", action: () => copySelectedRow(sheet, false) },
+      { label: "Cut row", action: () => copySelectedRow(sheet, true) },
+      { label: "Paste row below", action: () => pasteSelectedRow(sheet) }
+    ]);
+  }
+
+  function showCellContextMenu(event, sheet) {
+    showContextMenu(event, [
+      { label: "Copy cell", action: () => copySelectedRow(sheet, false) },
+      { label: "Cut cell", action: () => copySelectedRow(sheet, true) },
+      { label: "Paste cell", action: () => pasteSelectedRow(sheet) },
+      { separator: true },
+      { label: "Clear cell", action: () => CDBVS.deleteSelectedCell(sheet) }
+    ]);
+  }
+
+  function showColumnContextMenu(event, sheet, columnIndex) {
+    const columnCount = Array.isArray(sheet.columns) ? sheet.columns.length : 0;
+    showContextMenu(event, [
+      { label: "Add column", action: () => openNewColumnEditor(sheet, columnIndex + 1) },
+      { separator: true },
+      { label: "Move column left", action: () => moveColumn(sheet, columnIndex, -1), disabled: columnIndex <= 0 },
+      { label: "Move column right", action: () => moveColumn(sheet, columnIndex, 1), disabled: columnIndex >= columnCount - 1 },
+      { separator: true },
+      { label: "Delete column", action: () => deleteColumn(sheet, columnIndex) }
+    ]);
+  }
+
+  function showSeparatorContextMenu(event, sheet, index) {
+    showContextMenu(event, [
+      { label: "Remove Separator", action: () => removeSeparator(sheet, index) }
+    ]);
+  }
+
+  function commitEditorTarget(editorTarget) {
+    if (!editorTarget || typeof editorTarget.dispatchEvent !== "function") return;
+    editorTarget.dispatchEvent(new Event("change", { bubbles: false }));
   }
 
   function renderRaw(container) {
@@ -172,6 +367,10 @@
       header.appendChild(sortButton);
       header.appendChild(title);
       th.appendChild(header);
+      th.addEventListener("contextmenu", (event) => {
+        event.preventDefault();
+        showColumnContextMenu(event, sheet, columnIndex);
+      });
       headRow.appendChild(th);
     });
     head.appendChild(headRow);
@@ -179,22 +378,50 @@
     const body = document.createElement("tbody");
     const rows = rowsForView(sheet);
     const selected = selectedRowIndex(sheet);
+    const selectedCellValue = selectedCell(sheet);
+    const cellErrors = cellErrorsForSheet(sheet);
     rows.forEach(({ row, rowIndex }) => {
       renderSeparatorRows(body, sheet, rowIndex);
+      if (rowInCollapsedSection(sheet, rowIndex)) return;
       const tr = document.createElement("tr");
+      tr.dataset.rowIndex = String(rowIndex);
       if (selected === rowIndex) tr.className = "row-selected";
       const rowCell = makeElement("td", null, "row-number");
+      rowCell.addEventListener("click", () => selectRenderedRow(sheet, rowIndex, tr));
+      rowCell.addEventListener("contextmenu", (event) => {
+        event.preventDefault();
+        selectRenderedRow(sheet, rowIndex, tr);
+        showRowContextMenu(event, sheet, rowIndex);
+      });
       const rowSelect = makeButton(String(rowIndex + 1), () => {
-        selectRow(sheet, rowIndex);
-        CDBVS.render();
+        selectRenderedRow(sheet, rowIndex, tr);
       }, "row-select");
       rowSelect.title = `Select row ${rowIndex + 1}`;
       rowSelect.setAttribute("aria-label", rowSelect.title);
       rowCell.appendChild(rowSelect);
       tr.appendChild(rowCell);
-      (sheet.columns || []).forEach((column) => {
+      (sheet.columns || []).forEach((column, columnIndex) => {
         const td = document.createElement("td");
         if (typeOf(column).code === 0) td.classList.add("primary-id-column");
+        td.dataset.columnIndex = String(columnIndex);
+        const errors = cellErrors[cellErrorKey(rowIndex, column.name)] || [];
+        if (errors.length) {
+          td.classList.add("cell-error");
+          td.title = errors.map((error) => error.message).join("\n");
+          td.setAttribute("aria-invalid", "true");
+          td.dataset.errorMessage = td.title;
+        }
+        if (selectedCellValue && selectedCellValue.rowIndex === rowIndex && selectedCellValue.columnIndex === columnIndex) td.classList.add("cell-selected");
+        td.addEventListener("click", (event) => {
+          if (!event.target.closest || event.target.closest("tr") !== tr) return;
+          selectRenderedCell(sheet, rowIndex, columnIndex, tr, td);
+        });
+        td.addEventListener("contextmenu", (event) => {
+          if (!event.target.closest || event.target.closest("tr") !== tr) return;
+          event.preventDefault();
+          selectRenderedCell(sheet, rowIndex, columnIndex, tr, td);
+          showCellContextMenu(event, sheet);
+        });
         makeCellEditor(td, row, column, {
           sheet,
           rowIndex,
@@ -214,24 +441,41 @@
     table.appendChild(body);
     tableWrap.appendChild(table);
     container.appendChild(tableWrap);
+
+    const horizontalScroll = makeElement("div", null, "horizontal-scroll-dock");
+    horizontalScroll.setAttribute("aria-label", "Horizontal sheet scroll");
+    const horizontalScrollContent = makeElement("div", null, "horizontal-scroll-content");
+    horizontalScroll.appendChild(horizontalScrollContent);
+    const updateHorizontalScrollSize = () => {
+      const tableWidth = Math.max(
+        table.scrollWidth,
+        table.offsetWidth,
+        Math.ceil(table.getBoundingClientRect().width),
+        tableWrap.scrollWidth
+      );
+      horizontalScrollContent.style.width = `${Math.max(tableWidth, tableWrap.clientWidth)}px`;
+    };
+    const syncTableToHorizontalScroll = () => {
+      if (horizontalScroll.scrollLeft !== tableWrap.scrollLeft) horizontalScroll.scrollLeft = tableWrap.scrollLeft;
+    };
+    const syncHorizontalScrollToTable = () => {
+      if (tableWrap.scrollLeft !== horizontalScroll.scrollLeft) tableWrap.scrollLeft = horizontalScroll.scrollLeft;
+    };
+    tableWrap.addEventListener("scroll", syncTableToHorizontalScroll);
+    horizontalScroll.addEventListener("scroll", syncHorizontalScrollToTable);
+    if (typeof ResizeObserver === "function") new ResizeObserver(updateHorizontalScrollSize).observe(table);
+    requestAnimationFrame(updateHorizontalScrollSize);
+    container.appendChild(horizontalScroll);
   }
 
   function render() {
+    closeContextMenu();
     rememberViewport();
     app.replaceChildren();
     const toolbar = makeElement("div", null, "toolbar");
     toolbar.appendChild(makeElement("strong", "CDBVS", "brand"));
     toolbar.appendChild(makeButton("+ Sheet", addSheet));
     toolbar.appendChild(makeButton("+ Column", () => addColumn(currentSheet())));
-    const activeSheet = currentSheet();
-    const insertButton = makeButton("Insert Row", () => insertSelectedRow(activeSheet));
-    insertButton.disabled = !activeSheet;
-    insertButton.title = "Insert a row below the selected row, or append a row if none is selected";
-    toolbar.appendChild(insertButton);
-    const deleteButton = makeButton("Delete Row", () => deleteSelectedRow(activeSheet), "danger-button");
-    deleteButton.disabled = selectedRowIndex(activeSheet) === null;
-    deleteButton.title = "Delete the selected row";
-    toolbar.appendChild(deleteButton);
     toolbar.appendChild(makeButton("Types", openTypesEditor));
     toolbar.appendChild(makeButton("Table", () => { state.rawMode = false; render(); }, state.rawMode ? "button" : "button active"));
     toolbar.appendChild(makeButton("Raw JSON", () => { state.rawMode = true; render(); }, state.rawMode ? "button active" : "button"));
@@ -300,6 +544,68 @@
     app.appendChild(sheetsBar);
     requestAnimationFrame(restoreViewport);
   }
+
+  document.addEventListener("keydown", (event) => {
+    if (document.querySelector(".text-modal-overlay")) return;
+    const sheet = currentSheet();
+    const key = String(event.key || "").toLowerCase();
+    if (key === "escape" && contextMenu) {
+      event.preventDefault();
+      closeContextMenu();
+      return;
+    }
+    const modified = event.ctrlKey || event.metaKey;
+    const editorTarget = event.target && event.target.closest && event.target.closest("input, textarea, select, [contenteditable=\"true\"]");
+    const cellSelection = selectedCell(sheet);
+    const arrowKey = key === "arrowup" || key === "arrowdown" || key === "arrowleft" || key === "arrowright";
+    const clipboardKey = key === "c" || key === "x" || key === "v";
+    const deleteKey = key === "delete" || key === "del";
+    if (editorTarget && !((!modified && (arrowKey || deleteKey) && cellSelection) || (modified && clipboardKey && cellSelection))) return;
+    if (!modified && !event.altKey && cellSelection && arrowKey) {
+      event.preventDefault();
+      commitEditorTarget(editorTarget);
+      moveSelectedCell(sheet,
+        key === "arrowup" ? -1 : (key === "arrowdown" ? 1 : 0),
+        key === "arrowleft" ? -1 : (key === "arrowright" ? 1 : 0));
+      return;
+    }
+    if (!modified && !event.altKey) {
+      if (key === "insert") {
+        event.preventDefault();
+        insertSelectedRow(sheet);
+        return;
+      }
+      if (deleteKey) {
+        event.preventDefault();
+        if (cellSelection) {
+          commitEditorTarget(editorTarget);
+          deleteSelectedCell(sheet);
+        } else {
+          deleteSelectedRow(sheet);
+        }
+        return;
+      }
+    }
+    if (!modified) return;
+    if (key === "c" || key === "x") {
+      if (selectedRowIndex(sheet) === null) return;
+      event.preventDefault();
+      commitEditorTarget(editorTarget);
+      copySelectedRow(sheet, key === "x");
+      return;
+    }
+    if (key === "v") {
+      if (!sheet) return;
+      event.preventDefault();
+      commitEditorTarget(editorTarget);
+      pasteSelectedRow(sheet);
+      return;
+    }
+    if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+    if (selectedRowIndex(sheet) === null) return;
+    event.preventDefault();
+    moveSelectedRow(sheet, event.key === "ArrowUp" ? -1 : 1);
+  });
 
   CDBVS.render = render;
 })(window);

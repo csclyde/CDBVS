@@ -22,7 +22,7 @@ body {
   font-size: var(--vscode-font-size);
 }
 
-#app { min-height: 100vh; display: flex; flex-direction: column; }
+#app { height: 100vh; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
 
 button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
@@ -36,7 +36,8 @@ button:disabled { cursor: default; opacity: .45; }
   background: var(--vscode-editorGroupHeader-tabsBackground);
   position: sticky;
   top: 0;
-  z-index: 2;
+  z-index: 50;
+  isolation: isolate;
 }
 .brand { margin-right: 8px; letter-spacing: .04em; }
 .button {
@@ -53,6 +54,11 @@ button:disabled { cursor: default; opacity: .45; }
 .search-wrap.has-value .search { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 .search-clear { position: absolute; top: 1px; right: 1px; bottom: 1px; border: 0; background: transparent; color: var(--muted); padding: 0 7px; line-height: 1; }
 .search-clear:hover { color: var(--vscode-foreground); background: var(--active); }
+.context-menu { position: fixed; z-index: 100; min-width: 170px; max-width: min(300px, calc(100vw - 10px)); padding: 4px; border: 1px solid var(--input-border); background: var(--vscode-editorWidget-background, var(--input-bg)); color: var(--vscode-editorWidget-foreground, var(--input-fg)); box-shadow: 0 8px 24px #0008; }
+.context-menu-item { display: block; width: 100%; border: 0; background: transparent; color: inherit; padding: 5px 9px; text-align: left; white-space: nowrap; }
+.context-menu-item:hover:not(:disabled), .context-menu-item:focus-visible:not(:disabled) { background: var(--active); }
+.context-menu-item:disabled { cursor: default; color: var(--muted); opacity: .5; }
+.context-menu-separator { height: 1px; margin: 4px 2px; background: var(--border); }
 .sheets { display: flex; flex: 0 0 auto; overflow-x: auto; border-top: 1px solid var(--border); background: var(--vscode-editorGroupHeader-tabsBackground); position: sticky; bottom: 0; z-index: 3; }
 .sheet-tab { display: flex; align-items: stretch; border-right: 1px solid var(--border); border-top: 3px solid transparent; }
 .sheet { border: 0; background: transparent; padding: 7px 8px 7px 12px; color: inherit; }
@@ -60,7 +66,7 @@ button:disabled { cursor: default; opacity: .45; }
 .sheet-tab:not(.active):hover { background: var(--active); }
 .sheet-tab.active .sheet-edit-button { color: var(--selection-fg); }
 .sheet-edit-button { border: 0; background: transparent; color: var(--muted); padding: 0 7px 0 3px; }
-.sheet-view-toolbar { display: flex; flex-direction: column; align-items: stretch; gap: 4px; padding: 7px 8px; border-bottom: 1px solid var(--border); background: var(--vscode-editorGroupHeader-tabsBackground); }
+.sheet-view-toolbar { position: relative; z-index: 40; display: flex; flex-direction: column; align-items: stretch; gap: 4px; padding: 7px 8px; border-bottom: 1px solid var(--border); background: var(--vscode-editorGroupHeader-tabsBackground); isolation: isolate; }
 .sheet-view-controls { display: flex; align-items: center; gap: 6px; }
 .filter-button { display: inline-flex; align-items: center; justify-content: center; width: 27px; min-width: 27px; height: 25px; padding: 3px; }
 .filter-icon { position: relative; display: inline-block; width: 14px; height: 14px; color: currentColor; }
@@ -76,9 +82,15 @@ button:disabled { cursor: default; opacity: .45; }
 .sheet-edit-button:hover { color: var(--vscode-foreground); }
 .status { min-height: 22px; padding: 4px 9px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .status.error { color: var(--vscode-errorForeground); }
-.content { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; padding: 0 8px 20px; }
-.table-wrap { flex: 1 1 auto; min-height: 0; overflow: auto; border: 1px solid var(--border); }
-table { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 0; table-layout: auto; }
+.content { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; overflow: hidden; padding: 0 8px 4px; }
+.table-wrap { flex: 1 1 auto; min-height: 0; overflow-x: auto; overflow-y: auto; scrollbar-width: none; border: 1px solid var(--border); }
+.table-wrap::-webkit-scrollbar:horizontal { height: 0; }
+.horizontal-scroll-dock { display: block; flex: 0 0 16px; height: 16px; min-height: 16px; overflow-x: scroll; overflow-y: hidden; scrollbar-color: var(--input-border) var(--input-bg); border: 1px solid var(--border); border-top: 0; background: var(--vscode-editorGroupHeader-tabsBackground); }
+.horizontal-scroll-dock::-webkit-scrollbar { height: 12px; }
+.horizontal-scroll-dock::-webkit-scrollbar-track { background: var(--input-bg); }
+.horizontal-scroll-dock::-webkit-scrollbar-thumb { border: 2px solid var(--input-bg); background: var(--input-border); border-radius: 6px; }
+.horizontal-scroll-content { display: block; height: 1px; min-width: 1px; }
+table { border-collapse: separate; border-spacing: 0; width: max-content; min-width: max-content; table-layout: auto; }
 th, td { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 0; min-width: 42px; width: max-content; vertical-align: top; }
 th { position: sticky; top: 0; z-index: 1; background: var(--vscode-editorGroupHeader-tabsBackground); text-align: left; padding: 6px; }
 tr:last-child td { border-bottom: 0; }
@@ -90,10 +102,21 @@ th.primary-id-column { z-index: 3; background: var(--vscode-editorGroupHeader-ta
 .row-select { display: block; width: 100%; border: 0; background: transparent; color: inherit; padding: 0; text-align: center; }
 .row-select:hover, .row-select:focus { color: var(--vscode-foreground); background: var(--active); }
 tr.row-selected td { background: var(--selection-bg); color: var(--selection-fg); }
-tr.row-selected .row-number, tr.row-selected .primary-id-column { background: var(--selection-bg); color: var(--selection-fg); }
+tr.row-selected .row-number, tr.row-selected .primary-id-column { isolation: isolate; z-index: 20; background-color: var(--vscode-editor-background) !important; background-image: linear-gradient(var(--selection-bg), var(--selection-bg)) !important; color: var(--selection-fg); }
+td.cell-selected { z-index: 5; background: var(--active) !important; color: var(--vscode-foreground); box-shadow: inset 0 0 0 2px var(--accent); }
+tr.row-selected .primary-id-column.cell-selected { z-index: 21; background-color: var(--vscode-editor-background) !important; background-image: linear-gradient(var(--active), var(--active)) !important; color: var(--vscode-foreground); box-shadow: inset 0 0 0 2px var(--accent), 2px 0 0 var(--border); }
+td.cell-error { position: relative; background: var(--vscode-inputValidation-errorBackground, #5a1d1d) !important; color: var(--vscode-inputValidation-errorForeground, var(--vscode-foreground)); box-shadow: inset 0 0 0 2px var(--vscode-inputValidation-errorBorder, #f14c4c); }
+td.primary-id-column.cell-error { position: sticky; }
+td.cell-error::after { content: "!"; position: absolute; top: 2px; right: 3px; z-index: 2; width: 14px; height: 14px; border-radius: 50%; background: var(--vscode-inputValidation-errorBorder, #f14c4c); color: var(--vscode-editor-background); font-size: .75em; font-weight: 700; line-height: 14px; text-align: center; pointer-events: none; }
+td.cell-selected.cell-error { box-shadow: inset 0 0 0 2px var(--vscode-inputValidation-errorBorder, #f14c4c), inset 0 0 0 4px var(--accent); }
+tr.row-selected .primary-id-column.cell-error { position: sticky; z-index: 21; background-color: var(--vscode-inputValidation-errorBackground, #5a1d1d) !important; background-image: none !important; color: var(--vscode-inputValidation-errorForeground, var(--vscode-foreground)); box-shadow: inset 0 0 0 2px var(--vscode-inputValidation-errorBorder, #f14c4c), 2px 0 0 var(--border); }
 tr.row-selected .list-toggle { border-color: var(--accent); background: var(--selection-bg); color: var(--selection-fg); }
-.separator-row td { min-width: 0; padding: 0; border-right: 0; background: var(--vscode-editorGroupHeader-tabsBackground); }
-.separator-label { position: sticky; left: 0; z-index: 2; display: block; width: max-content; max-width: min(520px, calc(100vw - 32px)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 5px 8px; border-top: 1px solid var(--vscode-textLink-foreground); border-right: 1px solid var(--vscode-textLink-foreground); border-bottom: 1px solid var(--border); background: var(--vscode-editorGroupHeader-tabsBackground); color: var(--vscode-textLink-foreground); font-size: .85em; font-weight: 600; box-shadow: 3px 0 5px -5px #000; }
+.separator-row td { min-width: 0; padding: 0; border-top: 1px solid var(--vscode-textLink-foreground); border-right: 0; background: var(--vscode-editorGroupHeader-tabsBackground); }
+.separator-label { position: sticky; left: 0; z-index: 2; display: flex; align-items: center; gap: 4px; width: max-content; max-width: min(520px, calc(100vw - 32px)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 3px 6px; border-right: 1px solid var(--vscode-textLink-foreground); border-bottom: 1px solid var(--border); background: var(--vscode-editorGroupHeader-tabsBackground); color: var(--vscode-textLink-foreground); font-size: .85em; font-weight: 600; box-shadow: 3px 0 5px -5px #000; }
+.separator-label > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.separator-title-input { min-width: 120px; max-width: min(420px, calc(100vw - 70px)); border: 1px solid var(--accent); background: var(--input-bg); color: var(--input-fg); padding: 2px 5px; }
+.separator-toggle { flex: 0 0 auto; width: 19px; min-width: 19px; height: 19px; border: 1px solid transparent; background: transparent; color: inherit; padding: 0; font-size: .8em; line-height: 1; }
+.separator-toggle:hover, .separator-toggle:focus-visible { border-color: var(--accent); background: var(--active); }
 .column-header { display: flex; align-items: center; gap: 3px; min-width: 0; }
 .column-header .column-title { flex: 1 1 auto; }
 .column-sort-button { flex: 0 0 auto; width: 15px; min-width: 15px; border: 0; background: transparent; color: var(--muted); padding: 0; font-size: .65em; line-height: 1; }

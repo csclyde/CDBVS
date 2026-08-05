@@ -56,6 +56,56 @@
     if (!state.selectedRows) state.selectedRows = {};
     if (Number.isInteger(index) && index >= 0 && index < (sheet.lines || []).length) state.selectedRows[sheet.name] = index;
     else delete state.selectedRows[sheet.name];
+    if (state.selectedCells) delete state.selectedCells[sheet.name];
+  }
+
+  function selectedCell(sheet) {
+    if (!sheet || !state.selectedCells) return null;
+    const selection = state.selectedCells[sheet.name];
+    if (!selection || !Number.isInteger(selection.rowIndex) || !Number.isInteger(selection.columnIndex)) return null;
+    if (selection.rowIndex < 0 || selection.rowIndex >= (sheet.lines || []).length) return null;
+    if (selection.columnIndex < 0 || selection.columnIndex >= (sheet.columns || []).length) return null;
+    return {
+      rowIndex: selection.rowIndex,
+      columnIndex: selection.columnIndex,
+      column: sheet.columns[selection.columnIndex]
+    };
+  }
+
+  function selectCell(sheet, rowIndex, columnIndex) {
+    if (!sheet) return;
+    if (!state.selectedCells) state.selectedCells = {};
+    if (!state.selectedRows) state.selectedRows = {};
+    if (Number.isInteger(rowIndex) && rowIndex >= 0 && rowIndex < (sheet.lines || []).length && Number.isInteger(columnIndex) && columnIndex >= 0 && columnIndex < (sheet.columns || []).length) {
+      state.selectedCells[sheet.name] = { rowIndex, columnIndex };
+      state.selectedRows[sheet.name] = rowIndex;
+    } else {
+      delete state.selectedCells[sheet.name];
+    }
+  }
+
+  function isSeparatorCollapsed(sheet, index) {
+    if (!sheet || !state.collapsedSeparators) return false;
+    return state.collapsedSeparators[sheet.name] && state.collapsedSeparators[sheet.name][String(index)] === true;
+  }
+
+  function toggleSeparatorCollapsed(sheet, index) {
+    if (!sheet) return false;
+    if (!state.collapsedSeparators) state.collapsedSeparators = {};
+    if (!state.collapsedSeparators[sheet.name]) state.collapsedSeparators[sheet.name] = {};
+    const key = String(index);
+    state.collapsedSeparators[sheet.name][key] = !isSeparatorCollapsed(sheet, index);
+    return state.collapsedSeparators[sheet.name][key];
+  }
+
+  function shiftCollapsedSeparators(sheet, change) {
+    if (!sheet || !state.collapsedSeparators || !state.collapsedSeparators[sheet.name]) return;
+    const shifted = {};
+    Object.keys(state.collapsedSeparators[sheet.name]).forEach((key) => {
+      const next = change(Number.parseInt(key, 10));
+      if (next !== null && next !== undefined) shifted[String(next)] = state.collapsedSeparators[sheet.name][key];
+    });
+    state.collapsedSeparators[sheet.name] = shifted;
   }
 
   function viewForSheet(sheet) {
@@ -76,6 +126,11 @@
       state.sorts[`${newName}${sheetName.slice(oldName.length)}`] = state.sorts[sheetName];
       delete state.sorts[sheetName];
     });
+    Object.keys(state.collapsedSeparators || {}).forEach((sheetName) => {
+      if (sheetName !== oldName && !sheetName.startsWith(`${oldName}@`)) return;
+      state.collapsedSeparators[`${newName}${sheetName.slice(oldName.length)}`] = state.collapsedSeparators[sheetName];
+      delete state.collapsedSeparators[sheetName];
+    });
   }
 
   function removeViewSheet(sheetName) {
@@ -84,6 +139,9 @@
     });
     Object.keys(state.sorts).forEach((name) => {
       if (name === sheetName || name.startsWith(`${sheetName}@`)) delete state.sorts[name];
+    });
+    Object.keys(state.collapsedSeparators || {}).forEach((name) => {
+      if (name === sheetName || name.startsWith(`${sheetName}@`)) delete state.collapsedSeparators[name];
     });
   }
 
@@ -177,6 +235,79 @@
     return (sheet && Array.isArray(sheet.columns) ? sheet.columns : []).find((column) => typeOf(column).code === 0) || null;
   }
 
+  function cellErrorKey(rowIndex, columnName) {
+    return `${rowIndex}\u0000${columnName}`;
+  }
+
+  function normalizeCellError(error, code) {
+    const normalized = typeof error === "string" ? { message: error } : Object.assign({}, error || {});
+    if (!normalized.message) return null;
+    normalized.code = normalized.code || code || "cell-error";
+    normalized.severity = normalized.severity || "error";
+    return normalized;
+  }
+
+  function addCellError(sheet, rowIndex, columnName, error, code) {
+    if (!sheet || !Number.isInteger(rowIndex) || !columnName) return false;
+    const normalized = normalizeCellError(error, code);
+    if (!normalized) return false;
+    if (!state.cellErrors) state.cellErrors = {};
+    if (!state.cellErrors[sheet.name]) state.cellErrors[sheet.name] = {};
+    const key = cellErrorKey(rowIndex, columnName);
+    const errors = state.cellErrors[sheet.name][key] || (state.cellErrors[sheet.name][key] = []);
+    if (!errors.some((item) => item.code === normalized.code && item.message === normalized.message)) errors.push(normalized);
+    return true;
+  }
+
+  function clearCellErrors(sheet, rowIndex, columnName) {
+    if (!sheet || !state.cellErrors || !state.cellErrors[sheet.name]) return;
+    if (!Number.isInteger(rowIndex)) {
+      delete state.cellErrors[sheet.name];
+      return;
+    }
+    if (columnName) delete state.cellErrors[sheet.name][cellErrorKey(rowIndex, columnName)];
+    else {
+      const prefix = `${rowIndex}\u0000`;
+      Object.keys(state.cellErrors[sheet.name]).forEach((key) => { if (key.startsWith(prefix)) delete state.cellErrors[sheet.name][key]; });
+    }
+  }
+
+  function cellErrorsForSheet(sheet) {
+    const result = {};
+    if (!sheet) return result;
+    const add = (rowIndex, columnName, error) => {
+      const normalized = normalizeCellError(error);
+      if (!normalized) return;
+      const key = cellErrorKey(rowIndex, columnName);
+      if (!result[key]) result[key] = [];
+      if (!result[key].some((item) => item.code === normalized.code && item.message === normalized.message)) result[key].push(normalized);
+    };
+    const custom = state.cellErrors && state.cellErrors[sheet.name];
+    Object.keys(custom || {}).forEach((key) => {
+      (Array.isArray(custom[key]) ? custom[key] : [custom[key]]).forEach((error) => {
+        const separator = key.indexOf("\u0000");
+        if (separator < 0) return;
+        add(Number.parseInt(key.slice(0, separator), 10), key.slice(separator + 1), error);
+      });
+    });
+    const primary = idColumn(sheet);
+    if (primary && Array.isArray(sheet.lines)) {
+      const seen = new Map();
+      sheet.lines.forEach((line, rowIndex) => {
+        const value = line && line[primary.name];
+        if (value === undefined || value === null || value === "") return;
+        const key = String(value);
+        if (seen.has(key)) {
+          add(rowIndex, primary.name, {
+            code: "duplicate-primary-id",
+            message: `Duplicate primary ID '${value}'. The first occurrence is row ${seen.get(key) + 1}.`
+          });
+        } else seen.set(key, rowIndex);
+      });
+    }
+    return result;
+  }
+
   function setColumnTypeString(column, typeString) {
     if (!column || typeof column !== "object") return;
     const property = Object.prototype.hasOwnProperty.call(column, "typeStr") ? "typeStr" : (Object.prototype.hasOwnProperty.call(column, "type") ? "type" : "typeStr");
@@ -262,11 +393,13 @@
     }).filter((separator) => separator !== null);
   }
 
-  function insertRow(sheet, index) {
+  function insertRow(sheet, index, row) {
     if (!sheet) return;
     if (!Array.isArray(sheet.lines)) sheet.lines = [];
-    sheet.lines.splice(index, 0, createRowForSchema(sheet, sheet.lines));
+    const nextRow = row && typeof row === "object" && !Array.isArray(row) ? row : createRowForSchema(sheet, sheet.lines);
+    sheet.lines.splice(index, 0, nextRow);
     moveSeparators(sheet, (separatorIndexValue) => separatorIndexValue >= index ? separatorIndexValue + 1 : separatorIndexValue);
+    shiftCollapsedSeparators(sheet, (separatorIndexValue) => separatorIndexValue >= index ? separatorIndexValue + 1 : separatorIndexValue);
     sendUpdate();
   }
 
@@ -276,11 +409,8 @@
     if (target < 0 || target >= sheet.lines.length) return;
     const lines = sheet.lines;
     [lines[index], lines[target]] = [lines[target], lines[index]];
-    moveSeparators(sheet, (separatorIndexValue) => {
-      if (separatorIndexValue === index) return target;
-      if (separatorIndexValue === target) return index;
-      return separatorIndexValue;
-    });
+    // Separators mark fixed section boundaries, not row ownership. Keep their
+    // indexes unchanged so a moved row can cross a separator naturally.
     sendUpdate();
   }
 
@@ -296,10 +426,37 @@
     sendUpdate();
   }
 
+  function addSeparator(sheet, index) {
+    if (!sheet || !Number.isInteger(index)) return false;
+    if (!Array.isArray(sheet.separators)) sheet.separators = [];
+    if (sheet.separators.some((separator) => separatorIndex(separator) === index)) return false;
+    sheet.separators.push({ index, title: "Section" });
+    sheet.separators.sort((left, right) => separatorIndex(left) - separatorIndex(right));
+    sendUpdate();
+    if (typeof CDBVS.render === "function") CDBVS.render();
+    return true;
+  }
+
+  function removeSeparator(sheet, index) {
+    if (!sheet || !Array.isArray(sheet.separators)) return false;
+    const position = sheet.separators.findIndex((separator) => separatorIndex(separator) === index);
+    if (position < 0) return false;
+    sheet.separators.splice(position, 1);
+    if (sheet.props && Array.isArray(sheet.props.separatorTitles)) sheet.props.separatorTitles.splice(position, 1);
+    if (state.collapsedSeparators && state.collapsedSeparators[sheet.name]) delete state.collapsedSeparators[sheet.name][String(index)];
+    sendUpdate();
+    if (typeof CDBVS.render === "function") CDBVS.render();
+    return true;
+  }
+
   function deleteRowAt(sheet, index) {
     if (!sheet || !Array.isArray(sheet.lines)) return;
     sheet.lines.splice(index, 1);
     moveSeparators(sheet, (separatorIndexValue) => {
+      if (separatorIndexValue === index) return null;
+      return separatorIndexValue > index ? separatorIndexValue - 1 : separatorIndexValue;
+    });
+    shiftCollapsedSeparators(sheet, (separatorIndexValue) => {
       if (separatorIndexValue === index) return null;
       return separatorIndexValue > index ? separatorIndexValue - 1 : separatorIndexValue;
     });
@@ -387,11 +544,11 @@
   }
 
   Object.assign(CDBVS, {
-    typeOf, typeLabel, defaultValue, visibleSheets, currentSheet, selectedRowIndex, selectRow, viewForSheet,
+    typeOf, typeLabel, defaultValue, visibleSheets, currentSheet, selectedRowIndex, selectRow, selectedCell, selectCell, viewForSheet,
     renameViewSheet, removeViewSheet, renameViewColumn, removeViewColumn,
-    clearViewState, filterMatches, rowsForView, idColumn, setPrimaryColumn, listSheet, listKey,
+    clearViewState, filterMatches, rowsForView, idColumn, setPrimaryColumn, cellErrorKey, addCellError, clearCellErrors, cellErrorsForSheet, isSeparatorCollapsed, toggleSeparatorCollapsed, listSheet, listKey,
     readValue, valueText, colorText, referenceOptions, createRowForSchema,
-    separatorIndex, moveSeparators, insertRow, moveRow, toggleSeparator,
+    separatorIndex, moveSeparators, insertRow, moveRow, toggleSeparator, addSeparator, removeSeparator,
     deleteRowAt, moveColumn, sheetBlock, moveSheet, listPreview,
     columnExtraProperties, sheetExtraProperties, mapTypeStrings
   });

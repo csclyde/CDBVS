@@ -8,6 +8,7 @@ Open a `.cdb` file in VS Code and choose **CDBVS Editor** if it does not open au
 
 - visible CastleDB sheet tabs;
 - bottom-docked sheet tabs that remain available while the table is scrolled;
+- a dedicated synchronized horizontal scrollbar immediately above the sheet tabs for wide sheets;
 - removable filter/search/sort pills beneath the sheet controls, plus a left-aligned search box with an embedded clear button;
 - a filter-only modal opened by a funnel icon, with per-column sort cycle buttons in each header (neutral, descending, ascending);
 - uncluttered column headers containing only the sort control, column name, and edit control;
@@ -23,6 +24,9 @@ Open a `.cdb` file in VS Code and choose **CDBVS Editor** if it does not open au
 - sheet-tab pencil editors for sheet metadata, advanced properties, and deletion;
 - row insertion/deletion from the sheet controls, expandable properties, custom-type editing, flags, and colors;
 - row-number selection with whole-row highlighting, Insert Row below the selection, and Delete Row controls; expanded list rows use the same selection pattern;
+- row selection updates locally without rebuilding the entire webview, with opaque layering for selected pinned columns;
+- Ctrl/Cmd+Up and Ctrl/Cmd+Down move the selected main-sheet row while preserving separator positions;
+- Ctrl/Cmd+C copies the selected row, Ctrl/Cmd+X cuts it, and Ctrl/Cmd+V inserts a cloned row below the selection;
 - full-width separator rows for CastleDB sheet sections, including separator titles when present;
 - sticky separator titles that remain visible during horizontal table scrolling;
 - generic JSON editing for properties, custom values, and other advanced types without specialized controls;

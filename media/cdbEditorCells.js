@@ -21,6 +21,15 @@
     const key = listKey(context, column);
     const expanded = state.expandedLists.has(key);
     const selectedItemIndex = state.selectedListRows && Number.isInteger(state.selectedListRows[key]) ? state.selectedListRows[key] : null;
+    const currentSelectedItem = () => state.selectedListRows && Number.isInteger(state.selectedListRows[key]) ? state.selectedListRows[key] : null;
+    const selectListItem = (itemIndex, itemRow) => {
+      if (!state.selectedListRows) state.selectedListRows = {};
+      state.selectedListRows[key] = itemIndex;
+      cell.querySelectorAll(".nested-table tbody tr.row-selected").forEach((row) => row.classList.remove("row-selected"));
+      itemRow.classList.add("row-selected");
+      const deleteButton = cell.querySelector(".nested-delete-item");
+      if (deleteButton) deleteButton.disabled = false;
+    };
     const rerender = () => {
       const tableWrap = document.querySelector(".table-wrap");
       const scrollLeft = tableWrap ? tableWrap.scrollLeft : 0;
@@ -50,7 +59,8 @@
     editorToolbar.appendChild(makeElement("span", `${schema.name} items`, "nested-title"));
     editorToolbar.appendChild(makeButton("Insert Item", () => {
       if (!Array.isArray(row[column.name])) row[column.name] = values;
-      const insertAt = selectedItemIndex === null ? values.length : selectedItemIndex + 1;
+      const selected = currentSelectedItem();
+      const insertAt = selected === null ? values.length : selected + 1;
       values.splice(insertAt, 0, createRowForSchema(schema, values));
       if (!state.selectedListRows) state.selectedListRows = {};
       state.selectedListRows[key] = insertAt;
@@ -59,18 +69,19 @@
       if (typeof CDBVS.render === "function") CDBVS.render();
     }));
     const deleteItem = makeButton("Delete Item", () => {
-      if (selectedItemIndex === null) return;
-      if (!window.confirm(`Delete list item ${selectedItemIndex + 1}?`)) return;
-      values.splice(selectedItemIndex, 1);
+      const selected = currentSelectedItem();
+      if (selected === null) return;
+      if (!window.confirm(`Delete list item ${selected + 1}?`)) return;
+      values.splice(selected, 1);
       if (values.length === 0) {
         row[column.name] = [];
         delete state.selectedListRows[key];
       } else {
-        state.selectedListRows[key] = Math.min(selectedItemIndex, values.length - 1);
+        state.selectedListRows[key] = Math.min(selected, values.length - 1);
       }
       sendUpdate();
       if (typeof CDBVS.render === "function") CDBVS.render();
-    }, "danger-button");
+    }, "danger-button nested-delete-item");
     deleteItem.disabled = selectedItemIndex === null;
     editorToolbar.appendChild(deleteItem);
     editor.appendChild(editorToolbar);
@@ -94,11 +105,13 @@
       if (item !== rawItem) values[itemIndex] = item;
       const itemRow = document.createElement("tr");
       if (selectedItemIndex === itemIndex) itemRow.className = "row-selected";
+      itemRow.addEventListener("click", (event) => {
+        if (!event.target.closest || event.target.closest("tr") !== itemRow) return;
+        selectListItem(itemIndex, itemRow);
+      });
       const rowNumber = makeElement("td", null, "row-number");
       const rowSelect = makeButton(String(itemIndex + 1), () => {
-        if (!state.selectedListRows) state.selectedListRows = {};
-        state.selectedListRows[key] = itemIndex;
-        rerender();
+        selectListItem(itemIndex, itemRow);
       }, "row-select");
       rowSelect.title = `Select list item ${itemIndex + 1}`;
       rowSelect.setAttribute("aria-label", rowSelect.title);
@@ -216,6 +229,7 @@
           if (column.opt && current === 0) delete row[column.name];
           else row[column.name] = current;
           sendUpdate();
+          if (typeof CDBVS.render === "function") CDBVS.render();
         });
         flagLabel.appendChild(checkbox);
         flagLabel.appendChild(makeElement("span", label));
@@ -257,6 +271,7 @@
       if (next === undefined && column.opt) delete row[column.name];
       else if (next !== undefined) row[column.name] = next;
       sendUpdate();
+      if (typeof CDBVS.render === "function") CDBVS.render();
     });
     if (type.code === 1) {
       input.title = `${column.name} (text) - double-click to open the larger editor`;

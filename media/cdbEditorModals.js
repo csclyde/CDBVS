@@ -51,6 +51,7 @@
       input.value = textarea.value;
       close();
       sendUpdate();
+      if (typeof CDBVS.render === "function") CDBVS.render();
     };
     heading.appendChild(makeButton("x", close, "text-modal-close"));
     footer.appendChild(makeButton("Cancel", close));
@@ -80,14 +81,14 @@
   }
 
 
-  function openColumnEditor(sheet, column, columnIndex) {
+  function openColumnEditor(sheet, column, columnIndex, isNew = false) {
     if (activeModal) activeModal.remove();
     const overlay = makeElement("div", null, "text-modal-overlay");
     const dialog = makeElement("section", null, "text-modal column-modal");
     dialog.setAttribute("role", "dialog");
     dialog.setAttribute("aria-modal", "true");
     const heading = makeElement("div", null, "text-modal-heading");
-    heading.appendChild(makeElement("strong", `Edit column: ${column.name}`));
+    heading.appendChild(makeElement("strong", `${isNew ? "Add" : "Edit"} column${isNew ? "" : `: ${column.name}`}`));
 
     const form = makeElement("div", null, "column-form");
     const nameInput = document.createElement("input");
@@ -180,7 +181,10 @@
     };
     const showError = (message) => { error.textContent = message; };
     const removeColumn = () => {
-      if (!window.confirm(`Delete column '${column.name}' and all its values?`)) return;
+      if (isNew) {
+        close();
+        return;
+      }
       sheet.columns.splice(columnIndex, 1);
       (sheet.lines || []).forEach((line) => { if (line) delete line[column.name]; });
       removeViewColumn(sheet.name, column.name);
@@ -194,7 +198,7 @@
         showError("Column name cannot be empty.");
         return;
       }
-      if (sheet.columns.some((item, index) => index !== columnIndex && item.name === newName)) {
+      if (sheet.columns.some((item, index) => (isNew || index !== columnIndex) && item.name === newName)) {
         showError(`Column '${newName}' already exists on this sheet.`);
         return;
       }
@@ -218,7 +222,7 @@
         showError("Type cannot be empty.");
         return;
       }
-      if (oldName !== newName) {
+      if (!isNew && oldName !== newName) {
         (sheet.lines || []).forEach((line) => {
           if (!line || !Object.prototype.hasOwnProperty.call(line, oldName)) return;
           if (!Object.prototype.hasOwnProperty.call(line, newName)) line[newName] = line[oldName];
@@ -249,18 +253,20 @@
         if (!standard.has(key)) delete column[key];
       });
       Object.assign(column, extra);
+      if (isNew) sheet.columns.splice(Math.min(columnIndex, sheet.columns.length), 0, column);
       if (primaryInput.checked) setPrimaryColumn(sheet, column.name);
       close();
       sendUpdate();
+      if (typeof CDBVS.render === "function") CDBVS.render();
     };
     heading.appendChild(makeButton("x", close, "text-modal-close"));
     const moveLeft = makeButton("Move left", () => { close(); moveColumn(sheet, columnIndex, -1); });
-    moveLeft.disabled = columnIndex <= 0;
+    moveLeft.disabled = isNew || columnIndex <= 0;
     const moveRight = makeButton("Move right", () => { close(); moveColumn(sheet, columnIndex, 1); });
-    moveRight.disabled = columnIndex >= sheet.columns.length - 1;
+    moveRight.disabled = isNew || columnIndex >= sheet.columns.length - 1;
     footer.appendChild(moveLeft);
     footer.appendChild(moveRight);
-    footer.appendChild(makeButton("Delete column", removeColumn, "danger-button"));
+    footer.appendChild(makeButton(isNew ? "Discard column" : "Delete column", removeColumn, "danger-button"));
     footer.appendChild(makeButton("Cancel", close, "modal-cancel"));
     footer.appendChild(makeButton("Save", save, "button primary"));
     dialog.appendChild(heading);
@@ -277,6 +283,16 @@
     activeModal = overlay;
     nameInput.focus();
     nameInput.select();
+  }
+
+  function openNewColumnEditor(sheet, columnIndex) {
+    if (!sheet || !Array.isArray(sheet.columns)) return;
+    const names = new Set(sheet.columns.map((column) => column && column.name));
+    let name = "newColumn";
+    let suffix = 1;
+    while (names.has(name)) name = `newColumn${++suffix}`;
+    const index = Math.max(0, Math.min(Number.isInteger(columnIndex) ? columnIndex : sheet.columns.length, sheet.columns.length));
+    openColumnEditor(sheet, { name, typeStr: "1", opt: true }, index, true);
   }
 
   function openSheetEditor(sheet) {
@@ -675,6 +691,6 @@
   }
 
   Object.assign(CDBVS, {
-    openTextEditor, openColumnEditor, openSheetEditor, openTypesEditor, openFilterModal
+    openTextEditor, openColumnEditor, openNewColumnEditor, openSheetEditor, openTypesEditor, openFilterModal
   });
 })(window);

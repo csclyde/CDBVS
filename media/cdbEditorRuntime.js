@@ -17,7 +17,12 @@
     columnFilters: {},
     sorts: {},
     selectedRows: {},
+    selectedCells: {},
     selectedListRows: {},
+    rowClipboard: null,
+    cellClipboard: null,
+    cellErrors: {},
+    collapsedSeparators: {},
     showHiddenSheets: false,
     expandedLists: new Set(),
     scrollLeft: 0,
@@ -51,5 +56,7 @@
     if (!tableWrap) return;
     tableWrap.scrollLeft = CDBVS.state.scrollLeft;
     tableWrap.scrollTop = CDBVS.state.scrollTop;
+    const horizontalScroll = document.querySelector(".horizontal-scroll-dock");
+    if (horizontalScroll) horizontalScroll.scrollLeft = tableWrap.scrollLeft;
   };
 })(window);
