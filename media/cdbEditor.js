@@ -9,6 +9,7 @@
       state.text = message.text || "";
       state.data = message.data;
       state.issues = Array.isArray(message.issues) ? message.issues : [];
+      if (message.rawMode === true) state.rawMode = true;
       state.showHiddenSheets = message.showHiddenSheets === true;
       CDBVS.render();
     } else if (message.type === "error") {
@@ -19,4 +20,3 @@
   CDBVS.render();
   CDBVS.vscode.postMessage({ type: "ready" });
 })(window);
-

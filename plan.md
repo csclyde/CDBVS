@@ -61,6 +61,12 @@ The first working editor baseline is in place. The repository now contains a des
 - Added a reusable cell-error registry/API plus automatic duplicate-primary-ID validation that marks only later duplicate cells with an error badge, tooltip, and accessible invalid state; cell edits refresh validation immediately.
 - Constrained the webview to the viewport and clipped the content flex area so the dedicated horizontal scrollbar stays directly above the bottom sheet tabs instead of following the table's vertical content.
 - Fixed column-modal deletion by removing the unreliable native confirmation gate; deleting a column now removes its schema entry and row values, updates view metadata, and remains undoable through VS Code.
+- Fixed stale webview state after adding or deleting sheets, rows, and columns, applying raw JSON, and saving sheet metadata.
+- Added structural-shape validation before webview edits, automatic raw JSON fallback for malformed CastleDB documents, and clearer validation errors.
+- Made Validate and Format resolve the active custom editor document, and report failed workspace edits instead of silently leaving stale state.
+- Preserved display-column metadata and reference type strings when renaming or deleting columns and sheets; advanced column properties can no longer overwrite form-controlled fields.
+- Removed render-time replacement of malformed rows so raw data is not silently discarded.
+- Aligned inserted-row defaults with CastleDB for required references, GUIDs, and nested required property fields.
 - Added a column-header right-click menu with Move column left, Move column right, and Delete column actions, including boundary disabling for the move actions.
 - Added an Add column context-menu action that opens the full column editor; new columns are inserted only after Save and can be discarded without changing the sheet.
 - Removed the top Insert Row button; row insertion remains available from the row context menu and Insert keyboard shortcut.
@@ -81,16 +87,15 @@ These are intentionally still open for the next milestone:
 3. Add richer controls for remaining CastleDB values: tile positions, gradients, curves, dynamic values, and file/image pickers.
 4. Add reference validation and useful navigation from a reference cell to the target sheet/row.
 5. Match CastleDB separator/group behavior from the Haxe model, including separator titles, group materialization, and preserving separator metadata safely.
-6. Add VS Code integration tests and run the final `.vsix` package/installation smoke test once Node/npm is available.
+6. Add VS Code integration tests and run an installation smoke test in a desktop Extension Development Host.
 7. Consider compiling or generating a shared JavaScript CastleDB core from the vendored Haxe model if the direct JavaScript port begins to diverge from CastleDB compatibility.
 8. Evaluate the legacy localization export and image-cleanup utilities for VS Code commands; the legacy open/recent/save-as/exit menus are intentionally replaced by VS Code's document and workspace lifecycle.
 
 ## Verification notes
 
-- The environment has Haxe available, but no project dependencies or Node/npm executable were available during the initial pass, so a full extension host launch and `.vsix` packaging check remain outstanding.
+- Current audit checks: all JavaScript files pass `node --check`; both fixtures parse and round-trip through the JavaScript parser; headless model/action checks cover row, column, and sheet mutations; and `vsce.cmd package --out cdbvs-0.1.0.vsix` succeeds with the icon included.
 - `package.json`, `language-configuration.json`, and the sample `.cdb` fixture all pass the available PowerShell JSON parse check. The vendored `cdb` sources match the source repository by SHA-256, and no level-editor files were copied.
 - The sample fixture contains three list columns with matching sub-sheet schemas, including the nested `monsters@skills@sub` list schema used to verify recursive expansion paths.
-- The search/filter/sort pass passed PowerShell JSON and feature-presence checks. A full JavaScript syntax check and extension-host smoke test remain unavailable because Node/npm are not installed in this environment.
-- The refactor passed PowerShell module-existence, script-load-order, bootstrap-size, and JSON checks; Node/npm remain unavailable for a full JavaScript parser or VS Code extension-host test.
-- Release preparation passed manifest, license, changelog, and packaging-file checks; the publisher ID is still configured as `cdbvs` and must be created or confirmed in the Marketplace publisher account before publishing.
+- The search/filter/sort pass passed PowerShell JSON and feature-presence checks. A real VS Code extension-host smoke test remains outstanding.
+- Release packaging includes the current README, manifest, runtime files, and `media/icon.png`; the publisher ID is still configured as `cdbvs` and must be created or confirmed in the Marketplace publisher account before publishing.
 - Keep the extension desktop-only and do not bring over the source repository's `src/lvl` or `Level.hx` level editor.

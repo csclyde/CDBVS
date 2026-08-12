@@ -33,9 +33,9 @@
     return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
   }
 
-  function clearCellValue(row, column) {
+  function clearCellValue(row, column, sheet) {
     if (column.opt) delete row[column.name];
-    else row[column.name] = cloneValue(defaultValue(column));
+    else row[column.name] = cloneValue(defaultValue(column, sheet));
   }
 
   function copySelectedCell(sheet, cut) {
@@ -53,7 +53,7 @@
     state.rowClipboard = null;
     writeCellClipboard(cell);
     if (!cut) return true;
-    clearCellValue(row, selection.column);
+    clearCellValue(row, selection.column, sheet);
     sendUpdate();
     if (typeof CDBVS.render === "function") CDBVS.render();
     return true;
@@ -80,7 +80,7 @@
   function deleteSelectedCell(sheet) {
     const selection = selectedCell(sheet);
     if (!selection || !sheet.lines[selection.rowIndex]) return false;
-    clearCellValue(sheet.lines[selection.rowIndex], selection.column);
+    clearCellValue(sheet.lines[selection.rowIndex], selection.column, sheet);
     sendUpdate();
     if (typeof CDBVS.render === "function") CDBVS.render();
     return true;
@@ -123,7 +123,7 @@
     const row = sheet.lines[selection.rowIndex];
     if (!row) return false;
     if (cell.hasValue) row[selection.column.name] = cloneValue(cell.value);
-    else clearCellValue(row, selection.column);
+    else clearCellValue(row, selection.column, sheet);
     sendUpdate();
     if (typeof CDBVS.render === "function") CDBVS.render();
     return true;
@@ -184,6 +184,7 @@
     state.data.sheets.push({ name, columns: [], lines: [], separators: [], props: {} });
     state.sheetIndex = CDBVS.visibleSheets().length - 1;
     sendUpdate();
+    if (typeof CDBVS.render === "function") CDBVS.render();
   }
 
   function addColumn(sheet) {
@@ -199,6 +200,7 @@
     }
     sheet.columns.push({ name, typeStr: type, opt: true });
     sendUpdate();
+    if (typeof CDBVS.render === "function") CDBVS.render();
   }
 
   function deleteColumn(sheet, index) {
@@ -206,6 +208,8 @@
     if (!column) return false;
     sheet.columns.splice(index, 1);
     (sheet.lines || []).forEach((line) => { if (line) delete line[column.name]; });
+    if (sheet.props && sheet.props.displayColumn === column.name) delete sheet.props.displayColumn;
+    if (sheet.props && sheet.props.displayIcon === column.name) delete sheet.props.displayIcon;
     CDBVS.removeViewColumn(sheet.name, column.name);
     sendUpdate();
     if (typeof CDBVS.render === "function") CDBVS.render();
@@ -217,12 +221,14 @@
     if (!Array.isArray(sheet.lines)) sheet.lines = [];
     sheet.lines.push(CDBVS.createRowForSchema(sheet, sheet.lines));
     sendUpdate();
+    if (typeof CDBVS.render === "function") CDBVS.render();
   }
 
   function deleteRow(sheet, index) {
     if (!sheet || !window.confirm(`Delete row ${index + 1}?`)) return;
     CDBVS.deleteRowAt(sheet, index);
     sendUpdate();
+    if (typeof CDBVS.render === "function") CDBVS.render();
   }
 
   function insertSelectedRow(sheet) {

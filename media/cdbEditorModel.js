@@ -23,13 +23,38 @@
     return String(raw ?? "?");
   }
 
-  function defaultValue(column) {
+  function guidValue() {
+    const chars = "#&0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+    let value = "";
+    for (let index = 0; index < 11; index++) {
+      if (index === 4 || index === 8) value += "-";
+      value += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return value;
+  }
+
+  function defaultValue(column, parentSheet) {
     switch (typeOf(column).code) {
-      case 0: case 1: case 6: case 7: case 12: case 13: return "";
+      case 0: case 1: case 7: case 12: case 13: return "";
+      case 6: {
+        const options = referenceOptions(column);
+        return options && options.length ? options[0] : "";
+      }
       case 2: return false;
       case 3: case 4: case 5: case 10: case 11: return 0;
       case 8: return [];
-      case 17: return {};
+      case 17: {
+        const schema = listSheet(parentSheet, column);
+        if (!schema) return {};
+        const properties = {};
+        (schema.columns || []).forEach((childColumn) => {
+          if (childColumn.opt) return;
+          const value = defaultValue(childColumn, schema);
+          if (value !== null) properties[childColumn.name] = value;
+        });
+        return properties;
+      }
+      case 20: return guidValue();
       default: return null;
     }
   }
@@ -204,7 +229,6 @@
     const view = viewForSheet(sheet);
     const rows = (Array.isArray(sheet.lines) ? sheet.lines : []).map((rawRow, rowIndex) => {
       const row = rawRow && typeof rawRow === "object" && !Array.isArray(rawRow) ? rawRow : {};
-      if (row !== rawRow) sheet.lines[rowIndex] = row;
       return { row, rowIndex };
     }).filter((entry) => {
       if (state.filter && !JSON.stringify(entry.row).toLowerCase().includes(state.filter.toLowerCase())) return false;
@@ -364,7 +388,7 @@
   function createRowForSchema(sheet, collection) {
     const row = {};
     (sheet && Array.isArray(sheet.columns) ? sheet.columns : []).forEach((column) => {
-      const value = defaultValue(column);
+      const value = defaultValue(column, sheet);
       if (value !== null && (!column.opt || typeOf(column).code === 0)) row[column.name] = value;
     });
     const id = idColumn(sheet);

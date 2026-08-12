@@ -332,6 +332,7 @@
         if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("The root must be an object.");
         state.data = parsed;
         sendUpdate();
+        CDBVS.render();
       } catch (error) {
         setStatus(`Invalid JSON: ${error.message}`, true);
       }

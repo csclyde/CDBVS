@@ -187,6 +187,8 @@
       }
       sheet.columns.splice(columnIndex, 1);
       (sheet.lines || []).forEach((line) => { if (line) delete line[column.name]; });
+      if (sheet.props && sheet.props.displayColumn === column.name) delete sheet.props.displayColumn;
+      if (sheet.props && sheet.props.displayIcon === column.name) delete sheet.props.displayIcon;
       removeViewColumn(sheet.name, column.name);
       close();
       sendUpdate();
@@ -206,6 +208,9 @@
       try {
         extra = JSON.parse(extraInput.value || "{}");
         if (!extra || typeof extra !== "object" || Array.isArray(extra)) throw new Error("Advanced properties must be a JSON object.");
+        const reserved = new Set(["name", "type", "typeStr", "opt", "display", "kind", "scope", "documentation"]);
+        const reservedKey = Object.keys(extra).find((key) => reserved.has(key));
+        if (reservedKey) throw new Error(`'${reservedKey}' is controlled by the form above.`);
       } catch (parseError) {
         showError(`Invalid advanced properties JSON: ${parseError.message}`);
         return;
@@ -235,6 +240,16 @@
             subSheet.name = `${newPrefix}${subSheet.name.slice(oldPrefix.length)}`;
           }
         });
+        mapTypeStrings((raw) => {
+          const separator = raw.indexOf(":");
+          if (separator < 0) return raw;
+          const code = raw.slice(0, separator);
+          const target = raw.slice(separator + 1);
+          if ((code === "6" || code === "12") && (target === oldPrefix || target.startsWith(`${oldPrefix}@`))) return `${code}:${newPrefix}${target.slice(oldPrefix.length)}`;
+          return raw;
+        });
+        if (sheet.props && sheet.props.displayColumn === oldName) sheet.props.displayColumn = newName;
+        if (sheet.props && sheet.props.displayIcon === oldName) sheet.props.displayIcon = newName;
         renameViewColumn(sheet.name, oldName, newName);
       }
       column.name = newName;
@@ -371,12 +386,19 @@
     const removeSheet = () => {
       if (!window.confirm(`Delete sheet '${sheet.name}' and its sub-sheets?`)) return;
       const oldName = sheet.name;
-      mapTypeStrings((raw) => raw === `6:${oldName}` || raw === `12:${oldName}` ? "1" : raw);
+      mapTypeStrings((raw) => {
+        const separator = raw.indexOf(":");
+        if (separator < 0) return raw;
+        const code = raw.slice(0, separator);
+        const target = raw.slice(separator + 1);
+        return (code === "6" || code === "12") && (target === oldName || target.startsWith(`${oldName}@`)) ? "1" : raw;
+      });
       state.data.sheets = state.data.sheets.filter((item) => item !== sheet && !item.name.startsWith(`${oldName}@`));
       removeViewSheet(oldName);
       state.expandedLists.clear();
       close();
       sendUpdate();
+      if (typeof CDBVS.render === "function") CDBVS.render();
     };
     const save = () => {
       const newName = nameInput.value.trim();
@@ -399,8 +421,11 @@
       const oldName = sheet.name;
       if (oldName !== newName) {
         mapTypeStrings((raw) => {
-          if (raw === `6:${oldName}`) return `6:${newName}`;
-          if (raw === `12:${oldName}`) return `12:${newName}`;
+          const separator = raw.indexOf(":");
+          if (separator < 0) return raw;
+          const code = raw.slice(0, separator);
+          const target = raw.slice(separator + 1);
+          if ((code === "6" || code === "12") && (target === oldName || target.startsWith(`${oldName}@`))) return `${code}:${newName}${target.slice(oldName.length)}`;
           return raw;
         });
         state.data.sheets.forEach((item) => {
@@ -434,6 +459,7 @@
       Object.assign(props, extra);
       close();
       sendUpdate();
+      if (typeof CDBVS.render === "function") CDBVS.render();
     };
     heading.appendChild(makeButton("x", close, "text-modal-close"));
     const moveLeft = makeButton("Move left", () => { close(); moveSheet(sheet, -1); });

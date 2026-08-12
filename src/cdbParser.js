@@ -83,7 +83,13 @@ function validateData(data) {
     if (sheet.name) names.add(sheet.name);
     if (!Array.isArray(sheet.columns)) issues.push(`Sheet '${sheet.name || "?"}' has no valid columns array.`);
     if (!Array.isArray(sheet.lines)) issues.push(`Sheet '${sheet.name || "?"}' has no valid lines array.`);
+    if (sheet.props !== undefined && (!sheet.props || typeof sheet.props !== "object" || Array.isArray(sheet.props))) issues.push(`Sheet '${sheet.name || "?"}' has invalid properties.`);
+    if (sheet.separators !== undefined && !Array.isArray(sheet.separators)) issues.push(`Sheet '${sheet.name || "?"}' has invalid separators.`);
     const columns = Array.isArray(sheet.columns) ? sheet.columns : [];
+    const lines = Array.isArray(sheet.lines) ? sheet.lines : [];
+    lines.forEach((line, lineIndex) => {
+      if (!line || typeof line !== "object" || Array.isArray(line)) issues.push(`Sheet '${sheet.name || "?"}' contains an invalid row at index ${lineIndex}.`);
+    });
     const columnNames = new Set();
     for (const column of columns) {
       if (!column || typeof column !== "object") {
@@ -115,7 +121,21 @@ function validateData(data) {
       issues.push("A custom type is not an object.");
       continue;
     }
-    for (const typeCase of (Array.isArray(custom.cases) ? custom.cases : [])) {
+    if (!custom.name) issues.push("A custom type is missing its name.");
+    if (!Array.isArray(custom.cases)) {
+      issues.push(`Custom type '${custom.name || "?"}' has no valid cases array.`);
+      continue;
+    }
+    for (const typeCase of custom.cases) {
+      if (!typeCase || typeof typeCase !== "object" || Array.isArray(typeCase)) {
+        issues.push(`Custom type '${custom.name || "?"}' contains an invalid case.`);
+        continue;
+      }
+      if (!typeCase.name) issues.push(`Custom type '${custom.name || "?"}' contains a case without a name.`);
+      if (!Array.isArray(typeCase.args)) {
+        issues.push(`Case '${typeCase.name || "?"}' in custom type '${custom.name || "?"}' has no valid args array.`);
+        continue;
+      }
       for (const argument of (Array.isArray(typeCase.args) ? typeCase.args : [])) {
         const type = parseType(getTypeString(argument));
         if (type.code < 0) issues.push(`Unknown custom type argument '${getTypeString(argument)}'.`);
@@ -136,6 +156,23 @@ function parseCdb(text) {
   return { data, issues, error: issues.length ? new Error(issues[0]) : null };
 }
 
+function isEditorShapeValid(data) {
+  if (!data || typeof data !== "object" || Array.isArray(data)) return false;
+  if (!Array.isArray(data.sheets) || !Array.isArray(data.customTypes)) return false;
+  if (!data.sheets.every((sheet) => {
+    if (!sheet || typeof sheet !== "object" || Array.isArray(sheet) || typeof sheet.name !== "string" || !sheet.name) return false;
+    if (!Array.isArray(sheet.columns) || !Array.isArray(sheet.lines)) return false;
+    if (sheet.props !== undefined && (!sheet.props || typeof sheet.props !== "object" || Array.isArray(sheet.props))) return false;
+    if (sheet.separators !== undefined && !Array.isArray(sheet.separators)) return false;
+    if (!sheet.columns.every((column) => column && typeof column === "object" && !Array.isArray(column) && typeof column.name === "string" && column.name)) return false;
+    return sheet.lines.every((line) => line && typeof line === "object" && !Array.isArray(line));
+  })) return false;
+  return data.customTypes.every((customType) => {
+    if (!customType || typeof customType !== "object" || Array.isArray(customType) || typeof customType.name !== "string" || !customType.name || !Array.isArray(customType.cases)) return false;
+    return customType.cases.every((typeCase) => typeCase && typeof typeCase === "object" && !Array.isArray(typeCase) && typeof typeCase.name === "string" && typeCase.name && Array.isArray(typeCase.args) && typeCase.args.every((argument) => argument && typeof argument === "object" && !Array.isArray(argument) && typeof argument.name === "string" && argument.name));
+  });
+}
+
 function serializeCdb(data) {
   return `${JSON.stringify(data, null, "\t")}\n`;
 }
@@ -148,5 +185,6 @@ module.exports = {
   idColumn,
   validateData,
   parseCdb,
+  isEditorShapeValid,
   serializeCdb
 };

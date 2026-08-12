@@ -1,20 +1,23 @@
 const vscode = require("vscode");
 const {
   parseCdb,
+  isEditorShapeValid,
   serializeCdb
 } = require("./src/cdbParser");
 
 class CdbEditorProvider {
   constructor(context) {
     this.context = context;
+    this.activeDocumentUri = null;
   }
 
   static register(context) {
     const provider = new CdbEditorProvider(context);
-    return vscode.window.registerCustomEditorProvider("cdb.editor", provider, {
+    const disposable = vscode.window.registerCustomEditorProvider("cdb.editor", provider, {
       supportsMultipleEditorsPerDocument: true,
       webviewOptions: { retainContextWhenHidden: true }
     });
+    return { provider, disposable };
   }
 
   async resolveCustomTextEditor(document, webviewPanel) {
@@ -28,6 +31,12 @@ class CdbEditorProvider {
 
     let disposed = false;
     let applyingEdit = false;
+    const markActive = () => {
+      if (webviewPanel.active) this.activeDocumentUri = document.uri;
+      else if (this.activeDocumentUri && this.activeDocumentUri.toString() === document.uri.toString()) this.activeDocumentUri = null;
+    };
+    const viewStateSubscription = webviewPanel.onDidChangeViewState(markActive);
+    markActive();
     const sendDocument = () => {
       if (disposed) return;
       const parsed = parseCdb(document.getText());
@@ -36,6 +45,7 @@ class CdbEditorProvider {
         text: document.getText(),
         data: parsed.data,
         issues: parsed.issues,
+        rawMode: !isEditorShapeValid(parsed.data),
         showHiddenSheets: vscode.workspace.getConfiguration("cdbvs").get("showHiddenSheets", false)
       });
     };
@@ -56,8 +66,10 @@ class CdbEditorProvider {
       if (message.type === "update") {
         if (typeof message.text !== "string" || message.text === document.getText()) return;
         const parsed = parseCdb(message.text);
-        if (!parsed.data || parsed.issues.some((issue) => issue.startsWith("Invalid JSON"))) {
-          webview.postMessage({ type: "error", message: parsed.issues.join("\n") });
+        if (!parsed.data || parsed.issues.some((issue) => issue.startsWith("Invalid JSON")) || !isEditorShapeValid(parsed.data)) {
+          const issues = parsed.issues.slice();
+          if (!isEditorShapeValid(parsed.data)) issues.push("CastleDB data must contain valid sheets, columns, rows, and custom type arrays before it can be applied.");
+          webview.postMessage({ type: "error", message: issues.join("\n") });
           return;
         }
         applyingEdit = true;
@@ -66,7 +78,11 @@ class CdbEditorProvider {
           const start = document.positionAt(0);
           const end = document.positionAt(document.getText().length);
           edit.replace(document.uri, new vscode.Range(start, end), message.text);
-          await vscode.workspace.applyEdit(edit);
+          const applied = await vscode.workspace.applyEdit(edit);
+          if (!applied) {
+            webview.postMessage({ type: "error", message: "CDBVS could not apply the document update." });
+            sendDocument();
+          }
         } finally {
           applyingEdit = false;
         }
@@ -82,6 +98,8 @@ class CdbEditorProvider {
       changeSubscription.dispose();
       configurationSubscription.dispose();
       messageSubscription.dispose();
+      viewStateSubscription.dispose();
+      if (this.activeDocumentUri && this.activeDocumentUri.toString() === document.uri.toString()) this.activeDocumentUri = null;
     });
   }
 
@@ -115,16 +133,19 @@ ${scriptUris.map((scriptUri) => `  <script nonce="${nonce}" src="${scriptUri}"><
   }
 }
 
-function activeCdbUri() {
+function activeCdbUri(provider) {
+  if (provider && provider.activeDocumentUri) return provider.activeDocumentUri;
   const editor = vscode.window.activeTextEditor;
   if (editor && editor.document.languageId === "cdb") return editor.document.uri;
   return editor && editor.document.uri.fsPath.toLowerCase().endsWith(".cdb") ? editor.document.uri : null;
 }
 
 function activate(context) {
-  context.subscriptions.push(CdbEditorProvider.register(context));
+  const registration = CdbEditorProvider.register(context);
+  context.subscriptions.push(registration.disposable);
+  const provider = registration.provider;
   context.subscriptions.push(vscode.commands.registerCommand("cdb.openEditor", async (resource) => {
-    const uri = resource instanceof vscode.Uri ? resource : activeCdbUri();
+    const uri = resource instanceof vscode.Uri ? resource : activeCdbUri(provider);
     if (!uri) {
       vscode.window.showWarningMessage("Open a .cdb file before starting CDBVS.");
       return;
@@ -132,7 +153,7 @@ function activate(context) {
     await vscode.commands.executeCommand("vscode.openWith", uri, "cdb.editor");
   }));
   context.subscriptions.push(vscode.commands.registerCommand("cdb.validate", () => {
-    const uri = activeCdbUri();
+    const uri = activeCdbUri(provider);
     if (!uri) {
       vscode.window.showWarningMessage("Open a .cdb file before validating.");
       return;
@@ -147,7 +168,7 @@ function activate(context) {
     }
   }));
   context.subscriptions.push(vscode.commands.registerCommand("cdb.format", async () => {
-    const uri = activeCdbUri();
+    const uri = activeCdbUri(provider);
     if (!uri) {
       vscode.window.showWarningMessage("Open a .cdb file before formatting.");
       return;
@@ -155,8 +176,9 @@ function activate(context) {
     const document = vscode.workspace.textDocuments.find((item) => item.uri.toString() === uri.toString());
     if (!document) return;
     const result = parseCdb(document.getText());
-    if (!result.data || result.issues.some((issue) => issue.startsWith("Invalid JSON"))) {
-      vscode.window.showErrorMessage(`CDBVS cannot format this file: ${result.issues[0]}`);
+    if (!result.data || result.issues.some((issue) => issue.startsWith("Invalid JSON")) || !isEditorShapeValid(result.data)) {
+      const message = result.issues[0] || "CastleDB data has an invalid sheet or schema shape.";
+      vscode.window.showErrorMessage(`CDBVS cannot format this file: ${message}`);
       return;
     }
     const edit = new vscode.WorkspaceEdit();
