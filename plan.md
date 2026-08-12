@@ -7,6 +7,8 @@ The first working editor baseline is in place. The repository now contains a des
 ## Completed
 
 - Created the VS Code extension manifest and `.cdb` language registration.
+- Added a 256×256 black CDBVS extension icon with transparent rounded corners and connected it through the manifest.
+- Updated the icon wordmark so `CDB` is white and `VS` is blue while retaining the transparent corners.
 - Added a `CustomTextEditorProvider` named `cdb.editor` for desktop VS Code.
 - Added commands to open, validate, and format `.cdb` documents.
 - Added a `.vscode/launch.json` configuration for starting an Extension Development Host with `F5`.
