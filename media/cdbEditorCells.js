@@ -17,6 +17,7 @@
   const setStatus = (message, error) => CDBVS.setStatus(message, error);
   const openTextEditor = (...args) => CDBVS.openTextEditor(...args);
   function renderListCell(cell, row, column, context, schema) {
+    const deferChanges = context && context.deferChanges === true;
     const values = Array.isArray(row[column.name]) ? row[column.name] : [];
     const key = listKey(context, column);
     const expanded = state.expandedLists.has(key);
@@ -65,8 +66,10 @@
       if (!state.selectedListRows) state.selectedListRows = {};
       state.selectedListRows[key] = insertAt;
       state.expandedLists.add(key);
-      sendUpdate();
-      if (typeof CDBVS.render === "function") CDBVS.render();
+      if (!deferChanges) {
+        sendUpdate();
+        if (typeof CDBVS.render === "function") CDBVS.render();
+      } else rerender();
     }));
     const deleteItem = makeButton("Delete Item", () => {
       const selected = currentSelectedItem();
@@ -79,8 +82,10 @@
       } else {
         state.selectedListRows[key] = Math.min(selected, values.length - 1);
       }
-      sendUpdate();
-      if (typeof CDBVS.render === "function") CDBVS.render();
+      if (!deferChanges) {
+        sendUpdate();
+        if (typeof CDBVS.render === "function") CDBVS.render();
+      } else rerender();
     }, "danger-button nested-delete-item");
     deleteItem.disabled = selectedItemIndex === null;
     editorToolbar.appendChild(deleteItem);
@@ -122,7 +127,8 @@
         makeCellEditor(childCell, item, childColumn, {
           sheet: schema,
           rowIndex: itemIndex,
-          path: `${context.path}/${column.name}/${itemIndex}`
+          path: `${context.path}/${column.name}/${itemIndex}`,
+          deferChanges
         });
         itemRow.appendChild(childCell);
       });
@@ -134,6 +140,7 @@
   }
 
   function renderPropertiesCell(cell, row, column, context, schema) {
+    const deferChanges = context && context.deferChanges === true;
     const properties = row[column.name] && typeof row[column.name] === "object" && !Array.isArray(row[column.name]) ? row[column.name] : {};
     const key = listKey(context, column);
     const expanded = state.expandedLists.has(key);
@@ -186,7 +193,8 @@
       makeCellEditor(propertyCell, properties, childColumn, {
         sheet: schema,
         rowIndex: 0,
-        path: `${context.path}/${column.name}/properties`
+        path: `${context.path}/${column.name}/properties`,
+        deferChanges
       });
       propertyRow.appendChild(propertyCell);
       body.appendChild(propertyRow);
@@ -228,8 +236,10 @@
           else current &= ~(1 << flagIndex);
           if (column.opt && current === 0) delete row[column.name];
           else row[column.name] = current;
-          sendUpdate();
-          if (typeof CDBVS.render === "function") CDBVS.render();
+          if (!cellContext.deferChanges) {
+            sendUpdate();
+            if (typeof CDBVS.render === "function") CDBVS.render();
+          }
         });
         flagLabel.appendChild(checkbox);
         flagLabel.appendChild(makeElement("span", label));
@@ -270,10 +280,12 @@
       }
       if (next === undefined && column.opt) delete row[column.name];
       else if (next !== undefined) row[column.name] = next;
-      sendUpdate();
-      if (typeof CDBVS.render === "function") CDBVS.render();
+      if (!cellContext.deferChanges) {
+        sendUpdate();
+        if (typeof CDBVS.render === "function") CDBVS.render();
+      }
     });
-    if (type.code === 1) {
+    if (type.code === 1 && !cellContext.deferChanges) {
       input.title = `${column.name} (text) - double-click to open the larger editor`;
       input.addEventListener("dblclick", (event) => {
         event.preventDefault();

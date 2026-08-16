@@ -25,6 +25,14 @@ body {
 #app { height: 100vh; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
 
 button, input, select, textarea { font: inherit; color: inherit; }
+select {
+  background-color: var(--vscode-dropdown-background, var(--input-bg));
+  color: var(--vscode-dropdown-foreground, var(--input-fg));
+}
+select option {
+  background-color: var(--vscode-dropdown-background, var(--input-bg));
+  color: var(--vscode-dropdown-foreground, var(--input-fg));
+}
 button { cursor: pointer; }
 button:disabled { cursor: default; opacity: .45; }
 .toolbar {
@@ -157,6 +165,16 @@ td input:focus, td select:focus { outline: 1px solid var(--vscode-focusBorder); 
 .properties-table th:first-child { width: 110px; }
 .text-modal-overlay { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(0, 0, 0, .45); }
 .text-modal { display: flex; flex-direction: column; width: min(900px, 90vw); height: min(620px, 80vh); border: 1px solid var(--border); background: var(--vscode-editor-background); box-shadow: 0 12px 40px #0008; }
+.row-modal { width: min(880px, 92vw); height: min(820px, 88vh); }
+.row-form { display: grid; gap: 9px; overflow: auto; padding: 14px; }
+.row-field { display: grid; grid-template-columns: minmax(150px, 1fr) minmax(260px, 2fr); align-items: start; gap: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.row-field-label { padding-top: 6px; color: var(--muted); overflow-wrap: anywhere; }
+.row-field-editor { min-width: 0; }
+.row-field-editor > input, .row-field-editor > select, .row-field-editor > textarea { width: 100%; border: 1px solid var(--input-border); background: var(--input-bg); padding: 6px 8px; color: var(--input-fg); }
+.row-field-editor > input[type="checkbox"] { width: auto; margin: 8px 10px; }
+.row-field-editor > input[type="color"] { width: 42px; padding: 2px; }
+.row-field-editor > input:focus, .row-field-editor > select:focus, .row-field-editor > textarea:focus { outline: 1px solid var(--vscode-focusBorder); outline-offset: -1px; }
+.row-field-editor .list-editor { max-width: 100%; }
 .text-modal-heading { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-bottom: 1px solid var(--border); background: var(--vscode-editorGroupHeader-tabsBackground); }
 .text-modal-close { margin-left: auto; border: 0; background: transparent; color: var(--muted); padding: 2px 6px; }
 .text-modal-close:hover { color: var(--vscode-errorForeground); }

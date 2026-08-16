@@ -41,6 +41,7 @@
   const deleteColumn = CDBVS.deleteColumn;
   const openSheetEditor = CDBVS.openSheetEditor;
   const openFilterModal = CDBVS.openFilterModal;
+  const openRowEditor = CDBVS.openRowEditor;
 
   function activeViewItems(sheet) {
     if (!sheet) return [];
@@ -273,6 +274,8 @@
     const rowCount = Array.isArray(sheet.lines) ? sheet.lines.length : 0;
     const hasSeparator = (sheet.separators || []).some((separator) => separatorIndex(separator) === rowIndex);
     showContextMenu(event, [
+      { label: "Edit", action: () => openRowEditor(sheet, rowIndex) },
+      { separator: true },
       { label: "Add Separator", action: () => addSeparator(sheet, rowIndex), disabled: hasSeparator },
       { separator: true },
       { label: "Insert row below", action: () => insertSelectedRow(sheet) },
@@ -388,7 +391,12 @@
       tr.dataset.rowIndex = String(rowIndex);
       if (selected === rowIndex) tr.className = "row-selected";
       const rowCell = makeElement("td", null, "row-number");
+      rowCell.title = "Double-click to edit this row";
       rowCell.addEventListener("click", () => selectRenderedRow(sheet, rowIndex, tr));
+      rowCell.addEventListener("dblclick", (event) => {
+        event.preventDefault();
+        openRowEditor(sheet, rowIndex);
+      });
       rowCell.addEventListener("contextmenu", (event) => {
         event.preventDefault();
         selectRenderedRow(sheet, rowIndex, tr);
@@ -405,6 +413,13 @@
         const td = document.createElement("td");
         if (typeOf(column).code === 0) td.classList.add("primary-id-column");
         td.dataset.columnIndex = String(columnIndex);
+        if (typeOf(column).code === 0) {
+          td.title = "Double-click to edit this row";
+          td.addEventListener("dblclick", (event) => {
+            event.preventDefault();
+            openRowEditor(sheet, rowIndex);
+          });
+        }
         const errors = cellErrors[cellErrorKey(rowIndex, column.name)] || [];
         if (errors.length) {
           td.classList.add("cell-error");

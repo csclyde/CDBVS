@@ -19,6 +19,7 @@ The first working editor baseline is in place. The repository now contains a des
 - Added expandable, schema-driven list cells using CastleDB's `parentSheet@listColumn` sub-sheet definitions, including nested lists, add/delete list items, and primitive/reference editors inside list rows.
 - List cells now show only the first item's truncated field preview with compact expand/collapse arrows; nested values are summarized as `[...]`, toggling updates only that cell, and document refreshes restore the table's horizontal/vertical scroll position.
 - Text (`TString`) fields open a larger multiline modal editor on double-click, with Save/Cancel controls and Ctrl/Cmd+Enter save support.
+- Added a full-row edit modal that presents every schema column as a form field, opened by double-clicking the row-number gutter or primary ID (`type 0`) cell, and by the row context menu's Edit action. Modal changes remain in a draft until Save and reuse the existing schema-aware editors.
 - Column headers now include a pencil editor for names, type strings, optional/display/kind/scope/documentation settings, advanced JSON properties, and deletion.
 - Sheet tabs now include a pencil editor for sheet metadata and advanced properties, with in-modal deletion of a sheet and its sub-sheets; sheet renames update sub-sheet names and direct reference type strings.
 - Added row insertion/deletion from the sheet controls, with row ordering handled as a sheet-level non-destructive sort view rather than per-row controls. Separator metadata remains preserved by the model for raw/data edits.
@@ -94,6 +95,7 @@ These are intentionally still open for the next milestone:
 ## Verification notes
 
 - Current audit checks: all JavaScript files pass `node --check`; both fixtures parse and round-trip through the JavaScript parser; headless model/action checks cover row, column, and sheet mutations; and `vsce.cmd package --out cdbvs-0.1.0.vsix` succeeds with the icon included.
+- The row-edit-modal change passes `node --check`, `git diff --check`, and both fixture parse/round-trip checks. `vsce.cmd` was unavailable in this environment, so a new VSIX package smoke test was not run.
 - `package.json`, `language-configuration.json`, and the sample `.cdb` fixture all pass the available PowerShell JSON parse check. The vendored `cdb` sources match the source repository by SHA-256, and no level-editor files were copied.
 - The sample fixture contains three list columns with matching sub-sheet schemas, including the nested `monsters@skills@sub` list schema used to verify recursive expansion paths.
 - The search/filter/sort pass passed PowerShell JSON and feature-presence checks. A real VS Code extension-host smoke test remains outstanding.
