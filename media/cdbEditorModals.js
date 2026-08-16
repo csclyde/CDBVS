@@ -11,11 +11,11 @@
   const viewForSheet = CDBVS.viewForSheet;
   const referenceOptions = CDBVS.referenceOptions;
   const removeViewColumn = CDBVS.removeViewColumn;
-  const removeViewSheet = CDBVS.removeViewSheet;
   const renameViewColumn = CDBVS.renameViewColumn;
   const renameViewSheet = CDBVS.renameViewSheet;
   const moveColumn = CDBVS.moveColumn;
   const moveSheet = CDBVS.moveSheet;
+  const deleteSheet = CDBVS.deleteSheet;
   const mapTypeStrings = CDBVS.mapTypeStrings;
   const idColumn = CDBVS.idColumn;
   const setPrimaryColumn = CDBVS.setPrimaryColumn;
@@ -456,21 +456,8 @@
     };
     const showError = (message) => { error.textContent = message; };
     const removeSheet = () => {
-      if (!window.confirm(`Delete sheet '${sheet.name}' and its sub-sheets?`)) return;
-      const oldName = sheet.name;
-      mapTypeStrings((raw) => {
-        const separator = raw.indexOf(":");
-        if (separator < 0) return raw;
-        const code = raw.slice(0, separator);
-        const target = raw.slice(separator + 1);
-        return (code === "6" || code === "12") && (target === oldName || target.startsWith(`${oldName}@`)) ? "1" : raw;
-      });
-      state.data.sheets = state.data.sheets.filter((item) => item !== sheet && !item.name.startsWith(`${oldName}@`));
-      removeViewSheet(oldName);
-      state.expandedLists.clear();
       close();
-      sendUpdate();
-      if (typeof CDBVS.render === "function") CDBVS.render();
+      openDeleteSheetConfirmation(sheet);
     };
     const save = () => {
       const newName = nameInput.value.trim();
@@ -559,6 +546,39 @@
     activeModal = overlay;
     nameInput.focus();
     nameInput.select();
+  }
+
+  function openDeleteSheetConfirmation(sheet) {
+    if (!sheet) return;
+    if (activeModal) activeModal.remove();
+    const overlay = makeElement("div", null, "text-modal-overlay");
+    const dialog = makeElement("section", null, "text-modal column-modal");
+    dialog.setAttribute("role", "dialog");
+    dialog.setAttribute("aria-modal", "true");
+    const heading = makeElement("div", null, "text-modal-heading");
+    heading.appendChild(makeElement("strong", `Delete sheet: ${sheet.name}`));
+    const message = makeElement("p", `Delete '${sheet.name}' and all of its sub-sheets? References to this sheet will be cleared.`, "delete-sheet-message");
+    const footer = makeElement("div", null, "text-modal-footer");
+    const close = () => {
+      if (activeModal === overlay) activeModal = null;
+      overlay.remove();
+    };
+    heading.appendChild(makeButton("x", close, "text-modal-close"));
+    footer.appendChild(makeButton("Cancel", close, "modal-cancel"));
+    footer.appendChild(makeButton("Delete sheet", () => { close(); deleteSheet(sheet); }, "danger-button"));
+    dialog.appendChild(heading);
+    dialog.appendChild(message);
+    dialog.appendChild(footer);
+    overlay.appendChild(dialog);
+    overlay.addEventListener("click", (event) => {
+      if (event.target === overlay) close();
+    });
+    overlay.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") close();
+    });
+    document.body.appendChild(overlay);
+    activeModal = overlay;
+    overlay.querySelector(".modal-cancel").focus();
   }
 
 
@@ -789,6 +809,6 @@
   }
 
   Object.assign(CDBVS, {
-    openTextEditor, openRowEditor, openColumnEditor, openNewColumnEditor, openSheetEditor, openTypesEditor, openFilterModal
+    openTextEditor, openRowEditor, openColumnEditor, openNewColumnEditor, openSheetEditor, openDeleteSheetConfirmation, openTypesEditor, openFilterModal
   });
 })(window);

@@ -12,6 +12,11 @@
   const moveRowAt = CDBVS.moveRow;
   const rowsForView = CDBVS.rowsForView;
   const defaultValue = CDBVS.defaultValue;
+  const visibleSheets = CDBVS.visibleSheets;
+  const currentSheet = CDBVS.currentSheet;
+  const sheetBlock = CDBVS.sheetBlock;
+  const removeViewSheet = CDBVS.removeViewSheet;
+  const mapTypeStrings = CDBVS.mapTypeStrings;
 
   function cloneRow(row) {
     return JSON.parse(JSON.stringify(row));
@@ -216,6 +221,42 @@
     return true;
   }
 
+  function deleteSheet(sheet) {
+    if (!sheet || !state.data || !Array.isArray(state.data.sheets)) return false;
+    const oldName = sheet.name;
+    const sheetsBefore = visibleSheets();
+    const currentBefore = currentSheet();
+    const deletedSheets = new Set(sheetBlock(sheet));
+    if (!deletedSheets.size) deletedSheets.add(sheet);
+    const deletedIndex = sheetsBefore.indexOf(sheet);
+
+    mapTypeStrings((raw) => {
+      const separator = raw.indexOf(":");
+      if (separator < 0) return raw;
+      const code = raw.slice(0, separator);
+      const target = raw.slice(separator + 1);
+      return (code === "6" || code === "12") && (target === oldName || target.startsWith(`${oldName}@`)) ? "1" : raw;
+    });
+    state.data.sheets = state.data.sheets.filter((item) => !deletedSheets.has(item));
+    removeViewSheet(oldName);
+    ["selectedRows", "selectedCells", "selectedListRows"].forEach((key) => {
+      Object.keys(state[key] || {}).forEach((name) => {
+        if (name === oldName || name.startsWith(`${oldName}@`)) delete state[key][name];
+      });
+    });
+    state.expandedLists.clear();
+
+    const sheetsAfter = visibleSheets();
+    if (currentBefore && !deletedSheets.has(currentBefore)) {
+      state.sheetIndex = Math.max(0, sheetsAfter.indexOf(currentBefore));
+    } else {
+      state.sheetIndex = Math.max(0, Math.min(deletedIndex < 0 ? 0 : deletedIndex, sheetsAfter.length - 1));
+    }
+    sendUpdate();
+    if (typeof CDBVS.render === "function") CDBVS.render();
+    return true;
+  }
+
   function addRow(sheet) {
     if (!sheet) return;
     if (!Array.isArray(sheet.lines)) sheet.lines = [];
@@ -294,5 +335,5 @@
     return true;
   }
 
-  Object.assign(CDBVS, { addSheet, addColumn, deleteColumn, addRow, deleteRow, insertSelectedRow, deleteSelectedRow, deleteSelectedCell, moveSelectedRow, moveSelectedCell, copySelectedRow, pasteSelectedRow });
+  Object.assign(CDBVS, { addSheet, addColumn, deleteColumn, deleteSheet, addRow, deleteRow, insertSelectedRow, deleteSelectedRow, deleteSelectedCell, moveSelectedRow, moveSelectedCell, copySelectedRow, pasteSelectedRow });
 })(window);

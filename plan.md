@@ -74,6 +74,9 @@ The first working editor baseline is in place. The repository now contains a des
 - Added per-section collapse/expand arrows to separator headers; collapsing hides rows until the next separator while preserving collapse state across row insertions and deletions.
 - Added Add Separator to the row context menu above the clicked row, plus double-click inline editing for separator names with Enter/blur save and Escape cancel behavior.
 - Added a separator-row right-click menu with Remove Separator, cleaning up aligned separator-title metadata and collapse state.
+- Fixed sheet deletion by routing the editor button through a shared mutation, adding an in-webview confirmation dialog, and adding Delete sheet to the sheet-tab context menu.
+- Fixed tall sheet, column, and row modals so they stay within the viewport and scroll their form contents instead of clipping the top edge.
+- Updated `build.ps1` to install the newly packaged VSIX into the local VS Code installation automatically.
 - Copied the reusable `cdb` Haxe model/parser sources and original license/readme into `vendor/castledb`.
 - Added `test/fixtures/sample.cdb` from the original repository for manual editor smoke testing.
 - Saved project scope, reuse guidance, and validation expectations in `agents.md`.
@@ -99,5 +102,8 @@ These are intentionally still open for the next milestone:
 - `package.json`, `language-configuration.json`, and the sample `.cdb` fixture all pass the available PowerShell JSON parse check. The vendored `cdb` sources match the source repository by SHA-256, and no level-editor files were copied.
 - The sample fixture contains three list columns with matching sub-sheet schemas, including the nested `monsters@skills@sub` list schema used to verify recursive expansion paths.
 - The search/filter/sort pass passed PowerShell JSON and feature-presence checks. A real VS Code extension-host smoke test remains outstanding.
+- The sheet-deletion pass passes JavaScript syntax, diff-whitespace, and a headless model/action mutation check; a real VS Code extension-host smoke test remains outstanding.
+- The modal viewport fix passes JavaScript syntax and diff-whitespace checks; visual verification in a real VS Code extension host remains outstanding.
+- The build-script update passes PowerShell parsing; the build/install flow itself was not run during this change to avoid bumping the project version and installing a new extension instance.
 - Release packaging includes the current README, manifest, runtime files, and `media/icon.png`; the publisher ID is still configured as `cdbvs` and must be created or confirmed in the Marketplace publisher account before publishing.
 - Keep the extension desktop-only and do not bring over the source repository's `src/lvl` or `Level.hx` level editor.

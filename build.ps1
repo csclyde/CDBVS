@@ -7,6 +7,13 @@ $vsce = Get-Command "vsce.cmd" -ErrorAction SilentlyContinue
 if (-not $vsce) {
     throw "vsce.cmd was not found. Install it with 'npm install --global @vscode/vsce', then run this script again."
 }
+$code = Get-Command "code.cmd" -ErrorAction SilentlyContinue
+if (-not $code) {
+    $code = Get-Command "code" -ErrorAction SilentlyContinue
+}
+if (-not $code) {
+    throw "The VS Code CLI was not found. Add the VS Code bin directory to PATH, then run this script again."
+}
 
 $packageText = Get-Content -LiteralPath $packagePath -Raw
 $versionPattern = '("version"\s*:\s*")(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)(")'
@@ -31,6 +38,11 @@ try {
         throw "VSIX packaging failed with exit code $LASTEXITCODE."
     }
     Write-Host "Built: $outputPath"
+    & $code.Source --install-extension $outputPath --force
+    if ($LASTEXITCODE -ne 0) {
+        throw "Local VSIX installation failed with exit code $LASTEXITCODE."
+    }
+    Write-Host "Installed locally in VS Code: $outputPath"
 }
 finally {
     Pop-Location

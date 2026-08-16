@@ -40,6 +40,7 @@
   const moveColumn = CDBVS.moveColumn;
   const deleteColumn = CDBVS.deleteColumn;
   const openSheetEditor = CDBVS.openSheetEditor;
+  const openDeleteSheetConfirmation = CDBVS.openDeleteSheetConfirmation;
   const openFilterModal = CDBVS.openFilterModal;
   const openRowEditor = CDBVS.openRowEditor;
 
@@ -318,6 +319,15 @@
     ]);
   }
 
+  function showSheetContextMenu(event, sheet) {
+    event.preventDefault();
+    showContextMenu(event, [
+      { label: "Edit sheet", action: () => openSheetEditor(sheet) },
+      { separator: true },
+      { label: "Delete sheet", action: () => openDeleteSheetConfirmation(sheet) }
+    ]);
+  }
+
   function commitEditorTarget(editorTarget) {
     if (!editorTarget || typeof editorTarget.dispatchEvent !== "function") return;
     editorTarget.dispatchEvent(new Event("change", { bubbles: false }));
@@ -500,6 +510,7 @@
     const sheetsBar = makeElement("div", null, "sheets");
     visibleSheets().forEach((sheet, index) => {
       const tab = makeElement("div", null, index === state.sheetIndex ? "sheet-tab active" : "sheet-tab");
+      tab.addEventListener("contextmenu", (event) => showSheetContextMenu(event, sheet));
       tab.appendChild(makeButton(sheet.name, () => { state.sheetIndex = index; state.rawMode = false; render(); }, "sheet"));
       tab.appendChild(makeButton("\u270E", () => openSheetEditor(sheet), "sheet-edit-button"));
       sheetsBar.appendChild(tab);
