@@ -31,6 +31,7 @@ class CdbEditorProvider {
 
     let disposed = false;
     let applyingEdit = false;
+    let updateQueue = Promise.resolve();
     const markActive = () => {
       if (webviewPanel.active) this.activeDocumentUri = document.uri;
       else if (this.activeDocumentUri && this.activeDocumentUri.toString() === document.uri.toString()) this.activeDocumentUri = null;
@@ -64,28 +65,35 @@ class CdbEditorProvider {
         return;
       }
       if (message.type === "update") {
-        if (typeof message.text !== "string" || message.text === document.getText()) return;
-        const parsed = parseCdb(message.text);
-        if (!parsed.data || parsed.issues.some((issue) => issue.startsWith("Invalid JSON")) || !isEditorShapeValid(parsed.data)) {
-          const issues = parsed.issues.slice();
-          if (!isEditorShapeValid(parsed.data)) issues.push("CastleDB data must contain valid sheets, columns, rows, and custom type arrays before it can be applied.");
-          webview.postMessage({ type: "error", message: issues.join("\n") });
-          return;
-        }
-        applyingEdit = true;
-        try {
-          const edit = new vscode.WorkspaceEdit();
-          const start = document.positionAt(0);
-          const end = document.positionAt(document.getText().length);
-          edit.replace(document.uri, new vscode.Range(start, end), message.text);
-          const applied = await vscode.workspace.applyEdit(edit);
-          if (!applied) {
-            webview.postMessage({ type: "error", message: "CDBVS could not apply the document update." });
-            sendDocument();
+        const applyUpdate = async () => {
+          if (typeof message.text !== "string" || message.text === document.getText()) return;
+          const parsed = parseCdb(message.text);
+          if (!parsed.data || parsed.issues.some((issue) => issue.startsWith("Invalid JSON")) || !isEditorShapeValid(parsed.data)) {
+            const issues = parsed.issues.slice();
+            if (!isEditorShapeValid(parsed.data)) issues.push("CastleDB data must contain valid sheets, columns, rows, and custom type arrays before it can be applied.");
+            if (!disposed) webview.postMessage({ type: "error", message: issues.join("\n") });
+            return;
           }
-        } finally {
-          applyingEdit = false;
-        }
+          applyingEdit = true;
+          try {
+            const edit = new vscode.WorkspaceEdit();
+            const start = document.positionAt(0);
+            const end = document.positionAt(document.getText().length);
+            edit.replace(document.uri, new vscode.Range(start, end), message.text);
+            const applied = await vscode.workspace.applyEdit(edit);
+            if (!applied) {
+              if (!disposed) webview.postMessage({ type: "error", message: "CDBVS could not apply the document update." });
+              sendDocument();
+            }
+          } finally {
+            applyingEdit = false;
+          }
+        };
+        updateQueue = updateQueue.then(applyUpdate, applyUpdate).catch((error) => {
+          if (!disposed) webview.postMessage({ type: "error", message: `CDBVS could not apply the document update: ${error.message}` });
+          sendDocument();
+        });
+        await updateQueue;
         return;
       }
       if (message.type === "showMessage") {
@@ -189,4 +197,4 @@ function activate(context) {
 
 function deactivate() {}
 
-module.exports = { activate, deactivate };
+module.exports = { activate, deactivate, CdbEditorProvider };

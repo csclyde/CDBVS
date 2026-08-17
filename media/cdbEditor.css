@@ -195,6 +195,8 @@ td input:focus, td select:focus { outline: 1px solid var(--vscode-focusBorder); 
 .column-modal-footer .modal-cancel { margin-left: auto; }
 .sheet-modal { width: min(520px, 90vw); height: auto; max-height: calc(100vh - 48px); }
 .sheet-form { padding: 14px; }
+.confirm-modal { width: min(520px, 90vw); height: auto; max-height: calc(100vh - 48px); }
+.confirm-message { margin: 0; padding: 18px 14px; color: var(--input-fg); }
 .delete-sheet-message { margin: 0; padding: 18px 14px; color: var(--input-fg); }
 .filter-modal { width: min(920px, 92vw); height: min(820px, calc(100vh - 48px)); }
 .filter-form { display: flex; flex-direction: column; gap: 10px; overflow: hidden; padding: 14px; }

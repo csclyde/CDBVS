@@ -323,6 +323,8 @@
         if (sheet.props && sheet.props.displayColumn === oldName) sheet.props.displayColumn = newName;
         if (sheet.props && sheet.props.displayIcon === oldName) sheet.props.displayIcon = newName;
         renameViewColumn(sheet.name, oldName, newName);
+        state.expandedLists.clear();
+        state.selectedListRows = {};
       }
       column.name = newName;
       column[typeProperty] = selectedType;
@@ -453,6 +455,43 @@
     nameInput.select();
   }
 
+  function openConfirmDialog(options) {
+    const config = options && typeof options === "object" ? options : {};
+    if (activeModal) activeModal.remove();
+    const overlay = makeElement("div", null, "text-modal-overlay");
+    const dialog = makeElement("section", null, "text-modal confirm-modal");
+    dialog.setAttribute("role", "alertdialog");
+    dialog.setAttribute("aria-modal", "true");
+    const heading = makeElement("div", null, "text-modal-heading");
+    heading.appendChild(makeElement("strong", config.title || "Confirm action"));
+    const message = makeElement("p", config.message || "Are you sure?", "confirm-message");
+    const footer = makeElement("div", null, "text-modal-footer");
+    const close = () => {
+      if (activeModal === overlay) activeModal = null;
+      overlay.remove();
+    };
+    const confirm = () => {
+      close();
+      if (typeof config.onConfirm === "function") config.onConfirm();
+    };
+    heading.appendChild(makeButton("x", close, "text-modal-close"));
+    footer.appendChild(makeButton(config.cancelLabel || "Cancel", close, "modal-cancel"));
+    footer.appendChild(makeButton(config.confirmLabel || "Confirm", confirm, config.danger === false ? "button primary" : "danger-button"));
+    dialog.appendChild(heading);
+    dialog.appendChild(message);
+    dialog.appendChild(footer);
+    overlay.appendChild(dialog);
+    overlay.addEventListener("click", (event) => {
+      if (event.target === overlay) close();
+    });
+    overlay.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") close();
+    });
+    document.body.appendChild(overlay);
+    activeModal = overlay;
+    overlay.querySelector(".modal-cancel").focus();
+  }
+
   function openSheetEditor(sheet) {
     if (activeModal) activeModal.remove();
     const overlay = makeElement("div", null, "text-modal-overlay");
@@ -462,7 +501,9 @@
     const heading = makeElement("div", null, "text-modal-heading");
     heading.appendChild(makeElement("strong", `Edit sheet: ${sheet.name}`));
 
-    const props = sheet.props || (sheet.props = {});
+    const props = sheet.props && typeof sheet.props === "object" && !Array.isArray(sheet.props)
+      ? Object.assign({}, sheet.props)
+      : {};
     const form = makeElement("div", null, "column-form");
     const nameInput = document.createElement("input");
     nameInput.type = "text";
@@ -544,6 +585,9 @@
       try {
         extra = JSON.parse(extraInput.value || "{}");
         if (!extra || typeof extra !== "object" || Array.isArray(extra)) throw new Error("Advanced properties must be a JSON object.");
+        const reserved = new Set(["displayColumn", "displayIcon", "hide", "isProps", "hasIndex", "hasGroup", "dataFiles"]);
+        const reservedKey = Object.keys(extra).find((key) => reserved.has(key));
+        if (reservedKey) throw new Error(`'${reservedKey}' is controlled by the form above.`);
       } catch (parseError) {
         showError(`Invalid advanced properties JSON: ${parseError.message}`);
         return;
@@ -564,6 +608,21 @@
           }
         });
         renameViewSheet(oldName, newName);
+        ["selectedRows", "activeRows", "rowSelectionAnchors", "selectedCells"].forEach((key) => {
+          const values = state[key] || {};
+          Object.keys(values).forEach((name) => {
+            if (name === oldName || name.startsWith(`${oldName}@`)) {
+              values[`${newName}${name.slice(oldName.length)}`] = values[name];
+              delete values[name];
+            }
+          });
+        });
+        const listPrefix = `${oldName}/`;
+        const renamedListRows = {};
+        Object.keys(state.selectedListRows || {}).forEach((key) => {
+          renamedListRows[key.startsWith(listPrefix) ? `${newName}/${key.slice(listPrefix.length)}` : key] = state.selectedListRows[key];
+        });
+        state.selectedListRows = renamedListRows;
         state.expandedLists.clear();
       }
       sheet.name = newName;
@@ -587,6 +646,7 @@
         if (!standard.has(key)) delete props[key];
       });
       Object.assign(props, extra);
+      sheet.props = props;
       close();
       sendUpdate();
       if (typeof CDBVS.render === "function") CDBVS.render();
@@ -880,6 +940,6 @@
   }
 
   Object.assign(CDBVS, {
-    openTextEditor, openRowEditor, openColumnEditor, openNewColumnEditor, openNewSheetEditor, openSheetEditor, openDeleteSheetConfirmation, openTypesEditor, openFilterModal
+    openTextEditor, openRowEditor, openColumnEditor, openNewColumnEditor, openNewSheetEditor, openConfirmDialog, openSheetEditor, openDeleteSheetConfirmation, openTypesEditor, openFilterModal
   });
 })(window);

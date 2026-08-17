@@ -66,7 +66,7 @@
 
   function currentSheet() {
     const sheets = visibleSheets();
-    if (state.sheetIndex >= sheets.length) state.sheetIndex = Math.max(0, sheets.length - 1);
+    if (!Number.isInteger(state.sheetIndex) || state.sheetIndex < 0 || state.sheetIndex >= sheets.length) state.sheetIndex = Math.max(0, sheets.length - 1);
     return sheets[state.sheetIndex] || null;
   }
 
@@ -148,8 +148,8 @@
     if (!state.selectedCells) state.selectedCells = {};
     if (!state.selectedRows) state.selectedRows = {};
     if (Number.isInteger(rowIndex) && rowIndex >= 0 && rowIndex < (sheet.lines || []).length && Number.isInteger(columnIndex) && columnIndex >= 0 && columnIndex < (sheet.columns || []).length) {
-      state.selectedCells[sheet.name] = { rowIndex, columnIndex };
       selectRow(sheet, rowIndex);
+      state.selectedCells[sheet.name] = { rowIndex, columnIndex };
     } else {
       delete state.selectedCells[sheet.name];
     }
@@ -439,9 +439,10 @@
     });
     const id = idColumn(sheet);
     if (id) {
-      let index = collection.length + 1;
+      const rows = Array.isArray(collection) ? collection : [];
+      let index = rows.length + 1;
       let candidate = `new_${index}`;
-      while (collection.some((item) => item && item[id.name] === candidate)) candidate = `new_${++index}`;
+      while (rows.some((item) => item && item[id.name] === candidate)) candidate = `new_${++index}`;
       row[id.name] = candidate;
     }
     return row;
@@ -463,18 +464,19 @@
     }).filter((separator) => separator !== null);
   }
 
-  function insertRow(sheet, index, row) {
+  function insertRow(sheet, index, row, notify = true) {
     if (!sheet) return;
     if (!Array.isArray(sheet.lines)) sheet.lines = [];
+    const insertionIndex = Number.isInteger(index) ? Math.max(0, Math.min(index, sheet.lines.length)) : sheet.lines.length;
     const nextRow = row && typeof row === "object" && !Array.isArray(row) ? row : createRowForSchema(sheet, sheet.lines);
-    sheet.lines.splice(index, 0, nextRow);
-    moveSeparators(sheet, (separatorIndexValue) => separatorIndexValue >= index ? separatorIndexValue + 1 : separatorIndexValue);
-    shiftCollapsedSeparators(sheet, (separatorIndexValue) => separatorIndexValue >= index ? separatorIndexValue + 1 : separatorIndexValue);
-    sendUpdate();
+    sheet.lines.splice(insertionIndex, 0, nextRow);
+    moveSeparators(sheet, (separatorIndexValue) => separatorIndexValue >= insertionIndex ? separatorIndexValue + 1 : separatorIndexValue);
+    shiftCollapsedSeparators(sheet, (separatorIndexValue) => separatorIndexValue >= insertionIndex ? separatorIndexValue + 1 : separatorIndexValue);
+    if (notify) sendUpdate();
   }
 
   function moveRow(sheet, index, delta) {
-    if (!sheet || !Array.isArray(sheet.lines)) return;
+    if (!sheet || !Array.isArray(sheet.lines) || !Number.isInteger(index) || !Number.isInteger(delta)) return;
     const target = index + delta;
     if (target < 0 || target >= sheet.lines.length) return;
     const lines = sheet.lines;
@@ -520,7 +522,7 @@
   }
 
   function deleteRowAt(sheet, index) {
-    if (!sheet || !Array.isArray(sheet.lines)) return;
+    if (!sheet || !Array.isArray(sheet.lines) || !Number.isInteger(index) || index < 0 || index >= sheet.lines.length) return false;
     sheet.lines.splice(index, 1);
     moveSeparators(sheet, (separatorIndexValue) => {
       if (separatorIndexValue === index) return null;
@@ -530,14 +532,18 @@
       if (separatorIndexValue === index) return null;
       return separatorIndexValue > index ? separatorIndexValue - 1 : separatorIndexValue;
     });
+    return true;
   }
 
   function moveColumn(sheet, index, delta) {
-    if (!sheet || !Array.isArray(sheet.columns)) return;
+    if (!sheet || !Array.isArray(sheet.columns) || !Number.isInteger(index) || !Number.isInteger(delta)) return;
     const target = index + delta;
     if (target < 0 || target >= sheet.columns.length) return;
     const columns = sheet.columns;
     [columns[index], columns[target]] = [columns[target], columns[index]];
+    const selection = state.selectedCells && state.selectedCells[sheet.name];
+    if (selection && selection.columnIndex === index) selection.columnIndex = target;
+    else if (selection && selection.columnIndex === target) selection.columnIndex = index;
     sendUpdate();
     if (typeof CDBVS.render === "function") CDBVS.render();
   }
@@ -548,7 +554,8 @@
   }
 
   function moveSheet(sheet, delta) {
-    const sheets = visibleSheets();
+    const visible = visibleSheets();
+    const sheets = visible.filter((candidate) => !visible.some((parent) => parent !== candidate && candidate.name.startsWith(`${parent.name}@`)));
     const index = sheets.indexOf(sheet);
     const target = index + delta;
     if (index < 0 || target < 0 || target >= sheets.length) return;

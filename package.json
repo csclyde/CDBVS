@@ -29,6 +29,9 @@
     "Other"
   ],
   "main": "./extension.js",
+  "scripts": {
+    "test": "node --test test/parser.test.js test/webview.test.js test/extension.test.js"
+  },
   "activationEvents": [
     "onLanguage:cdb",
     "onCustomEditor:cdb.editor"

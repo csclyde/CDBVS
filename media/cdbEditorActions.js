@@ -67,9 +67,9 @@
     return true;
   }
 
-  function copySelectedRow(sheet, cut) {
+  function copySelectedRow(sheet, cut, rowOnly = false) {
     if (!sheet) return false;
-    if (selectedCell(sheet)) return copySelectedCell(sheet, cut);
+    if (!rowOnly && selectedCell(sheet)) return copySelectedCell(sheet, cut);
     const selected = selectedRowIndices(sheet);
     if (!selected.length) return false;
     const rows = selected.map((index) => sheet.lines[index]).filter(Boolean).map(cloneRow);
@@ -99,8 +99,9 @@
     if (!sheet || !Array.isArray(rows) || !rows.length || rows.some((row) => !row || typeof row !== "object" || Array.isArray(row))) return false;
     const selected = selectedRowIndex(sheet);
     const index = selected === null ? (Array.isArray(sheet.lines) ? sheet.lines.length : 0) : selected + 1;
-    rows.forEach((row, offset) => insertRowAt(sheet, index + offset, cloneRow(row)));
+    rows.forEach((row, offset) => insertRowAt(sheet, index + offset, cloneRow(row), false));
     selectRows(sheet, rows.map((_, offset) => index + offset), index + rows.length - 1);
+    sendUpdate();
     if (typeof CDBVS.render === "function") CDBVS.render();
     return true;
   }
@@ -168,9 +169,9 @@
     }
   }
 
-  function pasteSelectedRow(sheet) {
+  function pasteSelectedRow(sheet, rowOnly = false) {
     if (!sheet) return false;
-    if (selectedCell(sheet)) return pasteSelectedCell(sheet);
+    if (!rowOnly && selectedCell(sheet)) return pasteSelectedCell(sheet);
     if (state.rowClipboard && (state.rowClipboard.rows || state.rowClipboard.row)) return insertPastedRows(sheet, state.rowClipboard.rows || [state.rowClipboard.row]);
     if (typeof navigator === "undefined" || !navigator.clipboard || typeof navigator.clipboard.readText !== "function") return false;
     try {
@@ -199,22 +200,21 @@
   }
 
   function addColumn(sheet) {
-    if (!sheet) return;
-    const name = window.prompt("Column name:", "newColumn");
-    if (!name) return;
-    const type = window.prompt("CastleDB type string (0=id, 1=text, 2=bool, 3=int, 4=float, 5:a,b=enum, 6:sheet=ref, 8=list, 17=properties):", "1");
-    if (type === null || type === "") return;
-    if (!Array.isArray(sheet.columns)) sheet.columns = [];
-    if (sheet.columns.some((column) => column.name === name)) {
-      setStatus(`Column '${name}' already exists.`, true);
-      return;
+    if (!sheet) {
+      setStatus("Create or select a sheet before adding a column.", true);
+      return false;
     }
-    sheet.columns.push({ name, typeStr: type, opt: true });
-    sendUpdate();
-    if (typeof CDBVS.render === "function") CDBVS.render();
+    if (!Array.isArray(sheet.columns)) sheet.columns = [];
+    if (typeof CDBVS.openNewColumnEditor === "function") {
+      CDBVS.openNewColumnEditor(sheet, sheet.columns.length);
+      return true;
+    }
+    setStatus("The new column editor is unavailable.", true);
+    return false;
   }
 
   function deleteColumn(sheet, index) {
+    if (!sheet || !Array.isArray(sheet.columns)) return false;
     const column = sheet.columns[index];
     if (!column) return false;
     sheet.columns.splice(index, 1);
@@ -222,6 +222,11 @@
     if (sheet.props && sheet.props.displayColumn === column.name) delete sheet.props.displayColumn;
     if (sheet.props && sheet.props.displayIcon === column.name) delete sheet.props.displayIcon;
     CDBVS.removeViewColumn(sheet.name, column.name);
+    const selection = state.selectedCells && state.selectedCells[sheet.name];
+    if (selection) {
+      if (selection.columnIndex > index) selection.columnIndex -= 1;
+      if (selection.columnIndex >= sheet.columns.length) delete state.selectedCells[sheet.name];
+    }
     sendUpdate();
     if (typeof CDBVS.render === "function") CDBVS.render();
     return true;
@@ -272,10 +277,22 @@
   }
 
   function deleteRow(sheet, index) {
-    if (!sheet || !window.confirm(`Delete row ${index + 1}?`)) return;
-    CDBVS.deleteRowAt(sheet, index);
-    sendUpdate();
-    if (typeof CDBVS.render === "function") CDBVS.render();
+    if (!sheet) return false;
+    if (typeof CDBVS.openConfirmDialog !== "function") {
+      setStatus("The confirmation dialog is unavailable.", true);
+      return false;
+    }
+    CDBVS.openConfirmDialog({
+      title: `Delete row ${index + 1}?`,
+      message: "This row will be removed from the sheet.",
+      confirmLabel: "Delete row",
+      onConfirm: () => {
+        CDBVS.deleteRowAt(sheet, index);
+        sendUpdate();
+        if (typeof CDBVS.render === "function") CDBVS.render();
+      }
+    });
+    return true;
   }
 
   function insertSelectedRow(sheet) {

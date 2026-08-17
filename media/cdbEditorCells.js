@@ -16,6 +16,7 @@
   const sendUpdate = () => CDBVS.sendUpdate();
   const setStatus = (message, error) => CDBVS.setStatus(message, error);
   const openTextEditor = (...args) => CDBVS.openTextEditor(...args);
+  const openConfirmDialog = (options) => CDBVS.openConfirmDialog(options);
   function renderListCell(cell, row, column, context, schema) {
     const deferChanges = context && context.deferChanges === true;
     const values = Array.isArray(row[column.name]) ? row[column.name] : [];
@@ -74,18 +75,24 @@
     const deleteItem = makeButton("Delete Item", () => {
       const selected = currentSelectedItem();
       if (selected === null) return;
-      if (!window.confirm(`Delete list item ${selected + 1}?`)) return;
-      values.splice(selected, 1);
-      if (values.length === 0) {
-        row[column.name] = [];
-        delete state.selectedListRows[key];
-      } else {
-        state.selectedListRows[key] = Math.min(selected, values.length - 1);
-      }
-      if (!deferChanges) {
-        sendUpdate();
-        if (typeof CDBVS.render === "function") CDBVS.render();
-      } else rerender();
+      openConfirmDialog({
+        title: `Delete list item ${selected + 1}?`,
+        message: "This item will be removed from the list.",
+        confirmLabel: "Delete item",
+        onConfirm: () => {
+          values.splice(selected, 1);
+          if (values.length === 0) {
+            row[column.name] = [];
+            delete state.selectedListRows[key];
+          } else {
+            state.selectedListRows[key] = Math.min(selected, values.length - 1);
+          }
+          if (!deferChanges) {
+            sendUpdate();
+            if (typeof CDBVS.render === "function") CDBVS.render();
+          } else rerender();
+        }
+      });
     }, "danger-button nested-delete-item");
     deleteItem.disabled = selectedItemIndex === null;
     editorToolbar.appendChild(deleteItem);

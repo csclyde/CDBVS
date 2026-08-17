@@ -292,9 +292,9 @@
       { label: "Move row up", action: () => moveSelectedRow(sheet, -1), disabled: selected.length !== 1 || active === null || active <= 0 },
       { label: "Move row down", action: () => moveSelectedRow(sheet, 1), disabled: selected.length !== 1 || active === null || active >= rowCount - 1 },
       { separator: true },
-      { label: `Copy ${selectionLabel}`, action: () => copySelectedRow(sheet, false) },
-      { label: `Cut ${selectionLabel}`, action: () => copySelectedRow(sheet, true) },
-      { label: "Paste row below", action: () => pasteSelectedRow(sheet) }
+      { label: `Copy ${selectionLabel}`, action: () => copySelectedRow(sheet, false, true) },
+      { label: `Cut ${selectionLabel}`, action: () => copySelectedRow(sheet, true, true) },
+      { label: "Paste row below", action: () => pasteSelectedRow(sheet, true) }
     ]);
   }
 

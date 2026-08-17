@@ -9,7 +9,7 @@
       state.text = message.text || "";
       state.data = message.data;
       state.issues = Array.isArray(message.issues) ? message.issues : [];
-      if (message.rawMode === true) state.rawMode = true;
+      if (typeof message.rawMode === "boolean") state.rawMode = message.rawMode;
       state.showHiddenSheets = message.showHiddenSheets === true;
       CDBVS.render();
     } else if (message.type === "error") {
