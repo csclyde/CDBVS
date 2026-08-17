@@ -2,7 +2,7 @@
   "name": "cdbvs",
   "displayName": "CDBVS",
   "description": "A desktop VS Code editor for CastleDB .cdb files.",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "publisher": "CLYDE",
   "license": "MIT",
   "icon": "media/icon.png",
