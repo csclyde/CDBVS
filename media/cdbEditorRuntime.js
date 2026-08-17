@@ -17,6 +17,8 @@
     columnFilters: {},
     sorts: {},
     selectedRows: {},
+    activeRows: {},
+    rowSelectionAnchors: {},
     selectedCells: {},
     selectedListRows: {},
     rowClipboard: null,

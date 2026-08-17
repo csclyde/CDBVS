@@ -71,17 +71,63 @@
   }
 
   function selectedRowIndex(sheet) {
-    if (!sheet || !state.selectedRows) return null;
-    const index = state.selectedRows[sheet.name];
-    return Number.isInteger(index) && index >= 0 && index < (sheet.lines || []).length ? index : null;
+    const indexes = selectedRowIndices(sheet);
+    const active = state.activeRows && state.activeRows[sheet && sheet.name];
+    return indexes.length ? (Number.isInteger(active) && indexes.includes(active) ? active : indexes[indexes.length - 1]) : null;
+  }
+
+  function selectedRowIndices(sheet) {
+    if (!sheet || !state.selectedRows) return [];
+    const raw = state.selectedRows[sheet.name];
+    const values = Array.isArray(raw) ? raw : [raw];
+    const indexes = values.filter((index) => Number.isInteger(index) && index >= 0 && index < (sheet.lines || []).length);
+    return [...new Set(indexes)].sort((left, right) => left - right);
+  }
+
+  function isRowSelected(sheet, index) {
+    return selectedRowIndices(sheet).includes(index);
+  }
+
+  function selectRows(sheet, indexes, activeIndex, anchorIndex) {
+    if (!sheet) return;
+    if (!state.selectedRows) state.selectedRows = {};
+    const valid = [...new Set((Array.isArray(indexes) ? indexes : [indexes]).filter((index) => Number.isInteger(index) && index >= 0 && index < (sheet.lines || []).length))].sort((left, right) => left - right);
+    if (valid.length) {
+      const active = Number.isInteger(activeIndex) && valid.includes(activeIndex) ? activeIndex : valid[valid.length - 1];
+      state.selectedRows[sheet.name] = valid.filter((index) => index !== active).concat(active);
+      if (!state.activeRows) state.activeRows = {};
+      state.activeRows[sheet.name] = active;
+      if (!state.rowSelectionAnchors) state.rowSelectionAnchors = {};
+      state.rowSelectionAnchors[sheet.name] = Number.isInteger(anchorIndex) && valid.includes(anchorIndex) ? anchorIndex : active;
+    } else {
+      delete state.selectedRows[sheet.name];
+      if (state.activeRows) delete state.activeRows[sheet.name];
+      if (state.rowSelectionAnchors) delete state.rowSelectionAnchors[sheet.name];
+    }
+    if (state.selectedCells) delete state.selectedCells[sheet.name];
   }
 
   function selectRow(sheet, index) {
-    if (!sheet) return;
-    if (!state.selectedRows) state.selectedRows = {};
-    if (Number.isInteger(index) && index >= 0 && index < (sheet.lines || []).length) state.selectedRows[sheet.name] = index;
-    else delete state.selectedRows[sheet.name];
-    if (state.selectedCells) delete state.selectedCells[sheet.name];
+    selectRows(sheet, Number.isInteger(index) ? [index] : [], index);
+  }
+
+  function selectRowWithModifiers(sheet, index, event) {
+    if (!sheet || !Number.isInteger(index)) return;
+    const current = selectedRowIndices(sheet);
+    const modified = event && (event.ctrlKey || event.metaKey);
+    if (event && event.shiftKey) {
+      const savedAnchor = state.rowSelectionAnchors && state.rowSelectionAnchors[sheet.name];
+      const anchor = Number.isInteger(savedAnchor) && savedAnchor >= 0 && savedAnchor < (sheet.lines || []).length
+        ? savedAnchor
+        : (current.length ? current[current.length - 1] : index);
+      const start = Math.min(anchor, index);
+      const end = Math.max(anchor, index);
+      selectRows(sheet, Array.from({ length: end - start + 1 }, (_, offset) => start + offset), index, anchor);
+    } else if (modified) {
+      selectRows(sheet, current.includes(index) ? current.filter((item) => item !== index) : current.concat(index), index);
+    } else {
+      selectRow(sheet, index);
+    }
   }
 
   function selectedCell(sheet) {
@@ -103,7 +149,7 @@
     if (!state.selectedRows) state.selectedRows = {};
     if (Number.isInteger(rowIndex) && rowIndex >= 0 && rowIndex < (sheet.lines || []).length && Number.isInteger(columnIndex) && columnIndex >= 0 && columnIndex < (sheet.columns || []).length) {
       state.selectedCells[sheet.name] = { rowIndex, columnIndex };
-      state.selectedRows[sheet.name] = rowIndex;
+      selectRow(sheet, rowIndex);
     } else {
       delete state.selectedCells[sheet.name];
     }
@@ -568,7 +614,7 @@
   }
 
   Object.assign(CDBVS, {
-    typeOf, typeLabel, defaultValue, visibleSheets, currentSheet, selectedRowIndex, selectRow, selectedCell, selectCell, viewForSheet,
+    typeOf, typeLabel, defaultValue, visibleSheets, currentSheet, selectedRowIndex, selectedRowIndices, isRowSelected, selectRow, selectRows, selectRowWithModifiers, selectedCell, selectCell, viewForSheet,
     renameViewSheet, removeViewSheet, renameViewColumn, removeViewColumn,
     clearViewState, filterMatches, rowsForView, idColumn, setPrimaryColumn, cellErrorKey, addCellError, clearCellErrors, cellErrorsForSheet, isSeparatorCollapsed, toggleSeparatorCollapsed, listSheet, listKey,
     readValue, valueText, colorText, referenceOptions, createRowForSchema,

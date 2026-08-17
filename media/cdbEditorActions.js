@@ -4,8 +4,10 @@
   const sendUpdate = () => CDBVS.sendUpdate();
   const setStatus = (message, error) => CDBVS.setStatus(message, error);
   const selectedRowIndex = CDBVS.selectedRowIndex;
+  const selectedRowIndices = CDBVS.selectedRowIndices;
   const selectedCell = CDBVS.selectedCell;
   const selectRow = CDBVS.selectRow;
+  const selectRows = CDBVS.selectRows;
   const selectCell = CDBVS.selectCell;
   const insertRowAt = CDBVS.insertRow;
   const deleteRowAt = CDBVS.deleteRowAt;
@@ -22,8 +24,9 @@
     return JSON.parse(JSON.stringify(row));
   }
 
-  function writeRowClipboard(row) {
-    const text = `CDBVS_ROW\n${JSON.stringify(row)}`;
+  function writeRowClipboard(rows) {
+    const values = Array.isArray(rows) ? rows : [rows];
+    const text = `${values.length > 1 ? "CDBVS_ROWS" : "CDBVS_ROW"}\n${JSON.stringify(values.length > 1 ? values : values[0])}`;
     if (typeof navigator === "undefined" || !navigator.clipboard || typeof navigator.clipboard.writeText !== "function") return;
     try { navigator.clipboard.writeText(text).catch(() => {}); } catch (_) {}
   }
@@ -67,16 +70,17 @@
   function copySelectedRow(sheet, cut) {
     if (!sheet) return false;
     if (selectedCell(sheet)) return copySelectedCell(sheet, cut);
-    const selected = selectedRowIndex(sheet);
-    if (selected === null || !sheet.lines[selected]) return false;
-    const row = cloneRow(sheet.lines[selected]);
-    state.rowClipboard = { sheetName: sheet.name, row };
+    const selected = selectedRowIndices(sheet);
+    if (!selected.length) return false;
+    const rows = selected.map((index) => sheet.lines[index]).filter(Boolean).map(cloneRow);
+    if (!rows.length) return false;
+    state.rowClipboard = { sheetName: sheet.name, rows };
     state.cellClipboard = null;
-    writeRowClipboard(row);
+    writeRowClipboard(rows);
     if (!cut) return true;
-    deleteRowAt(sheet, selected);
+    selected.slice().sort((left, right) => right - left).forEach((index) => deleteRowAt(sheet, index));
     const remaining = Array.isArray(sheet.lines) ? sheet.lines.length : 0;
-    selectRow(sheet, remaining ? Math.min(selected, remaining - 1) : null);
+    selectRow(sheet, remaining ? Math.min(selected[0], remaining - 1) : null);
     sendUpdate();
     if (typeof CDBVS.render === "function") CDBVS.render();
     return true;
@@ -91,21 +95,30 @@
     return true;
   }
 
-  function insertPastedRow(sheet, row) {
-    if (!sheet || !row || typeof row !== "object" || Array.isArray(row)) return false;
+  function insertPastedRows(sheet, rows) {
+    if (!sheet || !Array.isArray(rows) || !rows.length || rows.some((row) => !row || typeof row !== "object" || Array.isArray(row))) return false;
     const selected = selectedRowIndex(sheet);
     const index = selected === null ? (Array.isArray(sheet.lines) ? sheet.lines.length : 0) : selected + 1;
-    insertRowAt(sheet, index, cloneRow(row));
-    selectRow(sheet, index);
+    rows.forEach((row, offset) => insertRowAt(sheet, index + offset, cloneRow(row)));
+    selectRows(sheet, rows.map((_, offset) => index + offset), index + rows.length - 1);
     if (typeof CDBVS.render === "function") CDBVS.render();
     return true;
   }
 
+  function insertPastedRow(sheet, row) {
+    return insertPastedRows(sheet, [row]);
+  }
+
   function parseRowClipboard(text) {
-    if (typeof text !== "string" || !text.startsWith("CDBVS_ROW\n")) return null;
+    if (typeof text !== "string") return null;
     try {
+      if (text.startsWith("CDBVS_ROWS\n")) {
+        const rows = JSON.parse(text.slice("CDBVS_ROWS\n".length));
+        return Array.isArray(rows) && rows.length && rows.every((row) => row && typeof row === "object" && !Array.isArray(row)) ? rows : null;
+      }
+      if (!text.startsWith("CDBVS_ROW\n")) return null;
       const row = JSON.parse(text.slice("CDBVS_ROW\n".length));
-      return row && typeof row === "object" && !Array.isArray(row) ? row : null;
+      return row && typeof row === "object" && !Array.isArray(row) ? [row] : null;
     } catch (_) {
       return null;
     }
@@ -158,7 +171,7 @@
   function pasteSelectedRow(sheet) {
     if (!sheet) return false;
     if (selectedCell(sheet)) return pasteSelectedCell(sheet);
-    if (state.rowClipboard && state.rowClipboard.row) return insertPastedRow(sheet, state.rowClipboard.row);
+    if (state.rowClipboard && (state.rowClipboard.rows || state.rowClipboard.row)) return insertPastedRows(sheet, state.rowClipboard.rows || [state.rowClipboard.row]);
     if (typeof navigator === "undefined" || !navigator.clipboard || typeof navigator.clipboard.readText !== "function") return false;
     try {
       navigator.clipboard.readText().then((text) => {
@@ -167,9 +180,9 @@
           setStatus("Clipboard does not contain a CDBVS row.", true);
           return;
         }
-        state.rowClipboard = { sheetName: sheet.name, row };
+        state.rowClipboard = { sheetName: sheet.name, rows: row };
         state.cellClipboard = null;
-        insertPastedRow(sheet, row);
+        insertPastedRows(sheet, row);
       }).catch(() => setStatus("Unable to read the clipboard.", true));
       return true;
     } catch (_) {
@@ -178,18 +191,11 @@
   }
 
   function addSheet() {
-    const name = window.prompt("New sheet name:", "newSheet");
-    if (!name) return;
-    if (!state.data || typeof state.data !== "object" || Array.isArray(state.data)) state.data = { customTypes: [], sheets: [] };
-    if (!Array.isArray(state.data.sheets)) state.data.sheets = [];
-    if (state.data.sheets.some((sheet) => sheet.name === name)) {
-      setStatus(`Sheet '${name}' already exists.`, true);
+    if (typeof CDBVS.openNewSheetEditor === "function") {
+      CDBVS.openNewSheetEditor();
       return;
     }
-    state.data.sheets.push({ name, columns: [], lines: [], separators: [], props: {} });
-    state.sheetIndex = CDBVS.visibleSheets().length - 1;
-    sendUpdate();
-    if (typeof CDBVS.render === "function") CDBVS.render();
+    setStatus("The new sheet editor is unavailable.", true);
   }
 
   function addColumn(sheet) {
@@ -239,7 +245,7 @@
     });
     state.data.sheets = state.data.sheets.filter((item) => !deletedSheets.has(item));
     removeViewSheet(oldName);
-    ["selectedRows", "selectedCells", "selectedListRows"].forEach((key) => {
+    ["selectedRows", "activeRows", "rowSelectionAnchors", "selectedCells", "selectedListRows"].forEach((key) => {
       Object.keys(state[key] || {}).forEach((name) => {
         if (name === oldName || name.startsWith(`${oldName}@`)) delete state[key][name];
       });
@@ -290,14 +296,14 @@
       setStatus("Create or select a sheet before deleting a row.", true);
       return false;
     }
-    const selected = selectedRowIndex(sheet);
-    if (selected === null) {
+    const selected = selectedRowIndices(sheet);
+    if (!selected.length) {
       setStatus("Select a row before deleting it.", true);
       return false;
     }
-    deleteRowAt(sheet, selected);
+    selected.slice().sort((left, right) => right - left).forEach((index) => deleteRowAt(sheet, index));
     const remaining = Array.isArray(sheet.lines) ? sheet.lines.length : 0;
-    selectRow(sheet, remaining ? Math.min(selected, remaining - 1) : null);
+    selectRow(sheet, remaining ? Math.min(selected[0], remaining - 1) : null);
     sendUpdate();
     if (typeof CDBVS.render === "function") CDBVS.render();
     return true;

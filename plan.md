@@ -25,6 +25,7 @@ The first working editor baseline is in place. The repository now contains a des
 - Added row insertion/deletion from the sheet controls, with row ordering handled as a sheet-level non-destructive sort view rather than per-row controls. Separator metadata remains preserved by the model for raw/data edits.
 - Replaced row-level delete `x` controls with row-number selection, whole-row highlighting, Insert/Delete Row toolbar actions, and matching selection controls for expanded list items.
 - Made row selection immediate through local DOM updates and raised the selected sticky row-number/primary-ID layers so scrolled content cannot show through them.
+- Added Ctrl/Cmd-click toggle selection and Shift-click range selection for multiple main-sheet rows, with bulk delete/copy/cut support while retaining an active row for row-level commands.
 - Added an opaque editor-background layer beneath the selected-state color for pinned cells, covering themes whose selection color is translucent.
 - Added Ctrl/Cmd+Up and Ctrl/Cmd+Down keyboard movement for the selected main-sheet row, preserving separator metadata and selection.
 - Added selected-row clipboard shortcuts: Ctrl/Cmd+C copies, Ctrl/Cmd+X cuts, and Ctrl/Cmd+V inserts a cloned row below the current selection, with a tagged system-clipboard fallback.
@@ -76,6 +77,7 @@ The first working editor baseline is in place. The repository now contains a des
 - Added a separator-row right-click menu with Remove Separator, cleaning up aligned separator-title metadata and collapse state.
 - Fixed sheet deletion by routing the editor button through a shared mutation, adding an in-webview confirmation dialog, and adding Delete sheet to the sheet-tab context menu.
 - Fixed tall sheet, column, and row modals so they stay within the viewport and scroll their form contents instead of clipping the top edge.
+- Replaced the unreliable native new-sheet prompt with an in-editor creation modal, and added New sheet to the context menu across the bottom sheet-tab dock.
 - Updated `build.ps1` to install the newly packaged VSIX into the local VS Code installation automatically.
 - Copied the reusable `cdb` Haxe model/parser sources and original license/readme into `vendor/castledb`.
 - Added `test/fixtures/sample.cdb` from the original repository for manual editor smoke testing.
@@ -104,6 +106,7 @@ These are intentionally still open for the next milestone:
 - The search/filter/sort pass passed PowerShell JSON and feature-presence checks. A real VS Code extension-host smoke test remains outstanding.
 - The sheet-deletion pass passes JavaScript syntax, diff-whitespace, and a headless model/action mutation check; a real VS Code extension-host smoke test remains outstanding.
 - The modal viewport fix passes JavaScript syntax and diff-whitespace checks; visual verification in a real VS Code extension host remains outstanding.
+- The multi-row selection pass passes a headless selection-model check, `node --check`, and `git diff --check`; visual verification in a real VS Code extension host remains outstanding.
 - The build-script update passes PowerShell parsing; the build/install flow itself was not run during this change to avoid bumping the project version and installing a new extension instance.
 - Release packaging includes the current README, manifest, runtime files, and `media/icon.png`; the publisher ID is still configured as `cdbvs` and must be created or confirmed in the Marketplace publisher account before publishing.
 - Keep the extension desktop-only and do not bring over the source repository's `src/lvl` or `Level.hx` level editor.

@@ -12,10 +12,13 @@
   const viewForSheet = CDBVS.viewForSheet;
   const rowsForView = CDBVS.rowsForView;
   const selectedRowIndex = CDBVS.selectedRowIndex;
+  const selectedRowIndices = CDBVS.selectedRowIndices;
+  const isRowSelected = CDBVS.isRowSelected;
   const selectedCell = CDBVS.selectedCell;
   const cellErrorKey = CDBVS.cellErrorKey;
   const cellErrorsForSheet = CDBVS.cellErrorsForSheet;
   const selectRow = CDBVS.selectRow;
+  const selectRowWithModifiers = CDBVS.selectRowWithModifiers;
   const selectCell = CDBVS.selectCell;
   const separatorIndex = CDBVS.separatorIndex;
   const addSeparator = CDBVS.addSeparator;
@@ -212,12 +215,14 @@
   }
 
   function markRenderedRowSelected(rowElement) {
-    document.querySelectorAll(".table-wrap tr[data-row-index].row-selected").forEach((row) => row.classList.remove("row-selected"));
-    rowElement.classList.add("row-selected");
+    document.querySelectorAll(".table-wrap tr[data-row-index]").forEach((row) => {
+      row.classList.toggle("row-selected", isRowSelected(currentSheet(), Number.parseInt(row.dataset.rowIndex, 10)));
+    });
   }
 
-  function selectRenderedRow(sheet, rowIndex, rowElement) {
-    selectRow(sheet, rowIndex);
+  function selectRenderedRow(sheet, rowIndex, rowElement, event) {
+    if (event && (event.shiftKey || event.ctrlKey || event.metaKey)) selectRowWithModifiers(sheet, rowIndex, event);
+    else selectRow(sheet, rowIndex);
     document.querySelectorAll(".table-wrap td.cell-selected").forEach((cell) => cell.classList.remove("cell-selected"));
     markRenderedRowSelected(rowElement);
   }
@@ -271,7 +276,9 @@
   }
 
   function showRowContextMenu(event, sheet, rowIndex) {
-    const selected = selectedRowIndex(sheet);
+    const selected = selectedRowIndices(sheet);
+    const active = selectedRowIndex(sheet);
+    const selectionLabel = selected.length > 1 ? `${selected.length} rows` : "row";
     const rowCount = Array.isArray(sheet.lines) ? sheet.lines.length : 0;
     const hasSeparator = (sheet.separators || []).some((separator) => separatorIndex(separator) === rowIndex);
     showContextMenu(event, [
@@ -280,13 +287,13 @@
       { label: "Add Separator", action: () => addSeparator(sheet, rowIndex), disabled: hasSeparator },
       { separator: true },
       { label: "Insert row below", action: () => insertSelectedRow(sheet) },
-      { label: "Delete row", action: () => deleteSelectedRow(sheet) },
+      { label: `Delete ${selectionLabel}`, action: () => deleteSelectedRow(sheet) },
       { separator: true },
-      { label: "Move row up", action: () => moveSelectedRow(sheet, -1), disabled: selected === null || selected <= 0 },
-      { label: "Move row down", action: () => moveSelectedRow(sheet, 1), disabled: selected === null || selected >= rowCount - 1 },
+      { label: "Move row up", action: () => moveSelectedRow(sheet, -1), disabled: selected.length !== 1 || active === null || active <= 0 },
+      { label: "Move row down", action: () => moveSelectedRow(sheet, 1), disabled: selected.length !== 1 || active === null || active >= rowCount - 1 },
       { separator: true },
-      { label: "Copy row", action: () => copySelectedRow(sheet, false) },
-      { label: "Cut row", action: () => copySelectedRow(sheet, true) },
+      { label: `Copy ${selectionLabel}`, action: () => copySelectedRow(sheet, false) },
+      { label: `Cut ${selectionLabel}`, action: () => copySelectedRow(sheet, true) },
       { label: "Paste row below", action: () => pasteSelectedRow(sheet) }
     ]);
   }
@@ -322,9 +329,18 @@
   function showSheetContextMenu(event, sheet) {
     event.preventDefault();
     showContextMenu(event, [
+      { label: "New sheet", action: addSheet },
+      { separator: true },
       { label: "Edit sheet", action: () => openSheetEditor(sheet) },
       { separator: true },
       { label: "Delete sheet", action: () => openDeleteSheetConfirmation(sheet) }
+    ]);
+  }
+
+  function showSheetsBarContextMenu(event) {
+    event.preventDefault();
+    showContextMenu(event, [
+      { label: "New sheet", action: addSheet }
     ]);
   }
 
@@ -391,7 +407,7 @@
     table.appendChild(head);
     const body = document.createElement("tbody");
     const rows = rowsForView(sheet);
-    const selected = selectedRowIndex(sheet);
+    const selected = selectedRowIndices(sheet);
     const selectedCellValue = selectedCell(sheet);
     const cellErrors = cellErrorsForSheet(sheet);
     rows.forEach(({ row, rowIndex }) => {
@@ -399,21 +415,22 @@
       if (rowInCollapsedSection(sheet, rowIndex)) return;
       const tr = document.createElement("tr");
       tr.dataset.rowIndex = String(rowIndex);
-      if (selected === rowIndex) tr.className = "row-selected";
+      if (selected.includes(rowIndex)) tr.className = "row-selected";
       const rowCell = makeElement("td", null, "row-number");
       rowCell.title = "Double-click to edit this row";
-      rowCell.addEventListener("click", () => selectRenderedRow(sheet, rowIndex, tr));
+      rowCell.addEventListener("click", (event) => selectRenderedRow(sheet, rowIndex, tr, event));
       rowCell.addEventListener("dblclick", (event) => {
         event.preventDefault();
         openRowEditor(sheet, rowIndex);
       });
       rowCell.addEventListener("contextmenu", (event) => {
         event.preventDefault();
-        selectRenderedRow(sheet, rowIndex, tr);
+        if (!isRowSelected(sheet, rowIndex)) selectRenderedRow(sheet, rowIndex, tr);
         showRowContextMenu(event, sheet, rowIndex);
       });
-      const rowSelect = makeButton(String(rowIndex + 1), () => {
-        selectRenderedRow(sheet, rowIndex, tr);
+      const rowSelect = makeButton(String(rowIndex + 1), (event) => {
+        event.stopPropagation();
+        selectRenderedRow(sheet, rowIndex, tr, event);
       }, "row-select");
       rowSelect.title = `Select row ${rowIndex + 1}`;
       rowSelect.setAttribute("aria-label", rowSelect.title);
@@ -508,9 +525,16 @@
     app.appendChild(toolbar);
 
     const sheetsBar = makeElement("div", null, "sheets");
+    sheetsBar.addEventListener("contextmenu", (event) => {
+      if (event.target.closest && event.target.closest(".sheet-tab")) return;
+      showSheetsBarContextMenu(event);
+    });
     visibleSheets().forEach((sheet, index) => {
       const tab = makeElement("div", null, index === state.sheetIndex ? "sheet-tab active" : "sheet-tab");
-      tab.addEventListener("contextmenu", (event) => showSheetContextMenu(event, sheet));
+      tab.addEventListener("contextmenu", (event) => {
+        event.stopPropagation();
+        showSheetContextMenu(event, sheet);
+      });
       tab.appendChild(makeButton(sheet.name, () => { state.sheetIndex = index; state.rawMode = false; render(); }, "sheet"));
       tab.appendChild(makeButton("\u270E", () => openSheetEditor(sheet), "sheet-edit-button"));
       sheetsBar.appendChild(tab);
