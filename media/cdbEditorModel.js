@@ -404,6 +404,11 @@
   function readValue(input, column) {
     const type = typeOf(column);
     if (type.code === 2) return input.checked;
+    // An empty editor value represents an explicitly cleared field. Keep the
+    // property in the row so the serialized CastleDB document records null
+    // instead of silently changing the value to a type default or omitting it.
+    const inputValue = input && input.value !== undefined && input.value !== null ? String(input.value) : "";
+    if (inputValue.trim() === "") return null;
     if (type.code === 11) return Number.parseInt(String(input.value).replace(/^#/, ""), 16) || 0;
     if (type.code === 3 || type.code === 5 || type.code === 10) return Number.parseInt(input.value, 10) || 0;
     if (type.code === 4) return Number.parseFloat(input.value) || 0;

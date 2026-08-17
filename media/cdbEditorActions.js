@@ -13,7 +13,6 @@
   const deleteRowAt = CDBVS.deleteRowAt;
   const moveRowAt = CDBVS.moveRow;
   const rowsForView = CDBVS.rowsForView;
-  const defaultValue = CDBVS.defaultValue;
   const visibleSheets = CDBVS.visibleSheets;
   const currentSheet = CDBVS.currentSheet;
   const sheetBlock = CDBVS.sheetBlock;
@@ -42,8 +41,9 @@
   }
 
   function clearCellValue(row, column, sheet) {
-    if (column.opt) delete row[column.name];
-    else row[column.name] = cloneValue(defaultValue(column, sheet));
+    // Clearing a cell is distinct from creating a new row. Preserve the
+    // column key and make the cleared value explicit in the JSON document.
+    row[column.name] = null;
   }
 
   function copySelectedCell(sheet, cut) {

@@ -97,7 +97,7 @@
       if (!selected.length) return false;
       selected.slice().sort((left, right) => right - left).forEach((index) => values.splice(index, 1));
       if (values.length === 0) {
-        row[column.name] = [];
+        row[column.name] = column.opt ? null : [];
         delete state.selectedListRows[key];
         if (state.listSelectionAnchors) delete state.listSelectionAnchors[key];
       } else {
@@ -214,7 +214,7 @@
       const scrollTop = tableWrap ? tableWrap.scrollTop : 0;
       if (state.expandedLists.has(key)) {
         state.expandedLists.delete(key);
-        if (column.opt && Object.keys(properties).length === 0) delete row[column.name];
+        if (column.opt && Object.keys(properties).length === 0) row[column.name] = null;
       } else {
         state.expandedLists.add(key);
         row[column.name] = properties;
@@ -301,7 +301,7 @@
         checkbox.addEventListener("change", () => {
           if (checkbox.checked) current |= 1 << flagIndex;
           else current &= ~(1 << flagIndex);
-          if (column.opt && current === 0) delete row[column.name];
+          if (column.opt && current === 0) row[column.name] = null;
           else row[column.name] = current;
           if (!cellContext.deferChanges) {
             sendUpdate();
@@ -342,8 +342,7 @@
       if (cellContext.deferChanges || !canSyncInputValue(type, input)) return;
       const next = readValue(input, column);
       if (next === undefined) return;
-      if (column.opt && input.value === "") delete row[column.name];
-      else row[column.name] = next;
+      row[column.name] = next;
       if (typeof CDBVS.scheduleUpdate === "function") CDBVS.scheduleUpdate();
       else sendUpdate();
     });
@@ -354,8 +353,7 @@
         setStatus("Complex values must contain valid JSON before they can be saved.", true);
         return;
       }
-      if (next === undefined && column.opt) delete row[column.name];
-      else if (next !== undefined) row[column.name] = next;
+      if (next !== undefined) row[column.name] = next;
       if (!cellContext.deferChanges) {
         sendUpdate();
         refreshAfterCommit();

@@ -141,6 +141,50 @@ test("focused text edits synchronize before save without waiting for blur", () =
   assert.equal(harness.updates.length, 1);
 });
 
+test("blank editors and cell clearing serialize null instead of omission or defaults", () => {
+  const target = sheet("Players");
+  const refs = sheet("Targets");
+  refs.columns = [{ name: "id", typeStr: "0" }];
+  refs.lines = [{ id: "target-1" }];
+  target.columns = [
+    { name: "title", typeStr: "1", opt: true },
+    { name: "target", typeStr: "6:Targets" },
+    { name: "score", typeStr: "3" }
+  ];
+  target.lines = [{ title: "text", target: "target-1", score: 10 }];
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target, refs] });
+  loadScript(harness.context, "cdbEditorCells.js");
+
+  const row = target.lines[0];
+  const titleCell = harness.document.createElement("td");
+  harness.CDBVS.makeCellEditor(titleCell, row, target.columns[0], { sheet: target, rowIndex: 0, path: "Players/0" });
+  const titleInput = titleCell.querySelector("input");
+  titleInput.value = "";
+  titleInput.dispatchEvent({ type: "input" });
+
+  const referenceCell = harness.document.createElement("td");
+  harness.CDBVS.makeCellEditor(referenceCell, row, target.columns[1], { sheet: target, rowIndex: 0, path: "Players/0" });
+  const referenceInput = referenceCell.querySelector("select");
+  referenceInput.value = "";
+  referenceInput.dispatchEvent({ type: "change" });
+
+  const numberCell = harness.document.createElement("td");
+  harness.CDBVS.makeCellEditor(numberCell, row, target.columns[2], { sheet: target, rowIndex: 0, path: "Players/0" });
+  const numberInput = numberCell.querySelector("input");
+  numberInput.value = "";
+  numberInput.dispatchEvent({ type: "change" });
+
+  assert.deepEqual(row, { title: null, target: null, score: null });
+
+  harness.CDBVS.selectCell(target, 0, 0);
+  harness.CDBVS.deleteSelectedCell(target);
+  assert.equal(row.title, null);
+
+  row.title = "cut me";
+  harness.CDBVS.copySelectedRow(target, true);
+  assert.equal(row.title, null);
+});
+
 test("Ctrl/Cmd+S commits a focused cell and requests a document save", () => {
   const target = sheet("Players");
   target.columns = [{ name: "title", typeStr: "1" }];
