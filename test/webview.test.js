@@ -68,6 +68,38 @@ test("new column editor saves schema and row-safe defaults through its modal", (
   assert.equal(harness.updates.length, 1);
 });
 
+test("column editor stays compact and preserves advanced metadata", () => {
+  const target = sheet();
+  const column = {
+    name: "title",
+    typeStr: "1",
+    opt: false,
+    kind: "script",
+    scope: 2,
+    documentation: "Shown in the game UI",
+    customFlag: true,
+  };
+  target.columns = [column];
+  target.lines = [{ title: "Hello" }];
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target] });
+
+  harness.CDBVS.openColumnEditor(target, column, 0, false);
+  const overlay = harness.document.querySelector(".text-modal-overlay");
+
+  assert.ok(overlay.querySelector("select"));
+  assert.equal(overlay.querySelector(".column-extra-input"), null);
+  assert.equal(overlay.querySelector("textarea"), null);
+  assert.equal(overlay.textContent.includes("Advanced properties"), false);
+  assert.equal(overlay.textContent.includes("Documentation"), false);
+
+  click(buttonByText(overlay, "Save"));
+
+  assert.equal(column.kind, "script");
+  assert.equal(column.scope, 2);
+  assert.equal(column.documentation, "Shown in the game UI");
+  assert.equal(column.customFlag, true);
+});
+
 test("row deletion uses the in-editor confirmation dialog", () => {
   const target = sheet();
   target.lines = [{ title: "keep" }, { title: "remove" }];

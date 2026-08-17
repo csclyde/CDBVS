@@ -181,6 +181,7 @@ td input:focus, td select:focus { outline: 1px solid var(--vscode-focusBorder); 
 .text-modal textarea { flex: 1; width: 100%; resize: none; border: 0; outline: 0; padding: 14px; background: var(--input-bg); color: var(--input-fg); font-family: var(--vscode-editor-font-family); line-height: 1.45; }
 .text-modal-footer { display: flex; justify-content: flex-end; gap: 7px; padding: 8px 12px; border-top: 1px solid var(--border); }
 .column-modal { width: min(760px, 90vw); height: min(760px, calc(100vh - 48px)); }
+.column-editor-modal { width: min(620px, 90vw); height: auto; max-height: calc(100vh - 48px); }
 .column-form { display: grid; min-height: 0; gap: 10px; overflow: auto; padding: 14px; }
 .column-field { display: grid; grid-template-columns: minmax(150px, 1fr) minmax(260px, 2fr); align-items: start; gap: 12px; color: var(--muted); }
 .column-field > span { padding-top: 6px; }

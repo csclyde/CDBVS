@@ -19,7 +19,6 @@
   const mapTypeStrings = CDBVS.mapTypeStrings;
   const idColumn = CDBVS.idColumn;
   const setPrimaryColumn = CDBVS.setPrimaryColumn;
-  const columnExtraProperties = CDBVS.columnExtraProperties;
   const sheetExtraProperties = CDBVS.sheetExtraProperties;
   const columnTypeOptions = [
     [0, "Primary ID"], [1, "Text"], [2, "Boolean"], [3, "Integer"], [4, "Float"],
@@ -156,7 +155,7 @@
   function openColumnEditor(sheet, column, columnIndex, isNew = false) {
     if (activeModal) activeModal.remove();
     const overlay = makeElement("div", null, "text-modal-overlay");
-    const dialog = makeElement("section", null, "text-modal column-modal");
+    const dialog = makeElement("section", null, "text-modal column-modal column-editor-modal");
     dialog.setAttribute("role", "dialog");
     dialog.setAttribute("aria-modal", "true");
     const heading = makeElement("div", null, "text-modal-heading");
@@ -179,7 +178,6 @@
     const typeArgumentInput = document.createElement("input");
     typeArgumentInput.type = "text";
     typeArgumentInput.value = currentType.argument || "";
-    typeArgumentInput.placeholder = "Enum labels, sheet name, custom type, flags, or layer name";
     const typeArgumentField = columnField("Type argument", typeArgumentInput);
     form.appendChild(typeArgumentField);
 
@@ -189,25 +187,6 @@
     rawTypeInput.placeholder = "For unsupported or advanced CastleDB types";
     const rawTypeField = columnField("Raw type string", rawTypeInput);
     form.appendChild(rawTypeField);
-
-    const primaryInput = document.createElement("input");
-    primaryInput.type = "checkbox";
-    primaryInput.checked = currentType.code === 0;
-    form.appendChild(columnField("Primary ID field", primaryInput, "checkbox-field"));
-
-    const updateTypeControls = () => {
-      const code = Number(typeSelect.value);
-      typeArgumentField.hidden = typeSelect.value === "raw" || !typeArgumentCodes.has(code);
-      rawTypeField.hidden = typeSelect.value !== "raw";
-      primaryInput.checked = code === 0;
-    };
-    updateTypeControls();
-    typeSelect.addEventListener("change", updateTypeControls);
-    primaryInput.addEventListener("change", () => {
-      if (primaryInput.checked) typeSelect.value = "0";
-      else if (typeSelect.value === "0") typeSelect.value = "1";
-      updateTypeControls();
-    });
 
     const optionalInput = document.createElement("input");
     optionalInput.type = "checkbox";
@@ -220,29 +199,27 @@
     displayInput.value = column.display === 1 ? "1" : "";
     form.appendChild(columnField("Display", displayInput));
 
-    const kindInput = document.createElement("select");
-    kindInput.add(new Option("None", ""));
-    ["localizable", "script", "hidden", "typekind"].forEach((kind) => kindInput.add(new Option(kind, kind)));
-    kindInput.value = column.kind || "";
-    form.appendChild(columnField("Kind", kindInput));
-
-    const scopeInput = document.createElement("input");
-    scopeInput.type = "number";
-    scopeInput.step = "1";
-    scopeInput.value = column.scope === undefined || column.scope === null ? "" : String(column.scope);
-    form.appendChild(columnField("Scope", scopeInput));
-
-    const documentationInput = document.createElement("textarea");
-    documentationInput.value = column.documentation || "";
-    documentationInput.rows = 3;
-    form.appendChild(columnField("Documentation", documentationInput));
-
-    const extraInput = document.createElement("textarea");
-    extraInput.className = "column-extra-input";
-    extraInput.spellcheck = false;
-    extraInput.value = JSON.stringify(columnExtraProperties(column), null, "\t");
-    extraInput.rows = 7;
-    form.appendChild(columnField("Advanced properties (JSON)", extraInput));
+    const updateTypeControls = () => {
+      const code = Number(typeSelect.value);
+      const hasArgument = typeSelect.value !== "raw" && typeArgumentCodes.has(code);
+      typeArgumentField.hidden = !hasArgument;
+      rawTypeField.hidden = typeSelect.value !== "raw";
+      if (code === 5) {
+        typeArgumentInput.placeholder = "Enum values, comma-separated";
+      } else if (code === 6) {
+        typeArgumentInput.placeholder = "Reference sheet name";
+      } else if (code === 9) {
+        typeArgumentInput.placeholder = "Custom type name";
+      } else if (code === 10) {
+        typeArgumentInput.placeholder = "Flag names, comma-separated";
+      } else if (code === 12) {
+        typeArgumentInput.placeholder = "Layer name";
+      } else {
+        typeArgumentInput.placeholder = "Type-specific argument";
+      }
+    };
+    updateTypeControls();
+    typeSelect.addEventListener("change", updateTypeControls);
 
     const error = makeElement("div", null, "column-form-error");
     form.appendChild(error);
@@ -276,22 +253,6 @@
         showError(`Column '${newName}' already exists on this sheet.`);
         return;
       }
-      let extra;
-      try {
-        extra = JSON.parse(extraInput.value || "{}");
-        if (!extra || typeof extra !== "object" || Array.isArray(extra)) throw new Error("Advanced properties must be a JSON object.");
-        const reserved = new Set(["name", "type", "typeStr", "opt", "display", "kind", "scope", "documentation"]);
-        const reservedKey = Object.keys(extra).find((key) => reserved.has(key));
-        if (reservedKey) throw new Error(`'${reservedKey}' is controlled by the form above.`);
-      } catch (parseError) {
-        showError(`Invalid advanced properties JSON: ${parseError.message}`);
-        return;
-      }
-
-      const oldName = column.name;
-      const typeProperty = Object.prototype.hasOwnProperty.call(column, "typeStr") ? "typeStr" : (Object.prototype.hasOwnProperty.call(column, "type") ? "type" : "typeStr");
-      if (primaryInput.checked) typeSelect.value = "0";
-      else if (typeSelect.value === "0") typeSelect.value = "1";
       const selectedType = typeSelect.value === "raw"
         ? rawTypeInput.value.trim()
         : `${typeSelect.value}${typeArgumentCodes.has(Number(typeSelect.value)) && typeArgumentInput.value.trim() ? `:${typeArgumentInput.value.trim()}` : ""}`;
@@ -299,6 +260,9 @@
         showError("Type cannot be empty.");
         return;
       }
+
+      const oldName = column.name;
+      const typeProperty = Object.prototype.hasOwnProperty.call(column, "typeStr") ? "typeStr" : (Object.prototype.hasOwnProperty.call(column, "type") ? "type" : "typeStr");
       if (!isNew && oldName !== newName) {
         (sheet.lines || []).forEach((line) => {
           if (!line || !Object.prototype.hasOwnProperty.call(line, oldName)) return;
@@ -331,19 +295,8 @@
       column.opt = optionalInput.checked;
       if (displayInput.value === "") delete column.display;
       else column.display = Number(displayInput.value);
-      if (kindInput.value === "") delete column.kind;
-      else column.kind = kindInput.value;
-      if (scopeInput.value === "") delete column.scope;
-      else column.scope = Number(scopeInput.value);
-      if (documentationInput.value === "") delete column.documentation;
-      else column.documentation = documentationInput.value;
-      const standard = new Set(["name", "type", "typeStr", "opt", "display", "kind", "scope", "documentation"]);
-      Object.keys(column).forEach((key) => {
-        if (!standard.has(key)) delete column[key];
-      });
-      Object.assign(column, extra);
       if (isNew) sheet.columns.splice(Math.min(columnIndex, sheet.columns.length), 0, column);
-      if (primaryInput.checked) setPrimaryColumn(sheet, column.name);
+      if (Number(typeSelect.value) === 0) setPrimaryColumn(sheet, column.name);
       close();
       sendUpdate();
       if (typeof CDBVS.render === "function") CDBVS.render();

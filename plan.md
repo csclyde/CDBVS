@@ -81,7 +81,8 @@ The first working editor baseline is in place. The repository now contains a des
 - Routed Add column through the existing in-editor column modal instead of native prompts, and replaced row/list-item native confirmations with a shared in-editor confirmation dialog.
 - Added a dependency-free Node test suite covering parser validation/round-tripping, model/action mutations, sheet and column modal saves, confirmation flows, nested-list deletion, and a native-dialog regression guard.
 - Deep-audited and fixed raw-mode recovery, concurrent document-update races, cell-selection loss, column selection drift, stale list state after renames, sheet rename selection migration, sheet-editor cancel mutation, row-only clipboard behavior, and root-sheet block movement.
-- Expanded the test suite to 31 cases, including extension-host update serialization, actual view rendering/context-menu behavior, modal filter/custom-type validation, row/separator invariants, reference defaults, selection ranges, clipboard modes, sheet/column rename/delete/move behavior, and raw-mode recovery.
+- Expanded the test suite to 32 cases, including extension-host update serialization, actual view rendering/context-menu behavior, modal filter/custom-type validation, row/separator invariants, reference defaults, selection ranges, clipboard modes, sheet/column rename/delete/move behavior, raw-mode recovery, and compact column-editor metadata preservation.
+- Simplified the column editor to name, a type dropdown, contextual type arguments, optional/display controls, and move/delete actions; advanced column metadata is preserved automatically instead of exposed as confusing raw JSON.
 - Updated `build.ps1` to install the newly packaged VSIX into the local VS Code installation automatically.
 - Copied the reusable `cdb` Haxe model/parser sources and original license/readme into `vendor/castledb`.
 - Added `test/fixtures/sample.cdb` from the original repository for manual editor smoke testing.
@@ -92,7 +93,7 @@ The first working editor baseline is in place. The repository now contains a des
 
 These are intentionally still open for the next milestone:
 
-1. Add automated tests for parsing, type-string handling, defaults, duplicate IDs, formatting, and webview update serialization.
+1. Expand automated coverage for formatting, reference validation, and additional CastleDB type conversions.
 2. Improve schema editing with a dedicated type picker, required/optional conversion rules, and safer type conversions when a column's type changes.
 3. Add richer controls for remaining CastleDB values: tile positions, gradients, curves, dynamic values, and file/image pickers.
 4. Add reference validation and useful navigation from a reference cell to the target sheet/row.
@@ -111,7 +112,7 @@ These are intentionally still open for the next milestone:
 - The sheet-deletion pass passes JavaScript syntax, diff-whitespace, and a headless model/action mutation check; a real VS Code extension-host smoke test remains outstanding.
 - The modal viewport fix passes JavaScript syntax and diff-whitespace checks; visual verification in a real VS Code extension host remains outstanding.
 - The native-dialog replacement and regression-suite pass 12 Node tests, all JavaScript syntax checks, JSON fixture checks, and diff-whitespace checks; visual verification in a real VS Code extension host remains outstanding.
-- The deep audit pass passes 31 Node tests, all JavaScript syntax checks, JSON fixture checks, and diff-whitespace checks; a real packaged VS Code Extension Development Host smoke test remains outstanding.
+- The deep audit and compact column-editor pass passes 32 Node tests, all JavaScript syntax checks, JSON fixture checks, and diff-whitespace checks; a real packaged VS Code Extension Development Host smoke test remains outstanding.
 - The multi-row selection pass passes a headless selection-model check, `node --check`, and `git diff --check`; visual verification in a real VS Code extension host remains outstanding.
 - The build-script update passes PowerShell parsing; the build/install flow itself was not run during this change to avoid bumping the project version and installing a new extension instance.
 - Release packaging includes the current README, manifest, runtime files, and `media/icon.png`; the publisher ID is still configured as `cdbvs` and must be created or confirmed in the Marketplace publisher account before publishing.
