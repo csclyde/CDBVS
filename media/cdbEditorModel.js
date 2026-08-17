@@ -2,6 +2,7 @@
   const CDBVS = global.CDBVS;
   const state = CDBVS.state;
   const TYPE_NAMES = CDBVS.TYPE_NAMES;
+  let referenceOptionsCache = new Map();
   const sendUpdate = () => CDBVS.sendUpdate();
 
   function typeOf(column) {
@@ -430,10 +431,20 @@
 
   function referenceOptions(column) {
     const target = typeOf(column).argument;
+    if (referenceOptionsCache.has(target)) return referenceOptionsCache.get(target);
     const sheet = (state.data.sheets || []).find((item) => item.name === target);
     const id = idColumn(sheet);
-    if (!sheet || !id || !Array.isArray(sheet.lines)) return null;
-    return sheet.lines.map((line) => line && line[id.name]).filter((value) => value !== undefined && value !== null);
+    if (!sheet || !id || !Array.isArray(sheet.lines)) {
+      referenceOptionsCache.set(target, null);
+      return null;
+    }
+    const values = sheet.lines.map((line) => line && line[id.name]).filter((value) => value !== undefined && value !== null);
+    referenceOptionsCache.set(target, values);
+    return values;
+  }
+
+  function clearReferenceOptionsCache() {
+    referenceOptionsCache = new Map();
   }
 
   function createRowForSchema(sheet, collection) {
@@ -629,7 +640,7 @@
     typeOf, typeLabel, defaultValue, visibleSheets, currentSheet, selectedRowIndex, selectedRowIndices, isRowSelected, selectRow, selectRows, selectRowWithModifiers, selectedCell, selectCell, viewForSheet,
     renameViewSheet, removeViewSheet, renameViewColumn, removeViewColumn,
     clearViewState, filterMatches, rowsForView, idColumn, setPrimaryColumn, cellErrorKey, addCellError, clearCellErrors, cellErrorsForSheet, isSeparatorCollapsed, toggleSeparatorCollapsed, listSheet, listKey,
-    readValue, valueText, colorText, referenceOptions, createRowForSchema,
+    readValue, valueText, colorText, referenceOptions, clearReferenceOptionsCache, createRowForSchema,
     separatorIndex, moveSeparators, insertRow, moveRow, toggleSeparator, addSeparator, removeSeparator,
     deleteRowAt, moveColumn, sheetBlock, moveSheet, listPreview,
     columnExtraProperties, sheetExtraProperties, mapTypeStrings

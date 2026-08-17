@@ -27,6 +27,7 @@
   const toggleSeparatorCollapsed = CDBVS.toggleSeparatorCollapsed;
   const currentSheet = CDBVS.currentSheet;
   const visibleSheets = CDBVS.visibleSheets;
+  const clearReferenceOptionsCache = CDBVS.clearReferenceOptionsCache;
   const makeCellEditor = CDBVS.makeCellEditor;
   const addSheet = CDBVS.addSheet;
   const addColumn = CDBVS.addColumn;
@@ -166,8 +167,12 @@
     input.select();
   }
 
-  function renderSeparatorRows(body, sheet, rowIndex) {
-    (sheet.separators || []).forEach((separator, separatorPosition) => {
+  function renderSeparatorRows(body, sheet, rowIndex, positions) {
+    const separatorPositions = Array.isArray(positions)
+      ? positions
+      : (sheet.separators || []).map((_, separatorPosition) => separatorPosition);
+    separatorPositions.forEach((separatorPosition) => {
+      const separator = (sheet.separators || [])[separatorPosition];
       const index = separatorIndex(separator);
       if (index !== rowIndex) return;
       const row = document.createElement("tr");
@@ -407,12 +412,37 @@
     table.appendChild(head);
     const body = document.createElement("tbody");
     const rows = rowsForView(sheet);
+    const separatorRows = new Map();
+    const separatorIndexes = [];
+    (sheet.separators || []).forEach((separator, separatorPosition) => {
+      const index = separatorIndex(separator);
+      if (!Number.isInteger(index)) return;
+      const positions = separatorRows.get(index) || [];
+      positions.push(separatorPosition);
+      separatorRows.set(index, positions);
+      separatorIndexes.push(index);
+    });
+    separatorIndexes.sort((left, right) => left - right);
+    const collapsedSectionForRow = (rowIndex) => {
+      let low = 0;
+      let high = separatorIndexes.length - 1;
+      let last = null;
+      while (low <= high) {
+        const middle = Math.floor((low + high) / 2);
+        if (separatorIndexes[middle] <= rowIndex) {
+          last = separatorIndexes[middle];
+          low = middle + 1;
+        } else high = middle - 1;
+      }
+      return last !== null && isSeparatorCollapsed(sheet, last);
+    };
     const selected = selectedRowIndices(sheet);
     const selectedCellValue = selectedCell(sheet);
     const cellErrors = cellErrorsForSheet(sheet);
     rows.forEach(({ row, rowIndex }) => {
-      renderSeparatorRows(body, sheet, rowIndex);
-      if (rowInCollapsedSection(sheet, rowIndex)) return;
+      const separators = separatorRows.get(rowIndex);
+      if (separators) renderSeparatorRows(body, sheet, rowIndex, separators);
+      if (collapsedSectionForRow(rowIndex)) return;
       const tr = document.createElement("tr");
       tr.dataset.rowIndex = String(rowIndex);
       if (selected.includes(rowIndex)) tr.className = "row-selected";
@@ -512,6 +542,7 @@
   }
 
   function render() {
+    if (typeof clearReferenceOptionsCache === "function") clearReferenceOptionsCache();
     closeContextMenu();
     rememberViewport();
     app.replaceChildren();

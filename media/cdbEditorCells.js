@@ -271,6 +271,7 @@
     const type = typeOf(column);
     const value = row[column.name];
     const cellContext = context || { sheet: currentSheet(), rowIndex: 0, path: "root" };
+    const references = type.code === 6 ? referenceOptions(column) : null;
     if (type.code === 8) {
       const schema = listSheet(cellContext.sheet, column);
       if (schema) {
@@ -324,10 +325,10 @@
       const values = type.values.length ? type.values : ["0"];
       values.forEach((label, index) => input.add(new Option(label, String(index))));
       input.value = String(value ?? 0);
-    } else if (type.code === 6 && referenceOptions(column)) {
+    } else if (type.code === 6 && references) {
       input = document.createElement("select");
       input.add(new Option("", ""));
-      referenceOptions(column).forEach((item) => input.add(new Option(String(item), String(item))));
+      references.forEach((item) => input.add(new Option(String(item), String(item))));
       input.value = String(value ?? "");
     } else {
       input = document.createElement("input");
