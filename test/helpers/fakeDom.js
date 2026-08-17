@@ -6,6 +6,7 @@ class FakeElement {
     this.children = [];
     this.listeners = {};
     this.attributes = {};
+    this.dataset = {};
     this.style = {};
     this.className = "";
     this.classList = {
@@ -135,6 +136,7 @@ class FakeElement {
 function matchesSelector(element, selector) {
   const value = selector.trim();
   if (!value) return false;
+  if (value.includes(",")) return value.split(",").some((part) => matchesSelector(element, part));
   if (value.startsWith(".")) return value.slice(1).split(".").every((name) => element.className.split(/\s+/).includes(name));
   if (value.startsWith("#")) return element.attributes.id === value.slice(1);
   return element.tagName.toLowerCase() === value.toLowerCase();

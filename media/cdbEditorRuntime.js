@@ -32,13 +32,41 @@
     scrollTop: 0
   };
 
+  let scheduledUpdateTimer = null;
+  const clearScheduledUpdate = () => {
+    if (scheduledUpdateTimer === null) return;
+    clearTimeout(scheduledUpdateTimer);
+    scheduledUpdateTimer = null;
+  };
+
   CDBVS.sendUpdate = function () {
+    clearScheduledUpdate();
     const state = CDBVS.state;
     if (!state.data) return;
     const text = `${JSON.stringify(state.data, null, "\t")}\n`;
     state.text = text;
     CDBVS.vscode.postMessage({ type: "update", text });
   };
+
+  CDBVS.scheduleUpdate = function (delay = 120) {
+    clearScheduledUpdate();
+    scheduledUpdateTimer = setTimeout(() => {
+      scheduledUpdateTimer = null;
+      CDBVS.sendUpdate();
+    }, delay);
+  };
+
+  CDBVS.flushUpdate = function () {
+    CDBVS.sendUpdate();
+  };
+
+  CDBVS.requestSave = function () {
+    CDBVS.vscode.postMessage({ type: "save" });
+  };
+
+  global.addEventListener("beforeunload", () => {
+    CDBVS.flushUpdate();
+  });
 
   CDBVS.setStatus = function (message, error) {
     const status = document.getElementById("status");

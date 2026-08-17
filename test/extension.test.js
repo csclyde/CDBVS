@@ -102,6 +102,49 @@ test("custom editor serializes concurrent webview document updates", async () =>
   assert.equal(messages.some((message) => message.type === "error"), false);
 });
 
+test("custom editor waits for queued updates before saving the document", async () => {
+  let text = validDocumentText("initial");
+  let saveCalls = 0;
+  const document = {
+    uri: { toString: () => "file:///players.cdb" },
+    getText: () => text,
+    positionAt: (offset) => offset,
+    save: async () => {
+      saveCalls += 1;
+      assert.equal(text, validDocumentText("saved"));
+      return true;
+    }
+  };
+  const vscode = makeVscode(document, async (edit) => {
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    text = edit.text;
+    return true;
+  });
+  const CdbEditorProvider = loadProvider(vscode);
+  const messages = [];
+  let receiveMessage;
+  const panel = {
+    active: true,
+    webview: {
+      options: null,
+      html: "",
+      asWebviewUri: (uri) => uri,
+      postMessage: (message) => messages.push(message),
+      onDidReceiveMessage: (handler) => { receiveMessage = handler; return { dispose() {} }; }
+    },
+    onDidChangeViewState: () => ({ dispose() {} }),
+    onDidDispose: () => {}
+  };
+  await new CdbEditorProvider({ extensionUri: "extension" }).resolveCustomTextEditor(document, panel);
+
+  const update = receiveMessage({ type: "update", text: validDocumentText("saved") });
+  const save = receiveMessage({ type: "save" });
+  await Promise.all([update, save]);
+
+  assert.equal(saveCalls, 1);
+  assert.equal(messages.some((message) => message.type === "error"), false);
+});
+
 test("custom editor rejects malformed webview updates without changing the document", async () => {
   const originalText = validDocumentText("initial");
   let text = originalText;

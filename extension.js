@@ -96,6 +96,17 @@ class CdbEditorProvider {
         await updateQueue;
         return;
       }
+      if (message.type === "save") {
+        try {
+          await updateQueue;
+          if (disposed || typeof document.save !== "function") return;
+          const saved = await document.save();
+          if (!saved && !disposed) webview.postMessage({ type: "error", message: "CDBVS could not save the document." });
+        } catch (error) {
+          if (!disposed) webview.postMessage({ type: "error", message: `CDBVS could not save the document: ${error.message}` });
+        }
+        return;
+      }
       if (message.type === "showMessage") {
         vscode.window.showInformationMessage(String(message.message || ""));
       }

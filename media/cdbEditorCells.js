@@ -16,6 +16,13 @@
   const sendUpdate = () => CDBVS.sendUpdate();
   const setStatus = (message, error) => CDBVS.setStatus(message, error);
   const openTextEditor = (...args) => CDBVS.openTextEditor(...args);
+  function canSyncInputValue(type, input) {
+    const value = String(input.value || "").trim();
+    if (type.code === 1 || type.code === 11) return true;
+    if (type.code === 3) return /^[-+]?\d+$/.test(value);
+    if (type.code === 4) return /^[-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?$/i.test(value);
+    return false;
+  }
   function renderListCell(cell, row, column, context, schema) {
     const deferChanges = context && context.deferChanges === true;
     const values = Array.isArray(row[column.name]) ? row[column.name] : [];
@@ -183,7 +190,8 @@
           sheet: schema,
           rowIndex: itemIndex,
           path: `${context.path}/${column.name}/${itemIndex}`,
-          deferChanges
+          deferChanges,
+          refresh: rerender
         });
         itemRow.appendChild(childCell);
       });
@@ -278,6 +286,10 @@
       }
     }
     let input;
+    const refreshAfterCommit = () => {
+      if (typeof cellContext.refresh === "function") cellContext.refresh();
+      else if (typeof CDBVS.render === "function") CDBVS.render();
+    };
     if (type.code === 10 && type.values.length) {
       const flags = makeElement("div", null, "flags-input");
       let current = Number(value) || 0;
@@ -293,7 +305,7 @@
           else row[column.name] = current;
           if (!cellContext.deferChanges) {
             sendUpdate();
-            if (typeof CDBVS.render === "function") CDBVS.render();
+            refreshAfterCommit();
           }
         });
         flagLabel.appendChild(checkbox);
@@ -326,6 +338,15 @@
       if ([8, 9, 14, 15, 16, 17, 18, 19].includes(type.code)) input.classList.add("json-input");
     }
     input.title = `${column.name} (${type.name})`;
+    input.addEventListener("input", () => {
+      if (cellContext.deferChanges || !canSyncInputValue(type, input)) return;
+      const next = readValue(input, column);
+      if (next === undefined) return;
+      if (column.opt && input.value === "") delete row[column.name];
+      else row[column.name] = next;
+      if (typeof CDBVS.scheduleUpdate === "function") CDBVS.scheduleUpdate();
+      else sendUpdate();
+    });
     input.addEventListener("change", () => {
       const next = readValue(input, column);
       const complex = [8, 9, 14, 15, 16, 17, 18, 19].includes(type.code);
@@ -337,7 +358,7 @@
       else if (next !== undefined) row[column.name] = next;
       if (!cellContext.deferChanges) {
         sendUpdate();
-        if (typeof CDBVS.render === "function") CDBVS.render();
+        refreshAfterCommit();
       }
     });
     if (type.code === 1 && !cellContext.deferChanges) {

@@ -611,6 +611,13 @@
     const arrowKey = key === "arrowup" || key === "arrowdown" || key === "arrowleft" || key === "arrowright";
     const clipboardKey = key === "c" || key === "x" || key === "v";
     const deleteKey = key === "delete" || key === "del";
+    if (modified && key === "s") {
+      event.preventDefault();
+      if (editorTarget) commitEditorTarget(editorTarget);
+      else if (typeof CDBVS.flushUpdate === "function") CDBVS.flushUpdate();
+      if (typeof CDBVS.requestSave === "function") CDBVS.requestSave();
+      return;
+    }
     if (editorTarget && !((!modified && (arrowKey || deleteKey) && cellSelection) || (modified && clipboardKey && cellSelection))) return;
     if (!modified && !event.altKey && cellSelection && arrowKey) {
       event.preventDefault();

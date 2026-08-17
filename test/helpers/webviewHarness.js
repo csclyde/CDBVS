@@ -61,6 +61,13 @@ function createWebviewHarness(data) {
     sendUpdate() {
       updates.push(JSON.stringify(state.data));
     },
+    scheduleUpdate() {
+      updates.push(JSON.stringify(state.data));
+    },
+    flushUpdate() {
+      updates.push(JSON.stringify(state.data));
+    },
+    requestSave() {},
     setStatus(message, error) {
       statuses.push({ message, error });
     },

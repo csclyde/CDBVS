@@ -124,6 +124,80 @@ test("shared confirmation modal cancels without invoking its action", () => {
   assert.equal(harness.document.querySelector(".confirm-modal"), null);
 });
 
+test("focused text edits synchronize before save without waiting for blur", () => {
+  const target = sheet("Players");
+  target.columns = [{ name: "title", typeStr: "1" }];
+  target.lines = [{ title: "initial" }];
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target] });
+  loadScript(harness.context, "cdbEditorCells.js");
+  const cell = harness.document.createElement("td");
+  harness.CDBVS.makeCellEditor(cell, target.lines[0], target.columns[0], { sheet: target, rowIndex: 0, path: "Players/0" });
+  const input = cell.querySelector("input");
+
+  input.value = "saved while focused";
+  input.dispatchEvent({ type: "input" });
+
+  assert.equal(target.lines[0].title, "saved while focused");
+  assert.equal(harness.updates.length, 1);
+});
+
+test("Ctrl/Cmd+S commits a focused cell and requests a document save", () => {
+  const target = sheet("Players");
+  target.columns = [{ name: "title", typeStr: "1" }];
+  target.lines = [{ title: "initial" }];
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target] });
+  harness.context.innerWidth = 1200;
+  harness.context.innerHeight = 800;
+  harness.context.Event = class {
+    constructor(type) { this.type = type; }
+  };
+  harness.CDBVS.app = harness.document.createElement("div");
+  harness.CDBVS.rememberViewport = () => {};
+  harness.CDBVS.restoreViewport = () => {};
+  loadScript(harness.context, "cdbEditorCells.js");
+  loadScript(harness.context, "cdbEditorView.js");
+  let saveRequests = 0;
+  harness.CDBVS.requestSave = () => { saveRequests += 1; };
+  harness.CDBVS.render();
+  const input = harness.CDBVS.app.querySelector("td input");
+  input.value = "saved";
+  let prevented = false;
+  harness.document.dispatchEvent({
+    type: "keydown",
+    key: "s",
+    ctrlKey: true,
+    target: input,
+    preventDefault() { prevented = true; }
+  });
+
+  assert.equal(prevented, true);
+  assert.equal(saveRequests, 1);
+  assert.equal(target.lines[0].title, "saved");
+  assert.ok(harness.updates.length >= 1);
+});
+
+test("list-cell edits refresh locally instead of rerendering the whole sheet", () => {
+  const parent = sheet("Groups");
+  const listColumn = { name: "members", typeStr: "8" };
+  parent.columns = [listColumn];
+  parent.lines = [{ members: [{ name: "Ada" }] }];
+  const child = { name: "Groups@members", columns: [{ name: "name", typeStr: "1" }], lines: [], props: {} };
+  const harness = createWebviewHarness({ customTypes: [], sheets: [parent, child] });
+  loadScript(harness.context, "cdbEditorCells.js");
+  const context = { sheet: parent, rowIndex: 0, path: "Groups/0" };
+  const key = harness.CDBVS.listKey(context, listColumn);
+  harness.state.expandedLists.add(key);
+  const cell = harness.document.createElement("td");
+  harness.CDBVS.renderListCell(cell, parent.lines[0], listColumn, context, child);
+  const input = cell.querySelector(".nested-list-item input");
+  input.value = "Grace";
+  input.dispatchEvent({ type: "change" });
+
+  assert.equal(parent.lines[0].members[0].name, "Grace");
+  assert.equal(harness.renders.length, 0);
+  assert.equal(harness.updates.length, 1);
+});
+
 test("nested list items show selection and delete immediately", () => {
   const parent = sheet("Groups");
   const listColumn = { name: "members", typeStr: "8" };

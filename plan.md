@@ -19,6 +19,8 @@ The first working editor baseline is in place. The repository now contains a des
 - Added expandable, schema-driven list cells using CastleDB's `parentSheet@listColumn` sub-sheet definitions, including nested lists, add/delete list items, and primitive/reference editors inside list rows.
 - Fixed nested list-item selection feedback with a persistent highlighted selected row, made the Delete key remove the selected item, and made Delete Item act immediately without a confirmation modal.
 - Made nested-list Insert Item update the list cell immediately, added Ctrl/Cmd-click and Shift-click multi-selection, and made delete remove all selected items together.
+- Fixed focused-input persistence by synchronizing safe primitive edits before blur, flushing on Ctrl/Cmd+S and webview unload, and awaiting queued updates before the extension host saves the document.
+- Optimized nested list-cell edits to refresh only the affected list cell instead of rebuilding the entire sheet, with regression coverage for avoiding a full render.
 - List cells now show only the first item's truncated field preview with compact expand/collapse arrows; nested values are summarized as `[...]`, toggling updates only that cell, and document refreshes restore the table's horizontal/vertical scroll position.
 - Text (`TString`) fields open a larger multiline modal editor on double-click, with Save/Cancel controls and Ctrl/Cmd+Enter save support.
 - Added a full-row edit modal that presents every schema column as a form field, opened by double-clicking the row-number gutter or primary ID (`type 0`) cell, and by the row context menu's Edit action. Modal changes remain in a draft until Save and reuse the existing schema-aware editors.
@@ -114,7 +116,7 @@ These are intentionally still open for the next milestone:
 - The sheet-deletion pass passes JavaScript syntax, diff-whitespace, and a headless model/action mutation check; a real VS Code extension-host smoke test remains outstanding.
 - The modal viewport fix passes JavaScript syntax and diff-whitespace checks; visual verification in a real VS Code extension host remains outstanding.
 - The native-dialog replacement and regression-suite pass 12 Node tests, all JavaScript syntax checks, JSON fixture checks, and diff-whitespace checks; visual verification in a real VS Code extension host remains outstanding.
-- The deep audit, compact column-editor, and nested-list selection/insertion/deletion pass passes 35 Node tests, all JavaScript syntax checks, JSON fixture checks, and diff-whitespace checks; a real packaged VS Code Extension Development Host smoke test remains outstanding.
+- The deep audit, compact column-editor, nested-list selection/insertion/deletion, focused-input persistence, and local list-cell refresh pass passes 39 Node tests, all JavaScript syntax checks, JSON fixture checks, and diff-whitespace checks; a real packaged VS Code Extension Development Host smoke test remains outstanding.
 - The multi-row selection pass passes a headless selection-model check, `node --check`, and `git diff --check`; visual verification in a real VS Code extension host remains outstanding.
 - The build-script update passes PowerShell parsing; the build/install flow itself was not run during this change to avoid bumping the project version and installing a new extension instance.
 - Release packaging includes the current README, manifest, runtime files, and `media/icon.png`; the publisher ID is still configured as `cdbvs` and must be created or confirmed in the Marketplace publisher account before publishing.
