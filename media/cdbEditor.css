@@ -159,6 +159,9 @@ td input:focus, td select:focus { outline: 1px solid var(--vscode-focusBorder); 
 .nested-table { min-width: 340px; width: 100%; }
 .nested-table th { position: static; padding: 4px 6px; font-size: .9em; }
 .nested-table td { min-width: 88px; }
+.nested-list-item { cursor: pointer; }
+.nested-table tr.list-item-selected td { background: var(--selection-bg); color: var(--selection-fg); box-shadow: inset 0 1px 0 var(--accent), inset 0 -1px 0 var(--accent); }
+.nested-table tr.list-item-selected .row-number { background: var(--selection-bg); color: var(--selection-fg); font-weight: 700; }
 .nested-heading { white-space: nowrap; }
 .nested-heading small { display: block; color: var(--muted); font-weight: normal; font-size: .8em; }
 .properties-table { min-width: 260px; }

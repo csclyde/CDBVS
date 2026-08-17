@@ -26,6 +26,7 @@ function createWebviewHarness(data) {
     rowSelectionAnchors: {},
     selectedCells: {},
     selectedListRows: {},
+    listSelectionAnchors: {},
     rowClipboard: null,
     cellClipboard: null,
     cellErrors: {},

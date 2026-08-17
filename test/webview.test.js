@@ -124,11 +124,11 @@ test("shared confirmation modal cancels without invoking its action", () => {
   assert.equal(harness.document.querySelector(".confirm-modal"), null);
 });
 
-test("nested list deletion uses the shared confirmation modal", () => {
+test("nested list items show selection and delete immediately", () => {
   const parent = sheet("Groups");
   const listColumn = { name: "members", typeStr: "8" };
   parent.columns = [listColumn];
-  parent.lines = [{ members: [{ name: "Ada" }] }];
+  parent.lines = [{ members: [{ name: "Ada" }, { name: "Grace" }] }];
   const child = { name: "Groups@members", columns: [{ name: "name", typeStr: "1" }], lines: [], props: {} };
   const harness = createWebviewHarness({ customTypes: [], sheets: [parent, child] });
   loadScript(harness.context, "cdbEditorCells.js");
@@ -139,12 +139,91 @@ test("nested list deletion uses the shared confirmation modal", () => {
   const cell = harness.document.createElement("td");
   harness.CDBVS.renderListCell(cell, parent.lines[0], listColumn, context, child);
 
-  click(cell.querySelector(".nested-delete-item"));
-  const overlay = harness.document.querySelector(".confirm-modal");
-  assert.match(overlay.textContent, /Delete list item 1/);
-  click(buttonByText(overlay, "Delete item"));
+  const rows = cell.querySelectorAll(".nested-table tbody tr");
+  assert.equal(rows[0].classList.contains("list-item-selected"), true);
+  click(rows[1].querySelector(".row-select"));
+  assert.equal(harness.state.selectedListRows[key], 1);
+  assert.equal(rows[1].classList.contains("list-item-selected"), true);
+  assert.equal(rows[0].classList.contains("list-item-selected"), false);
+  assert.equal(cell.querySelector(".nested-delete-item").disabled, false);
 
-  assert.equal(parent.lines[0].members.length, 0);
+  click(cell.querySelector(".nested-delete-item"));
+
+  assert.equal(harness.document.querySelector(".confirm-modal"), null);
+  assert.deepEqual(parent.lines[0].members, [{ name: "Ada" }]);
+  assert.equal(harness.updates.length, 1);
+});
+
+test("Delete key removes the selected nested list item", () => {
+  const parent = sheet("Groups");
+  const listColumn = { name: "members", typeStr: "8" };
+  parent.columns = [listColumn];
+  parent.lines = [{ members: [{ name: "Ada" }, { name: "Grace" }] }];
+  const child = { name: "Groups@members", columns: [{ name: "name", typeStr: "1" }], lines: [], props: {} };
+  const harness = createWebviewHarness({ customTypes: [], sheets: [parent, child] });
+  loadScript(harness.context, "cdbEditorCells.js");
+  const context = { sheet: parent, rowIndex: 0, path: "Groups/0" };
+  const key = harness.CDBVS.listKey(context, listColumn);
+  harness.state.expandedLists.add(key);
+  harness.state.selectedListRows[key] = 0;
+  const cell = harness.document.createElement("td");
+  harness.CDBVS.renderListCell(cell, parent.lines[0], listColumn, context, child);
+  const selectedRow = cell.querySelector(".nested-list-item");
+
+  selectedRow.dispatchEvent({ type: "keydown", key: "Delete", preventDefault() {}, stopPropagation() {} });
+
+  assert.deepEqual(parent.lines[0].members, [{ name: "Grace" }]);
+  assert.equal(harness.updates.length, 1);
+});
+
+test("nested list items support multi-select and insert after the active item", () => {
+  const parent = sheet("Groups");
+  const listColumn = { name: "members", typeStr: "8" };
+  parent.columns = [listColumn];
+  parent.lines = [{ members: [{ name: "Ada" }, { name: "Grace" }, { name: "Lee" }] }];
+  const child = { name: "Groups@members", columns: [{ name: "name", typeStr: "1" }], lines: [], props: {} };
+  const harness = createWebviewHarness({ customTypes: [], sheets: [parent, child] });
+  loadScript(harness.context, "cdbEditorCells.js");
+  const context = { sheet: parent, rowIndex: 0, path: "Groups/0" };
+  const key = harness.CDBVS.listKey(context, listColumn);
+  harness.state.expandedLists.add(key);
+  harness.state.selectedListRows[key] = 0;
+  const cell = harness.document.createElement("td");
+  harness.CDBVS.renderListCell(cell, parent.lines[0], listColumn, context, child);
+
+  const rows = cell.querySelectorAll(".nested-list-item");
+  rows[1].querySelector(".row-select").dispatchEvent({ type: "click", ctrlKey: true, stopPropagation() {} });
+  assert.deepEqual(Array.from(harness.state.selectedListRows[key]), [0, 1]);
+  assert.equal(rows[0].classList.contains("list-item-selected"), true);
+  assert.equal(rows[1].classList.contains("list-item-selected"), true);
+
+  click(buttonByText(cell, "Insert Item"));
+
+  assert.equal(parent.lines[0].members.length, 4);
+  assert.equal(parent.lines[0].members[2].name, "");
+  assert.equal(harness.state.selectedListRows[key], 2);
+});
+
+test("deleting multiple selected nested list items removes them together", () => {
+  const parent = sheet("Groups");
+  const listColumn = { name: "members", typeStr: "8" };
+  parent.columns = [listColumn];
+  parent.lines = [{ members: [{ name: "Ada" }, { name: "Grace" }, { name: "Lee" }] }];
+  const child = { name: "Groups@members", columns: [{ name: "name", typeStr: "1" }], lines: [], props: {} };
+  const harness = createWebviewHarness({ customTypes: [], sheets: [parent, child] });
+  loadScript(harness.context, "cdbEditorCells.js");
+  const context = { sheet: parent, rowIndex: 0, path: "Groups/0" };
+  const key = harness.CDBVS.listKey(context, listColumn);
+  harness.state.expandedLists.add(key);
+  harness.state.selectedListRows[key] = 0;
+  const cell = harness.document.createElement("td");
+  harness.CDBVS.renderListCell(cell, parent.lines[0], listColumn, context, child);
+  const rows = cell.querySelectorAll(".nested-list-item");
+  rows[1].querySelector(".row-select").dispatchEvent({ type: "click", ctrlKey: true, stopPropagation() {} });
+
+  click(cell.querySelector(".nested-delete-item"));
+
+  assert.deepEqual(parent.lines[0].members, [{ name: "Lee" }]);
   assert.equal(harness.updates.length, 1);
 });
 

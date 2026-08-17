@@ -250,7 +250,7 @@
     });
     state.data.sheets = state.data.sheets.filter((item) => !deletedSheets.has(item));
     removeViewSheet(oldName);
-    ["selectedRows", "activeRows", "rowSelectionAnchors", "selectedCells", "selectedListRows"].forEach((key) => {
+    ["selectedRows", "activeRows", "rowSelectionAnchors", "selectedCells", "selectedListRows", "listSelectionAnchors"].forEach((key) => {
       Object.keys(state[key] || {}).forEach((name) => {
         if (name === oldName || name.startsWith(`${oldName}@`)) delete state[key][name];
       });

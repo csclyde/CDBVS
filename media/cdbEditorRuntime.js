@@ -21,6 +21,7 @@
     rowSelectionAnchors: {},
     selectedCells: {},
     selectedListRows: {},
+    listSelectionAnchors: {},
     rowClipboard: null,
     cellClipboard: null,
     cellErrors: {},

@@ -289,6 +289,7 @@
         renameViewColumn(sheet.name, oldName, newName);
         state.expandedLists.clear();
         state.selectedListRows = {};
+        state.listSelectionAnchors = {};
       }
       column.name = newName;
       column[typeProperty] = selectedType;
@@ -576,6 +577,11 @@
           renamedListRows[key.startsWith(listPrefix) ? `${newName}/${key.slice(listPrefix.length)}` : key] = state.selectedListRows[key];
         });
         state.selectedListRows = renamedListRows;
+        const renamedListAnchors = {};
+        Object.keys(state.listSelectionAnchors || {}).forEach((key) => {
+          renamedListAnchors[key.startsWith(listPrefix) ? `${newName}/${key.slice(listPrefix.length)}` : key] = state.listSelectionAnchors[key];
+        });
+        state.listSelectionAnchors = renamedListAnchors;
         state.expandedLists.clear();
       }
       sheet.name = newName;
