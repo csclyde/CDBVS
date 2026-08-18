@@ -1,5 +1,7 @@
 (function (global) {
   const CDBVS = global.CDBVS;
+  let openSelectState = null;
+  let selectMenuId = 0;
   function renderedRoot() {
     const app = CDBVS.app;
     return app && typeof app.querySelectorAll === "function" ? app : document;
@@ -84,6 +86,158 @@
     return !!target && (target === control || (typeof control.contains === "function" && control.contains(target)));
   }
 
+  function selectOptions(control) {
+    if (control && control.options) return Array.from(control.options);
+    return control && typeof control.querySelectorAll === "function" ? Array.from(control.querySelectorAll("option")) : [];
+  }
+
+  function closeSelectMenu() {
+    if (!openSelectState) return;
+    const { control, menu } = openSelectState;
+    if (menu && typeof menu.remove === "function") menu.remove();
+    else if (menu && menu.parentNode && typeof menu.parentNode.removeChild === "function") menu.parentNode.removeChild(menu);
+    if (control && typeof control.removeAttribute === "function") {
+      control.removeAttribute("aria-expanded");
+      control.removeAttribute("aria-controls");
+    }
+    openSelectState = null;
+  }
+
+  function dispatchSelectChange(control) {
+    if (!control || typeof control.dispatchEvent !== "function") return;
+    const event = typeof Event === "function" ? new Event("change", { bubbles: false }) : { type: "change" };
+    control.dispatchEvent(event);
+  }
+
+  function updateSelectMenu() {
+    if (!openSelectState) return;
+    const { control, optionItems, filterValue } = openSelectState;
+    const options = selectOptions(control);
+    const selectedIndex = Math.max(0, options.findIndex((option) => String(option.value) === String(control.value)));
+    openSelectState.selectedIndex = selectedIndex;
+    const normalizedFilter = String(filterValue || "").trim().toLowerCase();
+    optionItems.forEach((item, index) => {
+      const optionText = String(options[index].textContent || options[index].value || "").toLowerCase();
+      const visible = !normalizedFilter || optionText.includes(normalizedFilter);
+      item.style.display = visible ? "" : "none";
+      const selected = index === selectedIndex;
+      if (selected) item.classList.add("selected");
+      else item.classList.remove("selected");
+      item.setAttribute("aria-selected", String(selected));
+    });
+  }
+
+  function visibleSelectIndexes() {
+    if (!openSelectState) return [];
+    const options = selectOptions(openSelectState.control);
+    const normalizedFilter = String(openSelectState.filterValue || "").trim().toLowerCase();
+    return options.map((option, index) => ({ option, index }))
+      .filter(({ option }) => !normalizedFilter || String(option.textContent || option.value || "").toLowerCase().includes(normalizedFilter))
+      .map(({ index }) => index);
+  }
+
+  function chooseSelectOption(index) {
+    if (!openSelectState) return;
+    const { control } = openSelectState;
+    const options = selectOptions(control);
+    if (!options.length) return;
+    const nextIndex = Math.max(0, Math.min(index, options.length - 1));
+    control.value = String(options[nextIndex].value);
+    updateSelectMenu();
+    dispatchSelectChange(control);
+  }
+
+  function openSelectMenu(control, sheet) {
+    closeSelectMenu();
+    const options = selectOptions(control);
+    if (!options.length || !document.body || typeof document.createElement !== "function") return false;
+    const menu = document.createElement("div");
+    const filter = document.createElement("input");
+    const optionsContainer = document.createElement("div");
+    const menuId = `cdbvs-select-menu-${++selectMenuId}`;
+    menu.id = menuId;
+    menu.className = "cell-select-menu";
+    menu.setAttribute("role", "listbox");
+    menu.addEventListener("mousedown", (event) => {
+      const option = event.target && event.target.closest && event.target.closest(".cell-select-option");
+      if (option && typeof event.preventDefault === "function") event.preventDefault();
+    });
+    filter.type = "text";
+    filter.className = "cell-select-filter";
+    filter.placeholder = "Filter options";
+    filter.setAttribute("aria-label", "Filter dropdown options");
+    optionsContainer.className = "cell-select-options";
+    menu.appendChild(filter);
+    menu.appendChild(optionsContainer);
+    const optionItems = [];
+    options.forEach((option, index) => {
+      const item = document.createElement("div");
+      item.className = "cell-select-option";
+      item.textContent = option.textContent || option.value;
+      item.setAttribute("role", "option");
+      item.addEventListener("click", (event) => {
+        if (typeof event.preventDefault === "function") event.preventDefault();
+        chooseSelectOption(index);
+        if (typeof control.focus === "function") control.focus();
+        const sheet = openSelectState && openSelectState.sheet;
+        closeSelectMenu();
+        if (sheet) CDBVS.exitRenderedCell(sheet);
+      });
+      optionsContainer.appendChild(item);
+      optionItems.push(item);
+    });
+    filter.addEventListener("input", () => {
+      if (openSelectState) openSelectState.filterValue = filter.value;
+      updateSelectMenu();
+    });
+    document.body.appendChild(menu);
+    const rect = typeof control.getBoundingClientRect === "function" ? control.getBoundingClientRect() : null;
+    if (rect && menu.style) {
+      menu.style.left = `${rect.left}px`;
+      menu.style.top = `${rect.bottom}px`;
+      menu.style.minWidth = `${Math.max(rect.width || 0, 120)}px`;
+    }
+    openSelectState = { control, menu, filter, optionItems, filterValue: "", selectedIndex: 0, sheet: sheet || CDBVS.currentSheet() };
+    if (typeof control.setAttribute === "function") {
+      control.setAttribute("aria-expanded", "true");
+      control.setAttribute("aria-controls", menuId);
+    }
+    updateSelectMenu();
+    return true;
+  }
+
+  function handleSelectKeydown(control, event) {
+    const key = String(event.key || "").toLowerCase();
+    if (!openSelectState || openSelectState.control !== control) {
+      if (key === "enter") return false;
+      if (key !== " " && !["arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key)) return false;
+      openSelectMenu(control);
+      if (typeof event.preventDefault === "function") event.preventDefault();
+      return true;
+    }
+    if (key === "escape" || key === "enter") {
+      closeSelectMenu();
+      return false;
+    }
+    if (key === " ") {
+      if (typeof event.preventDefault === "function") event.preventDefault();
+      return true;
+    }
+    if (key !== "arrowup" && key !== "arrowdown" && key !== "home" && key !== "end") return false;
+    const options = selectOptions(control);
+    if (!options.length) return false;
+    const visibleIndexes = visibleSelectIndexes();
+    if (!visibleIndexes.length) return false;
+    let position = visibleIndexes.indexOf(openSelectState.selectedIndex);
+    if (position < 0) position = key === "arrowup" || key === "end" ? visibleIndexes.length - 1 : 0;
+    if (key === "home") position = 0;
+    else if (key === "end") position = visibleIndexes.length - 1;
+    else position = Math.max(0, Math.min(position + (key === "arrowup" ? -1 : 1), visibleIndexes.length - 1));
+    chooseSelectOption(visibleIndexes[position]);
+    if (typeof event.preventDefault === "function") event.preventDefault();
+    return true;
+  }
+
   function activateRenderedCell(sheet, rowIndex, columnIndex, event) {
     if (!CDBVS.activateCell(sheet, rowIndex, columnIndex)) return false;
     const cell = findRenderedCell(rowIndex, columnIndex);
@@ -94,10 +248,8 @@
     if (!control) return true;
     const directControlClick = isControlTarget(event && event.target, control);
     if (typeof control.focus === "function") control.focus();
-    if (!directControlClick && control.tagName === "SELECT") {
-      if (typeof control.showPicker === "function") {
-        try { control.showPicker(); } catch (_) {}
-      } else if (typeof control.click === "function") control.click();
+    if (control.tagName === "SELECT") {
+      openSelectMenu(control, sheet);
     } else if (!directControlClick && control.classList && control.classList.contains("list-toggle") && typeof control.click === "function") {
       control.click();
     } else if (!directControlClick && control.tagName === "INPUT" && control.type === "color" && typeof control.showPicker === "function") {
@@ -111,6 +263,7 @@
   function exitRenderedCell(sheet) {
     const active = CDBVS.activeCell(sheet);
     if (!active) return false;
+    if (openSelectState) closeSelectMenu();
     const cell = findRenderedCell(active.rowIndex, active.columnIndex);
     const focused = document.activeElement;
     const focusedInCell = cell && focused && typeof cell.contains === "function" && cell.contains(focused);
@@ -143,6 +296,7 @@
 
   Object.assign(CDBVS, {
     renderedRoot, findRenderedRow, findRenderedCell, refreshRenderedCell, updateRenderedSelection,
-    activateRenderedCell, exitRenderedCell, selectRenderedRow, selectRenderedCell
+    activateRenderedCell, exitRenderedCell, selectRenderedRow, selectRenderedCell,
+    handleSelectKeydown, closeSelectMenu, openSelectMenu
   });
 })(window);

@@ -31,6 +31,13 @@
     }
     const editorCell = editorTarget && editorTarget.closest && editorTarget.closest("td");
     const cellEditorTarget = editorCell && editorCell.closest && editorCell.closest("td") ? editorTarget : null;
+    // Once a cell is active, its editor owns arrow keys so text cursors, number
+    // inputs, selects, and nested editors can navigate their own value without
+    // moving the grid selection.
+    if (activeSelection && cellEditorTarget && cellEditorTarget.tagName === "SELECT"
+      && typeof CDBVS.handleSelectKeydown === "function"
+      && CDBVS.handleSelectKeydown(cellEditorTarget, event)) return;
+    if (activeSelection && cellEditorTarget && arrowKey) return;
     if (!modified && !event.altKey && arrowKey && (!editorTarget || cellEditorTarget || cellSelection)) {
       if (!cellSelection) {
         const rows = sheet ? CDBVS.rowsForView(sheet) : [];
@@ -49,15 +56,18 @@
       return;
     }
     if (!modified && !event.altKey && cellSelection && key === "enter") {
-      event.preventDefault();
       if (activeSelection) {
+        event.preventDefault();
         CDBVS.exitRenderedCell(sheet);
-      } else CDBVS.activateRenderedCell(sheet, cellSelection.rowIndex, cellSelection.columnIndex, event);
+      } else {
+        CDBVS.activateRenderedCell(sheet, cellSelection.rowIndex, cellSelection.columnIndex, event);
+        event.preventDefault();
+      }
       return;
     }
     if (!modified && !event.altKey && activeSelection && key === "escape") {
       event.preventDefault();
-      CDBVS.deactivateCell(sheet);
+      CDBVS.exitRenderedCell(sheet);
       return;
     }
     if (!modified && !event.altKey && activeSelection && editorTarget && deleteKey) return;

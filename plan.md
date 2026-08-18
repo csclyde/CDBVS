@@ -81,6 +81,11 @@ The first working editor baseline is in place. The repository now contains a des
 - Arrow navigation now always performs that active-cell exit before moving, while Delete remains available as a native text-editing key inside an active text control.
 - Arrow keys now initialize selection from the current visible/sorted/filtered rows when no cell has been selected yet.
 - Arrow navigation is handled before the generic input guard for controls inside table cells, so a focused cell editor cannot swallow the navigation key; non-table inputs such as search remain excluded.
+- Active cell editors now keep arrow keys for native in-cell cursor, number, select, and nested-value navigation instead of moving the grid selection.
+- Entering a dropdown editor now opens a visible in-webview option list, while Up/Down update the underlying select value without moving the grid.
+- Dropdown cells consistently use the in-webview menu for mouse and keyboard activation; native select popup activation is suppressed.
+- The custom dropdown menu now commits and closes on option click and includes a text filter for narrowing options and keyboard navigation.
+- Dropdown edit state now matches menu state: opening activates the cell, while option selection, Enter, Escape, or clicking the active cell closes the menu and exits editing.
 - Made the Delete key clear only the selected cell while preserving row deletion when no cell is selected; the explicit Delete Row toolbar button remains row-level.
 - Removed the top Delete Row button and added right-click context menus: row numbers expose insert/delete/move/copy/cut/paste row actions, while cells expose copy/cut/paste/clear cell actions.
 - Added a reusable cell-error registry/API plus automatic duplicate-primary-ID validation that marks only later duplicate cells with an error badge, tooltip, and accessible invalid state; cell edits refresh validation immediately.
@@ -143,6 +148,11 @@ These are intentionally still open for the next milestone:
 - The selection/activation pass passes all 43 Node tests, JavaScript syntax checks, and `git diff --check`; visual verification of native dropdown opening remains outstanding in a real VS Code extension host.
 - The initial arrow-selection fix passes all 44 Node tests, JavaScript syntax checks, and `git diff --check`.
 - The focused-cell arrow-routing fix also passes all 44 Node tests, JavaScript syntax checks, and `git diff --check`.
+- The active-cell arrow-key behavior now preserves native editor navigation while keeping pre-activation grid movement; all 44 Node tests, recursive JavaScript syntax checks, and `git diff --check` pass.
+- Dropdown activation now shows a reliable in-webview option list and preserves Up/Down option navigation; all 44 Node tests, recursive JavaScript syntax checks, and `git diff --check` pass.
+- Dropdown mouse and keyboard activation now suppresses the native popup and routes through the in-webview menu; all 44 Node tests, recursive JavaScript syntax checks, and `git diff --check` pass.
+- Custom dropdown option clicks now select and close, with filtered option rendering and navigation covered by the regression suite; all 44 Node tests, recursive JavaScript syntax checks, and `git diff --check` pass.
+- Dropdown menu/edit-mode transitions are now unified and covered for selection, Enter, Escape, and active-cell clicks; all 44 Node tests, recursive JavaScript syntax checks, and `git diff --check` pass.
 - The module-refactor pass passes all 44 Node tests, JavaScript syntax checks for the new modules, and `git diff --check`; visual verification in a real VS Code Extension Development Host remains outstanding.
 - The deeper module-refactor pass keeps all 44 Node tests passing, adds reusable table/modal/cell subcomponents, and reduces the largest remaining webview files to focused logical responsibilities; visual verification in a real VS Code Extension Development Host remains outstanding.
 - The first-load arrow-navigation fix makes keyboard-handler installation idempotent and independent of script order, with document and window event routing; all 44 regression tests and recursive syntax checks pass.

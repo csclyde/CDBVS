@@ -25,6 +25,19 @@
       if (event.button !== undefined && event.button !== 0) return;
       const current = CDBVS.selectedCell(sheet);
       const alreadySelected = current && current.rowIndex === rowIndex && current.columnIndex === columnIndex;
+      const selectTarget = event.target && event.target.closest && event.target.closest("select");
+      if (alreadySelected && CDBVS.activeCell(sheet)) {
+        event.preventDefault();
+        CDBVS.exitRenderedCell(sheet);
+        selectionOnlyClick = true;
+        return;
+      }
+      if (alreadySelected && selectTarget) {
+        event.preventDefault();
+        CDBVS.activateRenderedCell(sheet, rowIndex, columnIndex, event);
+        selectionOnlyClick = true;
+        return;
+      }
       if (alreadySelected || event.target === td) return;
       event.preventDefault();
       CDBVS.selectRenderedCell(sheet, rowIndex, columnIndex, tr, td);

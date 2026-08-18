@@ -352,9 +352,9 @@ test("cells select first and activate on the second click or Enter", () => {
     target: titleCell.querySelector("input"),
     preventDefault() { prevented = true; }
   });
-  assert.equal(prevented, true);
-  assert.equal(harness.CDBVS.selectedCell(target).columnIndex, 1);
-  assert.equal(harness.CDBVS.activeCell(target), null);
+  assert.equal(prevented, false);
+  assert.equal(harness.CDBVS.selectedCell(target).columnIndex, 0);
+  assert.equal(harness.CDBVS.activeCell(target).columnIndex, 0);
 
   titleCell.dispatchEvent({ type: "click" });
   harness.document.dispatchEvent({ type: "keydown", key: "Enter", target: harness.document, preventDefault() {} });
@@ -363,10 +363,47 @@ test("cells select first and activate on the second click or Enter", () => {
 
   kindCell.dispatchEvent({ type: "click" });
   const select = kindCell.querySelector("select");
-  let pickerOpened = 0;
-  select.showPicker = () => { pickerOpened += 1; };
   harness.document.dispatchEvent({ type: "keydown", key: "Enter", target: harness.document, preventDefault() {} });
-  assert.equal(pickerOpened, 1);
+  const menu = harness.document.querySelector(".cell-select-menu");
+  assert.ok(menu);
+  const filter = menu.querySelector(".cell-select-filter");
+  assert.ok(filter);
+  filter.value = "advanced";
+  filter.dispatchEvent({ type: "input" });
+  const options = menu.querySelectorAll(".cell-select-option");
+  assert.equal(options[0].style.display, "none");
+  assert.equal(options[1].style.display, "");
+  options[1].dispatchEvent({ type: "click", preventDefault() {} });
+  assert.equal(harness.document.querySelector(".cell-select-menu"), null);
+  assert.equal(select.value, "1");
+  assert.equal(harness.CDBVS.activeCell(target), null);
+
+  harness.document.dispatchEvent({ type: "keydown", key: "Enter", target: select, preventDefault() {} });
+  assert.ok(harness.document.querySelector(".cell-select-menu"));
+  assert.equal(menu.querySelectorAll(".cell-select-option").length, 2);
+  assert.equal(harness.CDBVS.activeCell(target).columnIndex, 1);
+
+  let arrowPrevented = false;
+  harness.document.dispatchEvent({
+    type: "keydown",
+    key: "ArrowDown",
+    target: select,
+    preventDefault() { arrowPrevented = true; }
+  });
+  assert.equal(arrowPrevented, true);
+  assert.equal(select.value, "1");
+  assert.equal(harness.CDBVS.selectedCell(target).columnIndex, 1);
+  assert.equal(harness.CDBVS.activeCell(target).columnIndex, 1);
+
+  harness.document.dispatchEvent({ type: "keydown", key: "Enter", target: select, preventDefault() {} });
+  assert.equal(harness.document.querySelector(".cell-select-menu"), null);
+  assert.equal(harness.CDBVS.activeCell(target), null);
+
+  kindCell.dispatchEvent({ type: "click", target: kindCell });
+  assert.ok(harness.document.querySelector(".cell-select-menu"));
+  kindCell.dispatchEvent({ type: "mousedown", button: 0, target: kindCell, preventDefault() {} });
+  assert.equal(harness.document.querySelector(".cell-select-menu"), null);
+  assert.equal(harness.CDBVS.activeCell(target), null);
 });
 
 test("arrow keys select an initial cell before any cell has been selected", () => {
