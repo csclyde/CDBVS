@@ -13,7 +13,7 @@
 - The source editor repository is at `C:\Users\Casey\Documents\Cursemark\.haxelib\castle\git`. The installed folder is named `castle`, even though the user described it as `castledb`.
 - The reusable CastleDB model/parser sources have been copied to `vendor/castledb/cdb`.
 - The important compatibility source is `vendor/castledb/cdb/Parser.hx`, `Data.hx`, `Database.hx`, `Sheet.hx`, and `Types.hx`. Preserve their type numbering and `.cdb` JSON conventions when extending the JavaScript implementation.
-- `src/cdbParser.js` is the small JavaScript bridge used by the extension host. It follows the original Haxe parser's type strings and validation concepts. Keep it in sync with the vendored Haxe sources.
+- `src/Parser.js` is the small JavaScript bridge used by the extension host. It follows the original Haxe parser's type strings and validation concepts. Keep it in sync with the vendored Haxe sources.
 - The original CastleDB repository is under its own permissive license; retain `vendor/castledb/LICENSE` and the source provenance when porting additional code.
 
 ## Implementation conventions

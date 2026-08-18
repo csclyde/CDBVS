@@ -6,8 +6,6 @@
   const listKey = CDBVS.listKey;
   const listPreview = CDBVS.listPreview;
   const createRowForSchema = CDBVS.createRowForSchema;
-  const sendUpdate = () => CDBVS.sendUpdate();
-  const makeCellEditor = (...args) => CDBVS.makeCellEditor(...args);
 
   function renderListCell(cell, row, column, context, schema) {
     const deferChanges = context && context.deferChanges === true;
@@ -91,7 +89,7 @@
         storeSelectedItems([nextIndex], nextIndex, nextIndex);
       }
       rerender();
-      if (!deferChanges) sendUpdate();
+      if (!deferChanges) CDBVS.sendUpdate();
       return true;
     };
     const toggle = makeButton("", () => {
@@ -118,7 +116,7 @@
       storeSelectedItems([insertAt], insertAt, insertAt);
       state.expandedLists.add(key);
       rerender();
-      if (!deferChanges) sendUpdate();
+      if (!deferChanges) CDBVS.sendUpdate();
     }));
     const deleteItem = makeButton("Delete Item", deleteSelectedListItem, "danger-button nested-delete-item");
     deleteItem.disabled = !initialSelectedItems.length;
@@ -172,7 +170,7 @@
       itemRow.appendChild(rowNumber);
       (schema.columns || []).forEach((childColumn) => {
         const childCell = document.createElement("td");
-        makeCellEditor(childCell, item, childColumn, {
+        CDBVS.makeCellEditor(childCell, item, childColumn, {
           sheet: schema,
           rowIndex: itemIndex,
           path: `${context.path}/${column.name}/${itemIndex}`,

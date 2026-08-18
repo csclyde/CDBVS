@@ -4,19 +4,6 @@
   const makeButton = CDBVS.makeButton;
   const renderNow = CDBVS.renderNow;
   const renderAfterUpdate = CDBVS.renderAfterUpdate;
-  const rowsForView = (...args) => CDBVS.rowsForView(...args);
-  const selectedRowIndices = (...args) => CDBVS.selectedRowIndices(...args);
-  const selectedCell = (...args) => CDBVS.selectedCell(...args);
-  const isRowSelected = (...args) => CDBVS.isRowSelected(...args);
-  const cellErrorsForSheet = (...args) => CDBVS.cellErrorsForSheet(...args);
-  const separatorIndex = (...args) => CDBVS.separatorIndex(...args);
-  const isSeparatorCollapsed = (...args) => CDBVS.isSeparatorCollapsed(...args);
-  const toggleSeparatorCollapsed = (...args) => CDBVS.toggleSeparatorCollapsed(...args);
-  const showSeparatorContextMenu = (...args) => CDBVS.showSeparatorContextMenu(...args);
-  const selectRenderedRow = (...args) => CDBVS.selectRenderedRow(...args);
-  const showRowContextMenu = (...args) => CDBVS.showRowContextMenu(...args);
-  const renderTableCell = (...args) => CDBVS.renderTableCell(...args);
-  const openRowEditor = (...args) => CDBVS.openRowEditor(...args);
 
   function editSeparatorTitle(sheet, separator, separatorPosition, titleSpan, label) {
     const input = document.createElement("input");
@@ -54,23 +41,23 @@
     const separatorPositions = Array.isArray(positions) ? positions : (sheet.separators || []).map((_, index) => index);
     separatorPositions.forEach((separatorPosition) => {
       const separator = (sheet.separators || [])[separatorPosition];
-      const index = separatorIndex(separator);
+      const index = CDBVS.separatorIndex(separator);
       if (index !== rowIndex) return;
       const row = document.createElement("tr");
       row.className = "separator-row";
       row.addEventListener("contextmenu", (event) => {
         event.preventDefault();
-        showSeparatorContextMenu(event, sheet, index);
+        CDBVS.showSeparatorContextMenu(event, sheet, index);
       });
       const cell = document.createElement("td");
       cell.colSpan = Math.max(1, (sheet.columns || []).length + 1);
       const props = sheet.props || {};
       const titles = Array.isArray(props.separatorTitles) ? props.separatorTitles : [];
       const title = separator && typeof separator === "object" && separator.title ? separator.title : titles[separatorPosition];
-      const collapsed = isSeparatorCollapsed(sheet, index);
+      const collapsed = CDBVS.isSeparatorCollapsed(sheet, index);
       const label = makeElement("span", null, "separator-label");
       const toggle = makeButton(collapsed ? "\u25B6" : "\u25BC", () => {
-        toggleSeparatorCollapsed(sheet, index);
+        CDBVS.toggleSeparatorCollapsed(sheet, index);
         renderNow();
       }, "separator-toggle");
       toggle.title = collapsed ? "Expand section" : "Collapse section";
@@ -93,11 +80,11 @@
 
   function renderTableBody(sheet) {
     const body = document.createElement("tbody");
-    const rows = rowsForView(sheet);
+    const rows = CDBVS.rowsForView(sheet);
     const separatorRows = new Map();
     const separatorIndexes = [];
     (sheet.separators || []).forEach((separator, separatorPosition) => {
-      const index = separatorIndex(separator);
+      const index = CDBVS.separatorIndex(separator);
       if (!Number.isInteger(index)) return;
       const positions = separatorRows.get(index) || [];
       positions.push(separatorPosition);
@@ -114,11 +101,11 @@
         if (separatorIndexes[middle] <= rowIndex) { last = separatorIndexes[middle]; low = middle + 1; }
         else high = middle - 1;
       }
-      return last !== null && isSeparatorCollapsed(sheet, last);
+      return last !== null && CDBVS.isSeparatorCollapsed(sheet, last);
     };
-    const selected = selectedRowIndices(sheet);
-    const selectedCellValue = selectedCell(sheet);
-    const cellErrors = cellErrorsForSheet(sheet);
+    const selected = CDBVS.selectedRowIndices(sheet);
+    const selectedCellValue = CDBVS.selectedCell(sheet);
+    const cellErrors = CDBVS.cellErrorsForSheet(sheet);
     rows.forEach(({ row, rowIndex }) => {
       const separators = separatorRows.get(rowIndex);
       if (separators) renderSeparatorRows(body, sheet, rowIndex, separators);
@@ -128,23 +115,23 @@
       if (selected.includes(rowIndex)) tr.className = "row-selected";
       const rowCell = makeElement("td", null, "row-number");
       rowCell.title = "Double-click to edit this row";
-      rowCell.addEventListener("click", (event) => selectRenderedRow(sheet, rowIndex, tr, event));
-      rowCell.addEventListener("dblclick", (event) => { event.preventDefault(); openRowEditor(sheet, rowIndex); });
+      rowCell.addEventListener("click", (event) => CDBVS.selectRenderedRow(sheet, rowIndex, tr, event));
+      rowCell.addEventListener("dblclick", (event) => { event.preventDefault(); CDBVS.openRowEditor(sheet, rowIndex); });
       rowCell.addEventListener("contextmenu", (event) => {
         event.preventDefault();
-        if (!isRowSelected(sheet, rowIndex)) selectRenderedRow(sheet, rowIndex, tr);
-        showRowContextMenu(event, sheet, rowIndex);
+        if (!CDBVS.isRowSelected(sheet, rowIndex)) CDBVS.selectRenderedRow(sheet, rowIndex, tr);
+        CDBVS.showRowContextMenu(event, sheet, rowIndex);
       });
       const rowSelect = makeButton(String(rowIndex + 1), (event) => {
         event.stopPropagation();
-        selectRenderedRow(sheet, rowIndex, tr, event);
+        CDBVS.selectRenderedRow(sheet, rowIndex, tr, event);
       }, "row-select");
       rowSelect.title = `Select row ${rowIndex + 1}`;
       rowSelect.setAttribute("aria-label", rowSelect.title);
       rowCell.appendChild(rowSelect);
       tr.appendChild(rowCell);
       (sheet.columns || []).forEach((column, columnIndex) => {
-        tr.appendChild(renderTableCell(sheet, row, rowIndex, column, columnIndex, tr, cellErrors, selectedCellValue));
+        tr.appendChild(CDBVS.renderTableCell(sheet, row, rowIndex, column, columnIndex, tr, cellErrors, selectedCellValue));
       });
       body.appendChild(tr);
     });

@@ -10,19 +10,11 @@
   const idColumn = CDBVS.idColumn;
   const setPrimaryColumn = CDBVS.setPrimaryColumn;
   const sheetExtraProperties = CDBVS.sheetExtraProperties;
-  const closeActiveModal = CDBVS.closeActiveModal;
-  const setActiveModal = CDBVS.setActiveModal;
-  const closeModal = CDBVS.closeModal;
   const modalField = CDBVS.modalField;
+  const createModal = CDBVS.createModal;
 
   function openSheetEditor(sheet) {
-    closeActiveModal();
-    const overlay = makeElement("div", null, "text-modal-overlay");
-    const dialog = makeElement("section", null, "text-modal column-modal");
-    dialog.setAttribute("role", "dialog");
-    dialog.setAttribute("aria-modal", "true");
-    const heading = makeElement("div", null, "text-modal-heading");
-    heading.appendChild(makeElement("strong", `Edit sheet: ${sheet.name}`));
+    const { dialog, footer, close } = createModal({ className: "column-modal", title: `Edit sheet: ${sheet.name}` });
 
     const props = sheet.props && typeof sheet.props === "object" && !Array.isArray(sheet.props)
       ? Object.assign({}, sheet.props)
@@ -84,8 +76,7 @@
 
     const error = makeElement("div", null, "column-form-error");
     form.appendChild(error);
-    const footer = makeElement("div", null, "text-modal-footer column-modal-footer");
-    const close = () => closeModal(overlay);
+    footer.className = "text-modal-footer column-modal-footer";
     const showError = (message) => { error.textContent = message; };
     const removeSheet = () => {
       close();
@@ -140,7 +131,6 @@
       close();
       renderAfterUpdate();
     };
-    heading.appendChild(makeButton("x", close, "text-modal-close"));
     const moveLeft = makeButton("Move left", () => { close(); moveSheet(sheet, -1); });
     const moveRight = makeButton("Move right", () => { close(); moveSheet(sheet, 1); });
     const visible = visibleSheets();
@@ -152,18 +142,8 @@
     footer.appendChild(makeButton("Delete sheet", removeSheet, "danger-button"));
     footer.appendChild(makeButton("Cancel", close, "modal-cancel"));
     footer.appendChild(makeButton("Save", save, "button primary"));
-    dialog.appendChild(heading);
     dialog.appendChild(form);
     dialog.appendChild(footer);
-    overlay.appendChild(dialog);
-    overlay.addEventListener("click", (event) => {
-      if (event.target === overlay) close();
-    });
-    overlay.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") close();
-    });
-    document.body.appendChild(overlay);
-    setActiveModal(overlay);
     nameInput.focus();
     nameInput.select();
   }

@@ -3,7 +3,6 @@
   const state = CDBVS.state;
   const renderAfterUpdate = CDBVS.renderAfterUpdate;
   const renderNow = CDBVS.renderNow;
-  const setStatus = (message, error) => CDBVS.setStatus(message, error);
   const selectedRowIndex = CDBVS.selectedRowIndex;
   const selectedRowIndices = CDBVS.selectedRowIndices;
   const selectedCell = CDBVS.selectedCell;
@@ -21,12 +20,12 @@
       CDBVS.openNewSheetEditor();
       return;
     }
-    setStatus("The new sheet editor is unavailable.", true);
+      CDBVS.setStatus("The new sheet editor is unavailable.", true);
   }
 
   function addColumn(sheet) {
     if (!sheet) {
-      setStatus("Create or select a sheet before adding a column.", true);
+      CDBVS.setStatus("Create or select a sheet before adding a column.", true);
       return false;
     }
     if (!Array.isArray(sheet.columns)) sheet.columns = [];
@@ -34,7 +33,7 @@
       CDBVS.openNewColumnEditor(sheet, sheet.columns.length);
       return true;
     }
-    setStatus("The new column editor is unavailable.", true);
+    CDBVS.setStatus("The new column editor is unavailable.", true);
     return false;
   }
 
@@ -60,7 +59,7 @@
   function deleteRow(sheet, index) {
     if (!sheet) return false;
     if (typeof CDBVS.openConfirmDialog !== "function") {
-      setStatus("The confirmation dialog is unavailable.", true);
+      CDBVS.setStatus("The confirmation dialog is unavailable.", true);
       return false;
     }
     CDBVS.openConfirmDialog({
@@ -77,7 +76,7 @@
 
   function insertSelectedRow(sheet) {
     if (!sheet) {
-      setStatus("Create or select a sheet before inserting a row.", true);
+      CDBVS.setStatus("Create or select a sheet before inserting a row.", true);
       return false;
     }
     const selected = selectedRowIndex(sheet);
@@ -90,12 +89,12 @@
 
   function deleteSelectedRow(sheet) {
     if (!sheet) {
-      setStatus("Create or select a sheet before deleting a row.", true);
+      CDBVS.setStatus("Create or select a sheet before deleting a row.", true);
       return false;
     }
     const selected = selectedRowIndices(sheet);
     if (!selected.length) {
-      setStatus("Select a row before deleting it.", true);
+      CDBVS.setStatus("Select a row before deleting it.", true);
       return false;
     }
     selected.slice().sort((left, right) => right - left).forEach((index) => deleteRowAt(sheet, index));

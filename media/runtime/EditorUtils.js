@@ -91,6 +91,42 @@
     });
   }
 
+  function renameSheetState(oldName, newName) {
+    const state = CDBVS.state;
+    ["selectedRows", "activeRows", "rowSelectionAnchors", "selectedCells", "activeCells"].forEach((key) => {
+      renameStateKeys(state[key], oldName, newName);
+    });
+    renameStateKeys(state.selectedListRows, oldName, newName, "/");
+    renameStateKeys(state.listSelectionAnchors, oldName, newName, "/");
+    state.expandedLists.clear();
+  }
+
+  function removeSheetState(sheetName) {
+    const state = CDBVS.state;
+    ["selectedRows", "activeRows", "rowSelectionAnchors", "selectedCells", "activeCells"].forEach((key) => {
+      removeStateKeys(state[key], sheetName);
+    });
+    removeStateKeys(state.selectedListRows, sheetName, "/");
+    removeStateKeys(state.listSelectionAnchors, sheetName, "/");
+    state.expandedLists.clear();
+  }
+
+  function clearListState() {
+    const state = CDBVS.state;
+    state.selectedListRows = {};
+    state.listSelectionAnchors = {};
+    state.expandedLists.clear();
+  }
+
+  function commitEditorTarget(editorTarget) {
+    if (!editorTarget || typeof editorTarget.dispatchEvent !== "function") return;
+    if (typeof editorTarget._cdbvsCommit === "function") {
+      editorTarget._cdbvsCommit();
+      return;
+    }
+    editorTarget.dispatchEvent(new Event("change", { bubbles: false }));
+  }
+
   Object.assign(CDBVS, {
     isRecord,
     cloneValue,
@@ -104,6 +140,10 @@
     renderNow,
     renderAfterUpdate,
     renameStateKeys,
-    removeStateKeys
+    removeStateKeys,
+    renameSheetState,
+    removeSheetState,
+    clearListState,
+    commitEditorTarget
   });
 })(window);

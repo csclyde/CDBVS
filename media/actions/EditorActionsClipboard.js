@@ -2,7 +2,6 @@
   const CDBVS = global.CDBVS;
   const state = CDBVS.state;
   const renderAfterUpdate = CDBVS.renderAfterUpdate;
-  const setStatus = (message, error) => CDBVS.setStatus(message, error);
   const selectedRowIndex = CDBVS.selectedRowIndex;
   const selectedRowIndices = CDBVS.selectedRowIndices;
   const selectedCell = CDBVS.selectedCell;
@@ -137,13 +136,13 @@
       navigator.clipboard.readText().then((text) => {
         const cell = parseCellClipboard(text);
         if (!cell) {
-          setStatus("Clipboard does not contain a CDBVS cell.", true);
+          CDBVS.setStatus("Clipboard does not contain a CDBVS cell.", true);
           return;
         }
         state.cellClipboard = cell;
         state.rowClipboard = null;
         pasteCellData(sheet, cell);
-      }).catch(() => setStatus("Unable to read the clipboard.", true));
+      }).catch(() => CDBVS.setStatus("Unable to read the clipboard.", true));
       return true;
     } catch (_) {
       return false;
@@ -159,13 +158,13 @@
       navigator.clipboard.readText().then((text) => {
         const row = parseRowClipboard(text);
         if (!row) {
-          setStatus("Clipboard does not contain a CDBVS row.", true);
+          CDBVS.setStatus("Clipboard does not contain a CDBVS row.", true);
           return;
         }
         state.rowClipboard = { sheetName: sheet.name, rows: row };
         state.cellClipboard = null;
         insertPastedRows(sheet, row);
-      }).catch(() => setStatus("Unable to read the clipboard.", true));
+      }).catch(() => CDBVS.setStatus("Unable to read the clipboard.", true));
       return true;
     } catch (_) {
       return false;

@@ -1,9 +1,7 @@
 (function (global) {
   const CDBVS = global.CDBVS;
   const state = CDBVS.state;
-  const sendUpdate = () => CDBVS.sendUpdate();
   const renderAfterUpdate = CDBVS.renderAfterUpdate;
-  const visibleSheets = (...args) => CDBVS.visibleSheets(...args);
 
   function deleteColumnAt(sheet, index) {
     if (!sheet || !Array.isArray(sheet.columns) || !Number.isInteger(index)) return false;
@@ -71,7 +69,7 @@
     sheet.lines.splice(insertionIndex, 0, nextRow);
     moveSeparators(sheet, (separatorIndexValue) => separatorIndexValue >= insertionIndex ? separatorIndexValue + 1 : separatorIndexValue);
     shiftCollapsedSeparators(sheet, (separatorIndexValue) => separatorIndexValue >= insertionIndex ? separatorIndexValue + 1 : separatorIndexValue);
-    if (notify) sendUpdate();
+    if (notify) CDBVS.sendUpdate();
   }
 
   function moveRow(sheet, index, delta) {
@@ -79,7 +77,7 @@
     const target = index + delta;
     if (target < 0 || target >= sheet.lines.length) return;
     [sheet.lines[index], sheet.lines[target]] = [sheet.lines[target], sheet.lines[index]];
-    sendUpdate();
+    CDBVS.sendUpdate();
   }
 
   function toggleSeparator(sheet, index) {
@@ -91,7 +89,7 @@
       sheet.separators.push(index);
       sheet.separators.sort((a, b) => separatorIndex(a) - separatorIndex(b));
     }
-    sendUpdate();
+    CDBVS.sendUpdate();
   }
 
   function addSeparator(sheet, index) {
@@ -149,7 +147,7 @@
   }
 
   function moveSheet(sheet, delta) {
-    const visible = visibleSheets();
+    const visible = CDBVS.visibleSheets();
     const sheets = visible.filter((candidate) => !visible.some((parent) => parent !== candidate && candidate.name.startsWith(`${parent.name}@`)));
     const index = sheets.indexOf(sheet);
     const target = index + delta;

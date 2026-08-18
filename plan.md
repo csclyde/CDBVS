@@ -12,7 +12,7 @@ The first working editor baseline is in place. The repository now contains a des
 - Added a `CustomTextEditorProvider` named `cdb.editor` for desktop VS Code.
 - Added commands to open, validate, and format `.cdb` documents.
 - Added a `.vscode/launch.json` configuration for starting an Extension Development Host with `F5`.
-- Ported the CastleDB type-string conventions and basic validation into `src/cdbParser.js`, based on the original `cdb/Parser.hx` and `cdb/Data.hx` sources.
+- Ported the CastleDB type-string conventions and basic validation into `src/Parser.js`, based on the original `cdb/Parser.hx` and `cdb/Data.hx` sources.
 - Added a spreadsheet webview with visible-sheet tabs, search/filtering, schema-aware booleans/enums/references/numbers, generic JSON-backed complex values, and automatic workspace edits.
 - Added raw JSON editing for recovery and for CastleDB constructs not yet represented by a specialized control.
 - Added the `cdbvs.showHiddenSheets` setting for optionally exposing CastleDB internal/sub-sheets.
@@ -42,6 +42,7 @@ The first working editor baseline is in place. The repository now contains a des
 - Refactored the webview from one large script into focused runtime, DOM, model, actions, cell, modal, view, and bootstrap modules loaded in dependency order.
 - Added a shared webview utility layer for CastleDB type parsing, value formatting, IDs, cloning, keyed state migration, and persist-then-render mutations; centralized column deletion and host document parsing/replacement so feature modules no longer duplicate those workflows.
 - Consolidated sheet rename/delete behavior into a dedicated sheet-structure model pipeline, centralized modal closing/activation, and routed render-only versus persist-and-render paths through shared runtime helpers.
+- Standardized sheet/list state transitions and editor-target commits in the shared runtime layer, removing storage-level cleanup and commit boilerplate from structural and context-menu modules.
 - Split the webview's cell layer into primitive controls and nested list/property rendering modules.
 - Split actions into clipboard operations and structural row/column/sheet mutations.
 - Split the model into schema/value helpers and view-state, validation, and structural mutation logic.
@@ -148,9 +149,14 @@ These are intentionally still open for the next milestone:
 - The cell-click navigation regression now preserves the first click as selection-only even when the click lands directly on an embedded input, and handles arrow keys during capture; the focused-input click/arrow test passes.
 - The feature-folder organization passes all 44 Node tests, recursive JavaScript syntax checks, and `git diff --check`.
 - The shared-utility refactor reduces repeated plumbing in the feature modules while keeping all 44 Node tests passing; recursive JavaScript syntax checks and `git diff --check` pass. A real VS Code Extension Development Host smoke test remains outstanding.
-- The second refactor pass keeps all 44 Node tests passing after extracting sheet lifecycle logic into `cdbEditorModelSheets.js` and removing repeated modal/render plumbing; recursive syntax checks and `git diff --check` pass, while a real packaged Extension Development Host smoke test remains outstanding.
+- The second refactor pass keeps all 44 Node tests passing after extracting sheet lifecycle logic into `EditorModelSheets.js` and removing repeated modal/render plumbing; recursive syntax checks and `git diff --check` pass, while a real packaged Extension Development Host smoke test remains outstanding.
+- The centralization pass keeps all 44 Node tests passing, with recursive JavaScript syntax checks and `git diff --check` passing; a real packaged Extension Development Host smoke test remains outstanding.
+- Renamed the source, webview, stylesheet, test, and generated package filenames to remove the unnecessary `cdb` filename prefix, and updated all loader, packaging, and documentation references.
+- Removed forwarding-wrapper aliases from webview modules and replaced them with direct `CDBVS` calls, preserving late-bound runtime hooks while eliminating redundant boilerplate; all 44 Node tests, recursive syntax checks, and `git diff --check` pass.
+- Centralized modal shell construction in `EditorModalShared.js`, so individual modals now own only their content and actions; also moved the webview script/style manifest into `src/WebviewFiles.js` for one shared host/test load order.
 - Newly selected table cells now receive programmatic keyboard focus, keeping arrow navigation reliable immediately after a click; regression coverage verifies the first-click focus path.
 - Enter now exits an active cell through the shared blur/commit transition, returning focus to the selected cell; regression coverage verifies Enter toggles activation in both directions.
 - The build-script update passes PowerShell parsing; the build/install flow itself was not run during this change to avoid bumping the project version and installing a new extension instance.
 - Release packaging includes the current README, manifest, runtime files, and `media/icon.png`; the publisher ID is still configured as `cdbvs` and must be created or confirmed in the Marketplace publisher account before publishing.
+- The modal and shared webview-manifest refactor passes all 44 Node tests, recursive JavaScript syntax checks, and `git diff --check`; a real packaged Extension Development Host smoke test remains outstanding.
 - Keep the extension desktop-only and do not bring over the source repository's `src/lvl` or `Level.hx` level editor.

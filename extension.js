@@ -3,8 +3,9 @@ const {
   parseCdb,
   isEditorShapeValid,
   serializeCdb
-} = require("./src/cdbParser");
-const { parseEditableCdb, replaceDocument } = require("./src/cdbDocument");
+} = require("./src/Parser");
+const { parseEditableCdb, replaceDocument } = require("./src/Document");
+const { WEBVIEW_STYLE, WEBVIEW_SCRIPTS } = require("./src/WebviewFiles");
 
 class CdbEditorProvider {
   constructor(context) {
@@ -118,43 +119,10 @@ class CdbEditorProvider {
   }
 
   getHtml(webview, mediaRoot) {
-    const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(mediaRoot, "cdbEditor.css"));
-    const scriptUris = [
-      "runtime/cdbEditorRuntime.js",
-      "runtime/cdbEditorDom.js",
-      "runtime/cdbEditorUtils.js",
-      "model/cdbEditorModelSchema.js",
-      "model/cdbEditorModel.js",
-      "model/cdbEditorModelErrors.js",
-      "model/cdbEditorModelStructure.js",
-      "model/cdbEditorModelSheets.js",
-      "model/cdbEditorSelection.js",
-      "actions/cdbEditorActionsClipboard.js",
-      "actions/cdbEditorActions.js",
-      "modals/cdbEditorModalShared.js",
-      "modals/cdbEditorModalsConfirm.js",
-      "modals/cdbEditorModalsRows.js",
-      "modals/cdbEditorModalsColumns.js",
-      "modals/cdbEditorModalsSheetCreate.js",
-      "modals/cdbEditorModalsSheetDelete.js",
-      "modals/cdbEditorModalsSheets.js",
-      "modals/cdbEditorModalsTypes.js",
-      "modals/cdbEditorModalsFilters.js",
-      "modals/cdbEditorModals.js",
-      "cells/cdbEditorCellsLists.js",
-      "cells/cdbEditorCellsProperties.js",
-      "cells/cdbEditorCells.js",
-      "view/cdbEditorViewControls.js",
-      "view/cdbEditorViewContextMenus.js",
-      "view/cdbEditorViewSelection.js",
-      "view/cdbEditorViewTableHeader.js",
-      "view/cdbEditorViewTableCells.js",
-      "view/cdbEditorViewTableRows.js",
-      "view/cdbEditorViewTable.js",
-      "view/cdbEditorView.js",
-      "view/cdbEditorViewKeyboard.js",
-      "bootstrap/cdbEditor.js"
-    ].map((name) => webview.asWebviewUri(vscode.Uri.joinPath(mediaRoot, name)));
+    const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(mediaRoot, WEBVIEW_STYLE));
+    const scriptUris = WEBVIEW_SCRIPTS.map(([file, folder]) => {
+      return webview.asWebviewUri(vscode.Uri.joinPath(mediaRoot, folder, file));
+    });
     const nonce = String(Date.now());
     return `<!DOCTYPE html>
 <html lang="en">

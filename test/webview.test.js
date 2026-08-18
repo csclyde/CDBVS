@@ -129,7 +129,7 @@ test("focused text edits synchronize before save without waiting for blur", () =
   target.columns = [{ name: "title", typeStr: "1" }];
   target.lines = [{ title: "initial" }];
   const harness = createWebviewHarness({ customTypes: [], sheets: [target] });
-  loadScript(harness.context, "cdbEditorCells.js");
+  loadScript(harness.context, "EditorCells.js");
   const cell = harness.document.createElement("td");
   harness.CDBVS.makeCellEditor(cell, target.lines[0], target.columns[0], { sheet: target, rowIndex: 0, path: "Players/0" });
   const input = cell.querySelector("input");
@@ -153,7 +153,7 @@ test("blank editors and cell clearing serialize null instead of omission or defa
   ];
   target.lines = [{ title: "text", target: "target-1", score: 10 }];
   const harness = createWebviewHarness({ customTypes: [], sheets: [target, refs] });
-  loadScript(harness.context, "cdbEditorCells.js");
+  loadScript(harness.context, "EditorCells.js");
 
   const row = target.lines[0];
   const titleCell = harness.document.createElement("td");
@@ -198,8 +198,8 @@ test("Ctrl/Cmd+S commits a focused cell and requests a document save", () => {
   harness.CDBVS.app = harness.document.createElement("div");
   harness.CDBVS.rememberViewport = () => {};
   harness.CDBVS.restoreViewport = () => {};
-  loadScript(harness.context, "cdbEditorCells.js");
-  loadScript(harness.context, "cdbEditorView.js");
+  loadScript(harness.context, "EditorCells.js");
+  loadScript(harness.context, "EditorView.js");
   let saveRequests = 0;
   harness.CDBVS.requestSave = () => { saveRequests += 1; };
   harness.CDBVS.render();
@@ -231,8 +231,8 @@ test("arrow navigation updates selection in place without rebuilding the sheet",
   harness.CDBVS.app = harness.document.createElement("div");
   harness.CDBVS.rememberViewport = () => {};
   harness.CDBVS.restoreViewport = () => {};
-  loadScript(harness.context, "cdbEditorCells.js");
-  loadScript(harness.context, "cdbEditorView.js");
+  loadScript(harness.context, "EditorCells.js");
+  loadScript(harness.context, "EditorView.js");
   let renderCount = 0;
   const render = harness.CDBVS.render;
   harness.CDBVS.render = () => { renderCount += 1; render(); };
@@ -281,8 +281,8 @@ test("arrow navigation commits a dirty cell without rebuilding the sheet", () =>
   harness.CDBVS.app = harness.document.createElement("div");
   harness.CDBVS.rememberViewport = () => {};
   harness.CDBVS.restoreViewport = () => {};
-  loadScript(harness.context, "cdbEditorCells.js");
-  loadScript(harness.context, "cdbEditorView.js");
+  loadScript(harness.context, "EditorCells.js");
+  loadScript(harness.context, "EditorView.js");
   let renderCount = 0;
   const render = harness.CDBVS.render;
   harness.CDBVS.render = () => { renderCount += 1; render(); };
@@ -312,8 +312,8 @@ test("cells select first and activate on the second click or Enter", () => {
   harness.CDBVS.app = harness.document.createElement("div");
   harness.CDBVS.rememberViewport = () => {};
   harness.CDBVS.restoreViewport = () => {};
-  loadScript(harness.context, "cdbEditorCells.js");
-  loadScript(harness.context, "cdbEditorView.js");
+  loadScript(harness.context, "EditorCells.js");
+  loadScript(harness.context, "EditorView.js");
   harness.CDBVS.render();
 
   const titleCell = harness.CDBVS.app.querySelectorAll("td").find((cell) => cell.dataset.columnIndex === "0");
@@ -377,8 +377,8 @@ test("arrow keys select an initial cell before any cell has been selected", () =
   harness.CDBVS.app = harness.document.createElement("div");
   harness.CDBVS.rememberViewport = () => {};
   harness.CDBVS.restoreViewport = () => {};
-  loadScript(harness.context, "cdbEditorCells.js");
-  loadScript(harness.context, "cdbEditorView.js");
+  loadScript(harness.context, "EditorCells.js");
+  loadScript(harness.context, "EditorView.js");
   harness.CDBVS.render();
 
   let prevented = false;
@@ -402,7 +402,7 @@ test("list-cell edits refresh locally instead of rerendering the whole sheet", (
   parent.lines = [{ members: [{ name: "Ada" }] }];
   const child = { name: "Groups@members", columns: [{ name: "name", typeStr: "1" }], lines: [], props: {} };
   const harness = createWebviewHarness({ customTypes: [], sheets: [parent, child] });
-  loadScript(harness.context, "cdbEditorCells.js");
+  loadScript(harness.context, "EditorCells.js");
   const context = { sheet: parent, rowIndex: 0, path: "Groups/0" };
   const key = harness.CDBVS.listKey(context, listColumn);
   harness.state.expandedLists.add(key);
@@ -424,7 +424,7 @@ test("nested list items show selection and delete immediately", () => {
   parent.lines = [{ members: [{ name: "Ada" }, { name: "Grace" }] }];
   const child = { name: "Groups@members", columns: [{ name: "name", typeStr: "1" }], lines: [], props: {} };
   const harness = createWebviewHarness({ customTypes: [], sheets: [parent, child] });
-  loadScript(harness.context, "cdbEditorCells.js");
+  loadScript(harness.context, "EditorCells.js");
   const context = { sheet: parent, rowIndex: 0, path: "Groups/0" };
   const key = harness.CDBVS.listKey(context, listColumn);
   harness.state.expandedLists.add(key);
@@ -454,7 +454,7 @@ test("Delete key removes the selected nested list item", () => {
   parent.lines = [{ members: [{ name: "Ada" }, { name: "Grace" }] }];
   const child = { name: "Groups@members", columns: [{ name: "name", typeStr: "1" }], lines: [], props: {} };
   const harness = createWebviewHarness({ customTypes: [], sheets: [parent, child] });
-  loadScript(harness.context, "cdbEditorCells.js");
+  loadScript(harness.context, "EditorCells.js");
   const context = { sheet: parent, rowIndex: 0, path: "Groups/0" };
   const key = harness.CDBVS.listKey(context, listColumn);
   harness.state.expandedLists.add(key);
@@ -476,7 +476,7 @@ test("nested list items support multi-select and insert after the active item", 
   parent.lines = [{ members: [{ name: "Ada" }, { name: "Grace" }, { name: "Lee" }] }];
   const child = { name: "Groups@members", columns: [{ name: "name", typeStr: "1" }], lines: [], props: {} };
   const harness = createWebviewHarness({ customTypes: [], sheets: [parent, child] });
-  loadScript(harness.context, "cdbEditorCells.js");
+  loadScript(harness.context, "EditorCells.js");
   const context = { sheet: parent, rowIndex: 0, path: "Groups/0" };
   const key = harness.CDBVS.listKey(context, listColumn);
   harness.state.expandedLists.add(key);
@@ -504,7 +504,7 @@ test("deleting multiple selected nested list items removes them together", () =>
   parent.lines = [{ members: [{ name: "Ada" }, { name: "Grace" }, { name: "Lee" }] }];
   const child = { name: "Groups@members", columns: [{ name: "name", typeStr: "1" }], lines: [], props: {} };
   const harness = createWebviewHarness({ customTypes: [], sheets: [parent, child] });
-  loadScript(harness.context, "cdbEditorCells.js");
+  loadScript(harness.context, "EditorCells.js");
   const context = { sheet: parent, rowIndex: 0, path: "Groups/0" };
   const key = harness.CDBVS.listKey(context, listColumn);
   harness.state.expandedLists.add(key);
@@ -549,9 +549,9 @@ test("document messages can leave raw recovery mode after a valid update", () =>
     addEventListener(type, handler) { if (type === "message") messageHandler = handler; }
   };
   context.window = context;
-  loadScript(context, "cdbEditorRuntime.js");
+  loadScript(context, "EditorRuntime.js");
   context.CDBVS.render = () => {};
-  loadScript(context, "cdbEditor.js");
+  loadScript(context, "Editor.js");
 
   messageHandler({ data: { type: "document", text: "bad", data: {}, issues: ["invalid"], rawMode: true, showHiddenSheets: false } });
   assert.equal(context.CDBVS.state.rawMode, true);
@@ -781,8 +781,8 @@ test("the entire bottom sheet dock opens New sheet from its context menu", () =>
   harness.CDBVS.rememberViewport = () => {};
   harness.CDBVS.restoreViewport = () => {};
   harness.CDBVS.makeCellEditor = () => {};
-  loadScript(harness.context, "cdbEditorCells.js");
-  loadScript(harness.context, "cdbEditorView.js");
+  loadScript(harness.context, "EditorCells.js");
+  loadScript(harness.context, "EditorView.js");
   harness.CDBVS.render();
   const sheetsBar = harness.CDBVS.app.querySelector(".sheets");
   assert.ok(sheetsBar);

@@ -1,4 +1,4 @@
-const { parseCdb, isEditorShapeValid } = require("./cdbParser");
+const { parseCdb, isEditorShapeValid } = require("./Parser");
 
 const INVALID_SHAPE_MESSAGE = "CastleDB data must contain valid sheets, columns, rows, and custom type arrays before it can be applied.";
 

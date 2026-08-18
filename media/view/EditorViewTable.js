@@ -4,9 +4,6 @@
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
   const renderAfterUpdate = CDBVS.renderAfterUpdate;
-  const setStatus = (message, error) => CDBVS.setStatus(message, error);
-  const renderTableHeader = (...args) => CDBVS.renderTableHeader(...args);
-  const renderTableBody = (...args) => CDBVS.renderTableBody(...args);
 
   function renderRaw(container) {
     const raw = document.createElement("textarea");
@@ -21,7 +18,7 @@
         state.data = parsed;
         renderAfterUpdate();
       } catch (error) {
-        setStatus(`Invalid JSON: ${error.message}`, true);
+        CDBVS.setStatus(`Invalid JSON: ${error.message}`, true);
       }
     }, "button primary raw-apply"));
   }
@@ -33,8 +30,8 @@
     }
     const tableWrap = makeElement("div", null, "table-wrap");
     const table = document.createElement("table");
-    table.appendChild(renderTableHeader(sheet));
-    table.appendChild(renderTableBody(sheet));
+    table.appendChild(CDBVS.renderTableHeader(sheet));
+    table.appendChild(CDBVS.renderTableBody(sheet));
     tableWrap.appendChild(table);
     container.appendChild(tableWrap);
     const horizontalScroll = makeElement("div", null, "horizontal-scroll-dock");

@@ -3,28 +3,19 @@
   const state = CDBVS.state;
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
-  const setStatus = (message, error) => CDBVS.setStatus(message, error);
   const typeOf = CDBVS.typeOf;
   const typeLabel = CDBVS.typeLabel;
   const viewForSheet = CDBVS.viewForSheet;
   const referenceOptions = CDBVS.referenceOptions;
-  const closeActiveModal = CDBVS.closeActiveModal;
-  const closeModal = CDBVS.closeModal;
-  const setActiveModal = CDBVS.setActiveModal;
   const renderNow = CDBVS.renderNow;
+  const createModal = CDBVS.createModal;
 
   function openFilterModal(sheet) {
     if (!sheet) {
-      setStatus("Select a sheet before configuring filters.", true);
+      CDBVS.setStatus("Select a sheet before configuring filters.", true);
       return;
     }
-    closeActiveModal();
-    const overlay = makeElement("div", null, "text-modal-overlay");
-    const dialog = makeElement("section", null, "text-modal filter-modal");
-    dialog.setAttribute("role", "dialog");
-    dialog.setAttribute("aria-modal", "true");
-    const heading = makeElement("div", null, "text-modal-heading");
-    heading.appendChild(makeElement("strong", `Filter: ${sheet.name}`));
+    const { dialog, footer, close } = createModal({ className: "filter-modal", title: `Filter: ${sheet.name}` });
     const view = viewForSheet(sheet);
     const draftFilters = CDBVS.cloneValue(view.filters) || {};
     const form = makeElement("div", null, "filter-form");
@@ -133,24 +124,15 @@
       controls.appendChild(field);
     });
     form.appendChild(controls);
-    const footer = makeElement("div", null, "text-modal-footer");
-    const close = () => closeModal(overlay);
     const apply = () => {
       state.columnFilters[sheet.name] = draftFilters;
       close();
       renderNow();
     };
-    heading.appendChild(makeButton("x", close, "text-modal-close"));
     footer.appendChild(makeButton("Cancel", close, "modal-cancel"));
     footer.appendChild(makeButton("Apply", apply, "button primary"));
-    dialog.appendChild(heading);
     dialog.appendChild(form);
     dialog.appendChild(footer);
-    overlay.appendChild(dialog);
-    overlay.addEventListener("click", (event) => { if (event.target === overlay) close(); });
-    overlay.addEventListener("keydown", (event) => { if (event.key === "Escape") close(); });
-    document.body.appendChild(overlay);
-    setActiveModal(overlay);
     const firstControl = controls.querySelector("input, select");
     if (firstControl) firstControl.focus();
   }

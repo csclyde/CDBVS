@@ -8,10 +8,7 @@
   const valueText = CDBVS.valueText;
   const colorText = CDBVS.colorText;
   const referenceOptions = CDBVS.referenceOptions;
-  const sendUpdate = () => CDBVS.sendUpdate();
   const renderNow = CDBVS.renderNow;
-  const setStatus = (message, error) => CDBVS.setStatus(message, error);
-  const openTextEditor = (...args) => CDBVS.openTextEditor(...args);
 
   function canSyncInputValue(type, input) {
     const value = String(input.value || "").trim();
@@ -66,7 +63,7 @@
           if (column.opt && current === 0) row[column.name] = null;
           else row[column.name] = current;
           if (!cellContext.deferChanges) {
-            sendUpdate();
+            CDBVS.sendUpdate();
             refreshAfterCommit();
           }
         });
@@ -114,19 +111,19 @@
       needsCommit = true;
       row[column.name] = next;
       if (typeof CDBVS.scheduleUpdate === "function") CDBVS.scheduleUpdate();
-      else sendUpdate();
+      else CDBVS.sendUpdate();
     });
     input.addEventListener("change", () => {
       const next = readValue(input, column);
       const complex = [8, 9, 14, 15, 16, 17, 18, 19].includes(type.code);
       if (complex && input.value !== "" && next === undefined) {
-        setStatus("Complex values must contain valid JSON before they can be saved.", true);
+        CDBVS.setStatus("Complex values must contain valid JSON before they can be saved.", true);
         return;
       }
       if (next !== undefined) row[column.name] = next;
       needsCommit = false;
       if (!cellContext.deferChanges) {
-        sendUpdate();
+        CDBVS.sendUpdate();
         refreshAfterCommit();
       }
     });
@@ -134,7 +131,7 @@
       input.title = `${column.name} (text) - double-click to open the larger editor`;
       input.addEventListener("dblclick", (event) => {
         event.preventDefault();
-        openTextEditor(row, column, input);
+        CDBVS.openTextEditor(row, column, input);
       });
     }
     cell.appendChild(input);

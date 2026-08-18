@@ -5,7 +5,6 @@
   const makeButton = CDBVS.makeButton;
   const listKey = CDBVS.listKey;
   const listPreview = CDBVS.listPreview;
-  const makeCellEditor = (...args) => CDBVS.makeCellEditor(...args);
 
   function renderPropertiesCell(cell, row, column, context, schema) {
     const deferChanges = context && context.deferChanges === true;
@@ -58,7 +57,7 @@
       label.appendChild(makeElement("span", childColumn.name || "?"));
       propertyRow.appendChild(label);
       const propertyCell = document.createElement("td");
-      makeCellEditor(propertyCell, properties, childColumn, {
+      CDBVS.makeCellEditor(propertyCell, properties, childColumn, {
         sheet: schema,
         rowIndex: 0,
         path: `${context.path}/${column.name}/properties`,

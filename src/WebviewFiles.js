@@ -1,0 +1,40 @@
+const WEBVIEW_STYLE = "Editor.css";
+
+const WEBVIEW_SCRIPTS = [
+  ["EditorRuntime.js", "runtime"],
+  ["EditorDom.js", "runtime"],
+  ["EditorUtils.js", "runtime"],
+  ["EditorModelSchema.js", "model"],
+  ["EditorModel.js", "model"],
+  ["EditorModelErrors.js", "model"],
+  ["EditorModelStructure.js", "model"],
+  ["EditorModelSheets.js", "model"],
+  ["EditorSelection.js", "model"],
+  ["EditorActionsClipboard.js", "actions"],
+  ["EditorActions.js", "actions"],
+  ["EditorModalShared.js", "modals"],
+  ["EditorModalsConfirm.js", "modals"],
+  ["EditorModalsRows.js", "modals"],
+  ["EditorModalsColumns.js", "modals"],
+  ["EditorModalsSheetCreate.js", "modals"],
+  ["EditorModalsSheetDelete.js", "modals"],
+  ["EditorModalsSheets.js", "modals"],
+  ["EditorModalsTypes.js", "modals"],
+  ["EditorModalsFilters.js", "modals"],
+  ["EditorModals.js", "modals"],
+  ["EditorCellsLists.js", "cells"],
+  ["EditorCellsProperties.js", "cells"],
+  ["EditorCells.js", "cells"],
+  ["EditorViewControls.js", "view"],
+  ["EditorViewContextMenus.js", "view"],
+  ["EditorViewSelection.js", "view"],
+  ["EditorViewTableHeader.js", "view"],
+  ["EditorViewTableCells.js", "view"],
+  ["EditorViewTableRows.js", "view"],
+  ["EditorViewTable.js", "view"],
+  ["EditorView.js", "view"],
+  ["EditorViewKeyboard.js", "view"],
+  ["Editor.js", "bootstrap"]
+];
+
+module.exports = { WEBVIEW_STYLE, WEBVIEW_SCRIPTS };

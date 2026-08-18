@@ -1,28 +1,14 @@
 (function (global) {
   const CDBVS = global.CDBVS;
-  const typeOf = (...args) => CDBVS.typeOf(...args);
-  const selectedCell = (...args) => CDBVS.selectedCell(...args);
-  const isRowSelected = (...args) => CDBVS.isRowSelected(...args);
-  const cellErrorKey = (...args) => CDBVS.cellErrorKey(...args);
-  const cellErrorsForSheet = (...args) => CDBVS.cellErrorsForSheet(...args);
-  const selectRow = (...args) => CDBVS.selectRow(...args);
-  const selectRowWithModifiers = (...args) => CDBVS.selectRowWithModifiers(...args);
-  const selectCell = (...args) => CDBVS.selectCell(...args);
-  const activeCell = (...args) => CDBVS.activeCell(...args);
-  const activateCell = (...args) => CDBVS.activateCell(...args);
-  const deactivateCell = (...args) => CDBVS.deactivateCell(...args);
-  const currentSheet = (...args) => CDBVS.currentSheet(...args);
-  const commitEditorTarget = (...args) => CDBVS.commitEditorTarget(...args);
-
   function renderedRoot() {
     const app = CDBVS.app;
     return app && typeof app.querySelectorAll === "function" ? app : document;
   }
 
   function markRenderedRowSelected() {
-    const sheet = currentSheet();
+    const sheet = CDBVS.currentSheet();
     renderedRoot().querySelectorAll(".table-wrap tr").forEach((row) => {
-      if (isRowSelected(sheet, Number.parseInt(row.dataset.rowIndex, 10))) row.classList.add("row-selected");
+      if (CDBVS.isRowSelected(sheet, Number.parseInt(row.dataset.rowIndex, 10))) row.classList.add("row-selected");
       else row.classList.remove("row-selected");
     });
   }
@@ -59,14 +45,14 @@
     if (!cell) return false;
     const column = (sheet.columns || [])[columnIndex];
     if (!column) return false;
-    const errorsForSheet = cellErrorsForSheet(sheet);
-    applyCellErrors(cell, errorsForSheet[cellErrorKey(rowIndex, column.name)] || [], typeOf(column).code === 0 ? "Double-click to edit this row" : "");
-    if (typeOf(column).code === 0) {
+    const errorsForSheet = CDBVS.cellErrorsForSheet(sheet);
+    applyCellErrors(cell, errorsForSheet[CDBVS.cellErrorKey(rowIndex, column.name)] || [], CDBVS.typeOf(column).code === 0 ? "Double-click to edit this row" : "");
+    if (CDBVS.typeOf(column).code === 0) {
       renderedRoot().querySelectorAll(".table-wrap tr").forEach((row) => {
         const renderedRowIndex = Number.parseInt(row.dataset.rowIndex, 10);
         const idCell = Array.from(row.children).find((item) => Number.parseInt(item.dataset && item.dataset.columnIndex, 10) === columnIndex);
         if (idCell && renderedRowIndex !== rowIndex) {
-          const otherErrors = errorsForSheet[cellErrorKey(renderedRowIndex, column.name)] || [];
+          const otherErrors = errorsForSheet[CDBVS.cellErrorKey(renderedRowIndex, column.name)] || [];
           applyCellErrors(idCell, otherErrors, "Double-click to edit this row");
         }
       });
@@ -99,7 +85,7 @@
   }
 
   function activateRenderedCell(sheet, rowIndex, columnIndex, event) {
-    if (!activateCell(sheet, rowIndex, columnIndex)) return false;
+    if (!CDBVS.activateCell(sheet, rowIndex, columnIndex)) return false;
     const cell = findRenderedCell(rowIndex, columnIndex);
     if (!cell) return true;
     const controls = Array.from(cell.querySelectorAll("input, select, textarea, button"));
@@ -123,7 +109,7 @@
   }
 
   function exitRenderedCell(sheet) {
-    const active = activeCell(sheet);
+    const active = CDBVS.activeCell(sheet);
     if (!active) return false;
     const cell = findRenderedCell(active.rowIndex, active.columnIndex);
     const focused = document.activeElement;
@@ -131,26 +117,26 @@
     const editorTarget = focusedInCell && focused.closest && focused.closest("input, textarea, select, [contenteditable=\"true\"]")
       || (cell && cell.querySelector("input, textarea, select, [contenteditable=\"true\"]"));
     if (focusedInCell && typeof focused.blur === "function") focused.blur();
-    if (editorTarget) commitEditorTarget(editorTarget);
-    deactivateCell(sheet);
+    if (editorTarget) CDBVS.commitEditorTarget(editorTarget);
+    CDBVS.deactivateCell(sheet);
     if (cell && typeof cell.focus === "function") cell.focus({ preventScroll: true });
     return true;
   }
 
   function selectRenderedRow(sheet, rowIndex, rowElement, event) {
-    const previous = selectedCell(sheet);
-    if (previous) exitRenderedCell(sheet);
-    if (event && (event.shiftKey || event.ctrlKey || event.metaKey)) selectRowWithModifiers(sheet, rowIndex, event);
-    else selectRow(sheet, rowIndex);
-    updateRenderedSelection(sheet, previous, null);
+    const previous = CDBVS.selectedCell(sheet);
+    if (previous) CDBVS.exitRenderedCell(sheet);
+    if (event && (event.shiftKey || event.ctrlKey || event.metaKey)) CDBVS.selectRowWithModifiers(sheet, rowIndex, event);
+    else CDBVS.selectRow(sheet, rowIndex);
+    CDBVS.updateRenderedSelection(sheet, previous, null);
     markRenderedRowSelected(rowElement);
   }
 
   function selectRenderedCell(sheet, rowIndex, columnIndex, rowElement, cellElement) {
-    const previous = selectedCell(sheet);
-    if (!previous || previous.rowIndex !== rowIndex || previous.columnIndex !== columnIndex) exitRenderedCell(sheet);
-    selectCell(sheet, rowIndex, columnIndex);
-    updateRenderedSelection(sheet, previous, selectedCell(sheet));
+    const previous = CDBVS.selectedCell(sheet);
+    if (!previous || previous.rowIndex !== rowIndex || previous.columnIndex !== columnIndex) CDBVS.exitRenderedCell(sheet);
+    CDBVS.selectCell(sheet, rowIndex, columnIndex);
+    CDBVS.updateRenderedSelection(sheet, previous, CDBVS.selectedCell(sheet));
     if (cellElement && !cellElement.classList.contains("cell-selected")) cellElement.classList.add("cell-selected");
     markRenderedRowSelected(rowElement);
   }

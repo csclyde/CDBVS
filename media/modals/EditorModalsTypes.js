@@ -3,33 +3,22 @@
   const state = CDBVS.state;
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
-  const setStatus = (message, error) => CDBVS.setStatus(message, error);
   const typeOf = CDBVS.typeOf;
-  const closeActiveModal = CDBVS.closeActiveModal;
-  const closeModal = CDBVS.closeModal;
-  const setActiveModal = CDBVS.setActiveModal;
   const renderAfterUpdate = CDBVS.renderAfterUpdate;
+  const createModal = CDBVS.createModal;
 
   function openTypesEditor() {
     if (!state.data || typeof state.data !== "object") {
-      setStatus("Load a valid CastleDB document before editing custom types.", true);
+      CDBVS.setStatus("Load a valid CastleDB document before editing custom types.", true);
       return;
     }
-    closeActiveModal();
-    const overlay = makeElement("div", null, "text-modal-overlay");
-    const dialog = makeElement("section", null, "text-modal types-modal");
-    dialog.setAttribute("role", "dialog");
-    dialog.setAttribute("aria-modal", "true");
-    const heading = makeElement("div", null, "text-modal-heading");
-    heading.appendChild(makeElement("strong", "Edit custom types"));
+    const { overlay, dialog, footer, close } = createModal({ className: "types-modal", title: "Edit custom types" });
     const hint = makeElement("p", "Edit the CastleDB customTypes JSON array. Each type contains cases with name and args fields.", "types-hint");
     const textarea = document.createElement("textarea");
     textarea.className = "types-editor";
     textarea.spellcheck = false;
     textarea.value = JSON.stringify(state.data.customTypes || [], null, "\t");
     const error = makeElement("div", null, "column-form-error");
-    const footer = makeElement("div", null, "text-modal-footer");
-    const close = () => closeModal(overlay);
     const save = () => {
       let customTypes;
       try {
@@ -59,22 +48,15 @@
       close();
       renderAfterUpdate();
     };
-    heading.appendChild(makeButton("x", close, "text-modal-close"));
     footer.appendChild(makeButton("Cancel", close));
     footer.appendChild(makeButton("Save", save, "button primary"));
-    dialog.appendChild(heading);
     dialog.appendChild(hint);
     dialog.appendChild(textarea);
     dialog.appendChild(error);
     dialog.appendChild(footer);
-    overlay.appendChild(dialog);
-    overlay.addEventListener("click", (event) => { if (event.target === overlay) close(); });
     overlay.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") close();
       if ((event.ctrlKey || event.metaKey) && event.key === "Enter") save();
     });
-    document.body.appendChild(overlay);
-    setActiveModal(overlay);
     textarea.focus();
   }
 

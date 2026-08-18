@@ -5,14 +5,13 @@
   const makeButton = CDBVS.makeButton;
   const renderAfterUpdate = CDBVS.renderAfterUpdate;
   const typeOf = CDBVS.typeOf;
-  const closeModal = CDBVS.closeModal;
-  const closeActiveModal = CDBVS.closeActiveModal;
-  const setActiveModal = CDBVS.setActiveModal;
   const renameViewColumn = CDBVS.renameViewColumn;
   const moveColumn = CDBVS.moveColumn;
   const deleteColumnAt = CDBVS.deleteColumnAt;
   const mapTypeStrings = CDBVS.mapTypeStrings;
   const setPrimaryColumn = CDBVS.setPrimaryColumn;
+  const clearListState = CDBVS.clearListState;
+  const createModal = CDBVS.createModal;
   const columnTypeOptions = [
     [0, "Primary ID"], [1, "Text"], [2, "Boolean"], [3, "Integer"], [4, "Float"],
     [5, "Enum"], [6, "Reference"], [7, "Image"], [8, "List"], [9, "Custom type"],
@@ -29,20 +28,11 @@
     return field;
   }
 
-  function closeExistingModal() {
-    closeActiveModal();
-    const existing = document.querySelector && document.querySelector(".text-modal-overlay");
-    if (existing) existing.remove();
-  }
-
   function openColumnEditor(sheet, column, columnIndex, isNew = false) {
-    closeExistingModal();
-    const overlay = makeElement("div", null, "text-modal-overlay");
-    const dialog = makeElement("section", null, "text-modal column-modal column-editor-modal");
-    dialog.setAttribute("role", "dialog");
-    dialog.setAttribute("aria-modal", "true");
-    const heading = makeElement("div", null, "text-modal-heading");
-    heading.appendChild(makeElement("strong", `${isNew ? "Add" : "Edit"} column${isNew ? "" : `: ${column.name}`}`));
+    const { dialog, heading, footer, close } = createModal({
+      className: "column-modal column-editor-modal",
+      title: `${isNew ? "Add" : "Edit"} column${isNew ? "" : `: ${column.name}`}`
+    });
     const form = makeElement("div", null, "column-form");
     const nameInput = document.createElement("input");
     nameInput.type = "text";
@@ -91,8 +81,7 @@
     typeSelect.addEventListener("change", updateTypeControls);
     const error = makeElement("div", null, "column-form-error");
     form.appendChild(error);
-    const footer = makeElement("div", null, "text-modal-footer column-modal-footer");
-    const close = () => closeModal(overlay);
+    footer.className = "text-modal-footer column-modal-footer";
     const showError = (message) => { error.textContent = message; };
     const removeColumn = () => {
       if (isNew) { close(); return; }
@@ -129,9 +118,7 @@
         if (sheet.props && sheet.props.displayColumn === oldName) sheet.props.displayColumn = newName;
         if (sheet.props && sheet.props.displayIcon === oldName) sheet.props.displayIcon = newName;
         renameViewColumn(sheet.name, oldName, newName);
-        state.expandedLists.clear();
-        state.selectedListRows = {};
-        state.listSelectionAnchors = {};
+        clearListState();
       }
       column.name = newName;
       column[typeProperty] = selectedType;
@@ -143,7 +130,6 @@
       close();
       renderAfterUpdate();
     };
-    heading.appendChild(makeButton("x", close, "text-modal-close"));
     const moveLeft = makeButton("Move left", () => { close(); moveColumn(sheet, columnIndex, -1); });
     moveLeft.disabled = isNew || columnIndex <= 0;
     const moveRight = makeButton("Move right", () => { close(); moveColumn(sheet, columnIndex, 1); });
@@ -153,14 +139,8 @@
     footer.appendChild(makeButton(isNew ? "Discard column" : "Delete column", removeColumn, "danger-button"));
     footer.appendChild(makeButton("Cancel", close, "modal-cancel"));
     footer.appendChild(makeButton("Save", save, "button primary"));
-    dialog.appendChild(heading);
     dialog.appendChild(form);
     dialog.appendChild(footer);
-    overlay.appendChild(dialog);
-    overlay.addEventListener("click", (event) => { if (event.target === overlay) close(); });
-    overlay.addEventListener("keydown", (event) => { if (event.key === "Escape") close(); });
-    document.body.appendChild(overlay);
-    setActiveModal(overlay);
     nameInput.focus();
     nameInput.select();
   }

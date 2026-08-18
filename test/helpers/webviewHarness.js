@@ -2,18 +2,10 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 const { FakeDocument, FakeOption } = require("./fakeDom");
+const { WEBVIEW_SCRIPTS } = require("../../src/WebviewFiles");
 
 const mediaRoot = path.resolve(__dirname, "..", "..", "media");
-const scriptFolders = new Map([
-  ["cdbEditorRuntime.js", "runtime"], ["cdbEditorDom.js", "runtime"], ["cdbEditorUtils.js", "runtime"],
-  ["cdbEditorModelSchema.js", "model"], ["cdbEditorModel.js", "model"], ["cdbEditorModelErrors.js", "model"], ["cdbEditorModelStructure.js", "model"], ["cdbEditorModelSheets.js", "model"], ["cdbEditorSelection.js", "model"],
-  ["cdbEditorActionsClipboard.js", "actions"], ["cdbEditorActions.js", "actions"],
-  ["cdbEditorModalShared.js", "modals"], ["cdbEditorModalsConfirm.js", "modals"], ["cdbEditorModalsRows.js", "modals"], ["cdbEditorModalsColumns.js", "modals"],
-  ["cdbEditorModalsSheetCreate.js", "modals"], ["cdbEditorModalsSheetDelete.js", "modals"], ["cdbEditorModalsSheets.js", "modals"], ["cdbEditorModalsTypes.js", "modals"], ["cdbEditorModalsFilters.js", "modals"], ["cdbEditorModals.js", "modals"],
-  ["cdbEditorCellsLists.js", "cells"], ["cdbEditorCellsProperties.js", "cells"], ["cdbEditorCells.js", "cells"],
-  ["cdbEditorViewControls.js", "view"], ["cdbEditorViewContextMenus.js", "view"], ["cdbEditorViewSelection.js", "view"], ["cdbEditorViewTableHeader.js", "view"], ["cdbEditorViewTableCells.js", "view"], ["cdbEditorViewTableRows.js", "view"], ["cdbEditorViewTable.js", "view"], ["cdbEditorViewKeyboard.js", "view"], ["cdbEditorView.js", "view"],
-  ["cdbEditor.js", "bootstrap"]
-]);
+const scriptFolders = new Map(WEBVIEW_SCRIPTS);
 
 function loadScript(context, name) {
   const filename = path.join(mediaRoot, scriptFolders.get(name) || path.dirname(name), path.basename(name));
@@ -114,35 +106,35 @@ function createWebviewHarness(data) {
   context.prompt = () => { throw new Error("Native prompt must not be called."); };
   context.confirm = () => { throw new Error("Native confirm must not be called."); };
 
-  loadScript(context, "cdbEditorUtils.js");
-  loadScript(context, "cdbEditorModelSchema.js");
-  loadScript(context, "cdbEditorModel.js");
-  loadScript(context, "cdbEditorModelErrors.js");
-  loadScript(context, "cdbEditorModelStructure.js");
-  loadScript(context, "cdbEditorModelSheets.js");
-  loadScript(context, "cdbEditorSelection.js");
-  loadScript(context, "cdbEditorCellsLists.js");
-  loadScript(context, "cdbEditorCellsProperties.js");
-  loadScript(context, "cdbEditorActionsClipboard.js");
-  loadScript(context, "cdbEditorActions.js");
-  loadScript(context, "cdbEditorModalShared.js");
-  loadScript(context, "cdbEditorModalsConfirm.js");
-  loadScript(context, "cdbEditorModalsRows.js");
-  loadScript(context, "cdbEditorModalsColumns.js");
-  loadScript(context, "cdbEditorModalsSheetCreate.js");
-  loadScript(context, "cdbEditorModalsSheetDelete.js");
-  loadScript(context, "cdbEditorModalsSheets.js");
-  loadScript(context, "cdbEditorModalsTypes.js");
-  loadScript(context, "cdbEditorModalsFilters.js");
-  loadScript(context, "cdbEditorModals.js");
-  loadScript(context, "cdbEditorViewControls.js");
-  loadScript(context, "cdbEditorViewContextMenus.js");
-  loadScript(context, "cdbEditorViewSelection.js");
-  loadScript(context, "cdbEditorViewTableHeader.js");
-  loadScript(context, "cdbEditorViewTableCells.js");
-  loadScript(context, "cdbEditorViewTableRows.js");
-  loadScript(context, "cdbEditorViewTable.js");
-  loadScript(context, "cdbEditorViewKeyboard.js");
+  loadScript(context, "EditorUtils.js");
+  loadScript(context, "EditorModelSchema.js");
+  loadScript(context, "EditorModel.js");
+  loadScript(context, "EditorModelErrors.js");
+  loadScript(context, "EditorModelStructure.js");
+  loadScript(context, "EditorModelSheets.js");
+  loadScript(context, "EditorSelection.js");
+  loadScript(context, "EditorCellsLists.js");
+  loadScript(context, "EditorCellsProperties.js");
+  loadScript(context, "EditorActionsClipboard.js");
+  loadScript(context, "EditorActions.js");
+  loadScript(context, "EditorModalShared.js");
+  loadScript(context, "EditorModalsConfirm.js");
+  loadScript(context, "EditorModalsRows.js");
+  loadScript(context, "EditorModalsColumns.js");
+  loadScript(context, "EditorModalsSheetCreate.js");
+  loadScript(context, "EditorModalsSheetDelete.js");
+  loadScript(context, "EditorModalsSheets.js");
+  loadScript(context, "EditorModalsTypes.js");
+  loadScript(context, "EditorModalsFilters.js");
+  loadScript(context, "EditorModals.js");
+  loadScript(context, "EditorViewControls.js");
+  loadScript(context, "EditorViewContextMenus.js");
+  loadScript(context, "EditorViewSelection.js");
+  loadScript(context, "EditorViewTableHeader.js");
+  loadScript(context, "EditorViewTableCells.js");
+  loadScript(context, "EditorViewTableRows.js");
+  loadScript(context, "EditorViewTable.js");
+  loadScript(context, "EditorViewKeyboard.js");
   return { context, document, state, CDBVS, updates, renders, statuses };
 }
 

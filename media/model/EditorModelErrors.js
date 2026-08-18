@@ -1,7 +1,6 @@
 (function (global) {
   const CDBVS = global.CDBVS;
   const state = CDBVS.state;
-  const idColumn = (...args) => CDBVS.idColumn(...args);
 
   function cellErrorKey(rowIndex, columnName) {
     return `${rowIndex}\u0000${columnName}`;
@@ -58,7 +57,7 @@
         add(Number.parseInt(key.slice(0, separator), 10), key.slice(separator + 1), error);
       });
     });
-    const primary = idColumn(sheet);
+    const primary = CDBVS.idColumn(sheet);
     if (primary && Array.isArray(sheet.lines)) {
       const seen = new Map();
       sheet.lines.forEach((line, rowIndex) => {
