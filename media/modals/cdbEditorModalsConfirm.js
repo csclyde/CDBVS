@@ -2,14 +2,9 @@
   const CDBVS = global.CDBVS;
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
-  const modalState = CDBVS.modalState;
   const closeActiveModal = CDBVS.closeActiveModal;
+  const closeModal = CDBVS.closeModal;
   const setActiveModal = CDBVS.setActiveModal;
-
-  function closeDialog(overlay) {
-    if (modalState.active === overlay) modalState.active = null;
-    overlay.remove();
-  }
 
   function openConfirmDialog(options) {
     const config = options && typeof options === "object" ? options : {};
@@ -22,7 +17,7 @@
     heading.appendChild(makeElement("strong", config.title || "Confirm action"));
     const message = makeElement("p", config.message || "Are you sure?", "confirm-message");
     const footer = makeElement("div", null, "text-modal-footer");
-    const close = () => closeDialog(overlay);
+    const close = () => closeModal(overlay);
     const confirm = () => {
       close();
       if (typeof config.onConfirm === "function") config.onConfirm();

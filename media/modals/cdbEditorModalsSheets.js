@@ -3,23 +3,17 @@
   const state = CDBVS.state;
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
-  const sendUpdate = () => CDBVS.sendUpdate();
+  const renderAfterUpdate = CDBVS.renderAfterUpdate;
   const visibleSheets = CDBVS.visibleSheets;
-  const renameViewSheet = CDBVS.renameViewSheet;
+  const renameSheet = CDBVS.renameSheet;
   const moveSheet = CDBVS.moveSheet;
-  const mapTypeStrings = CDBVS.mapTypeStrings;
   const idColumn = CDBVS.idColumn;
   const setPrimaryColumn = CDBVS.setPrimaryColumn;
   const sheetExtraProperties = CDBVS.sheetExtraProperties;
-  const modalState = CDBVS.modalState;
   const closeActiveModal = CDBVS.closeActiveModal;
   const setActiveModal = CDBVS.setActiveModal;
+  const closeModal = CDBVS.closeModal;
   const modalField = CDBVS.modalField;
-
-  function closeDialog(overlay) {
-    if (modalState.active === overlay) modalState.active = null;
-    overlay.remove();
-  }
 
   function openSheetEditor(sheet) {
     closeActiveModal();
@@ -91,7 +85,7 @@
     const error = makeElement("div", null, "column-form-error");
     form.appendChild(error);
     const footer = makeElement("div", null, "text-modal-footer column-modal-footer");
-    const close = () => closeDialog(overlay);
+    const close = () => closeModal(overlay);
     const showError = (message) => { error.textContent = message; };
     const removeSheet = () => {
       close();
@@ -120,43 +114,8 @@
       }
       const oldName = sheet.name;
       if (oldName !== newName) {
-        mapTypeStrings((raw) => {
-          const separator = raw.indexOf(":");
-          if (separator < 0) return raw;
-          const code = raw.slice(0, separator);
-          const target = raw.slice(separator + 1);
-          if ((code === "6" || code === "12") && (target === oldName || target.startsWith(`${oldName}@`))) return `${code}:${newName}${target.slice(oldName.length)}`;
-          return raw;
-        });
-        state.data.sheets.forEach((item) => {
-          if (item.name === oldName || item.name.startsWith(`${oldName}@`)) {
-            item.name = `${newName}${item.name.slice(oldName.length)}`;
-          }
-        });
-        renameViewSheet(oldName, newName);
-        ["selectedRows", "activeRows", "rowSelectionAnchors", "selectedCells", "activeCells"].forEach((key) => {
-          const values = state[key] || {};
-          Object.keys(values).forEach((name) => {
-            if (name === oldName || name.startsWith(`${oldName}@`)) {
-              values[`${newName}${name.slice(oldName.length)}`] = values[name];
-              delete values[name];
-            }
-          });
-        });
-        const listPrefix = `${oldName}/`;
-        const renamedListRows = {};
-        Object.keys(state.selectedListRows || {}).forEach((key) => {
-          renamedListRows[key.startsWith(listPrefix) ? `${newName}/${key.slice(listPrefix.length)}` : key] = state.selectedListRows[key];
-        });
-        state.selectedListRows = renamedListRows;
-        const renamedListAnchors = {};
-        Object.keys(state.listSelectionAnchors || {}).forEach((key) => {
-          renamedListAnchors[key.startsWith(listPrefix) ? `${newName}/${key.slice(listPrefix.length)}` : key] = state.listSelectionAnchors[key];
-        });
-        state.listSelectionAnchors = renamedListAnchors;
-        state.expandedLists.clear();
+        renameSheet(sheet, newName);
       }
-      sheet.name = newName;
       setPrimaryColumn(sheet, primaryInput.value);
       if (displayColumnInput.value === "") delete props.displayColumn;
       else props.displayColumn = displayColumnInput.value;
@@ -179,8 +138,7 @@
       Object.assign(props, extra);
       sheet.props = props;
       close();
-      sendUpdate();
-      if (typeof CDBVS.render === "function") CDBVS.render();
+      renderAfterUpdate();
     };
     heading.appendChild(makeButton("x", close, "text-modal-close"));
     const moveLeft = makeButton("Move left", () => { close(); moveSheet(sheet, -1); });

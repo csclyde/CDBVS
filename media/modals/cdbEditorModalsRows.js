@@ -3,22 +3,19 @@
   const state = CDBVS.state;
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
-  const sendUpdate = () => CDBVS.sendUpdate();
-  const typeOf = CDBVS.typeOf;
+  const renderAfterUpdate = CDBVS.renderAfterUpdate;
+  const closeModal = CDBVS.closeModal;
+  const closeActiveModal = CDBVS.closeActiveModal;
+  const setActiveModal = CDBVS.setActiveModal;
   const typeLabel = CDBVS.typeLabel;
-  const modalState = CDBVS.modalState || (CDBVS.modalState = { active: null });
+  const idColumn = CDBVS.idColumn;
 
   function closeExistingModal() {
-    if (modalState.active) modalState.active.remove();
-    modalState.active = null;
+    closeActiveModal();
   }
 
   function cloneRowForEditor(row) {
-    try {
-      return JSON.parse(JSON.stringify(row && typeof row === "object" && !Array.isArray(row) ? row : {}));
-    } catch (_) {
-      return {};
-    }
+    return CDBVS.cloneValue(row && typeof row === "object" && !Array.isArray(row) ? row : {}) || {};
   }
 
   function openRowEditor(sheet, rowIndex) {
@@ -31,21 +28,17 @@
     dialog.setAttribute("role", "dialog");
     dialog.setAttribute("aria-modal", "true");
     const heading = makeElement("div", null, "text-modal-heading");
-    const idColumn = (sheet.columns || []).find((column) => typeOf(column).code === 0);
-    const rowLabel = idColumn && draft[idColumn.name] !== undefined ? `: ${draft[idColumn.name]}` : ` ${rowIndex + 1}`;
+    const primary = idColumn(sheet);
+    const rowLabel = primary && draft[primary.name] !== undefined ? `: ${draft[primary.name]}` : ` ${rowIndex + 1}`;
     heading.appendChild(makeElement("strong", `Edit row${rowLabel}`));
     const form = makeElement("div", null, "row-form");
-    const close = () => {
-      if (modalState.active === overlay) modalState.active = null;
-      overlay.remove();
-    };
+    const close = () => closeModal(overlay);
     const save = () => {
       form.querySelectorAll("input, select, textarea").forEach((input) => input.dispatchEvent(new Event("change", { bubbles: false })));
       Object.keys(row).forEach((key) => delete row[key]);
       Object.assign(row, draft);
       close();
-      sendUpdate();
-      if (typeof CDBVS.render === "function") CDBVS.render();
+      renderAfterUpdate();
     };
     (sheet.columns || []).forEach((column) => {
       const field = makeElement("div", null, "row-field");
@@ -71,7 +64,7 @@
       if ((event.ctrlKey || event.metaKey) && event.key === "Enter") save();
     });
     document.body.appendChild(overlay);
-    modalState.active = overlay;
+    setActiveModal(overlay);
     const firstControl = form.querySelector("input, select, textarea");
     if (firstControl) firstControl.focus();
   }
@@ -88,16 +81,12 @@
     textarea.value = input.value;
     textarea.spellcheck = false;
     const footer = makeElement("div", null, "text-modal-footer");
-    const close = () => {
-      if (modalState.active === overlay) modalState.active = null;
-      overlay.remove();
-    };
+    const close = () => closeModal(overlay);
     const save = () => {
       row[column.name] = textarea.value;
       input.value = textarea.value;
       close();
-      sendUpdate();
-      if (typeof CDBVS.render === "function") CDBVS.render();
+      renderAfterUpdate();
     };
     heading.appendChild(makeButton("x", close, "text-modal-close"));
     footer.appendChild(makeButton("Cancel", close));
@@ -112,7 +101,7 @@
       if ((event.ctrlKey || event.metaKey) && event.key === "Enter") save();
     });
     document.body.appendChild(overlay);
-    modalState.active = overlay;
+    setActiveModal(overlay);
     textarea.focus();
     textarea.setSelectionRange(textarea.value.length, textarea.value.length);
   }

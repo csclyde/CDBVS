@@ -1,7 +1,8 @@
 (function (global) {
   const CDBVS = global.CDBVS;
   const state = CDBVS.state;
-  const sendUpdate = () => CDBVS.sendUpdate();
+  const renderAfterUpdate = CDBVS.renderAfterUpdate;
+  const renderNow = CDBVS.renderNow;
   const setStatus = (message, error) => CDBVS.setStatus(message, error);
   const selectedRowIndex = CDBVS.selectedRowIndex;
   const selectedRowIndices = CDBVS.selectedRowIndices;
@@ -12,11 +13,8 @@
   const deleteRowAt = CDBVS.deleteRowAt;
   const moveRowAt = CDBVS.moveRow;
   const rowsForView = CDBVS.rowsForView;
-  const visibleSheets = CDBVS.visibleSheets;
-  const currentSheet = CDBVS.currentSheet;
-  const sheetBlock = CDBVS.sheetBlock;
-  const removeViewSheet = CDBVS.removeViewSheet;
-  const mapTypeStrings = CDBVS.mapTypeStrings;
+  const deleteColumnAt = CDBVS.deleteColumnAt;
+  const deleteSheetAt = CDBVS.deleteSheetAt;
 
   function addSheet() {
     if (typeof CDBVS.openNewSheetEditor === "function") {
@@ -41,62 +39,14 @@
   }
 
   function deleteColumn(sheet, index) {
-    if (!sheet || !Array.isArray(sheet.columns)) return false;
-    const column = sheet.columns[index];
-    if (!column) return false;
-    sheet.columns.splice(index, 1);
-    (sheet.lines || []).forEach((line) => { if (line) delete line[column.name]; });
-    if (sheet.props && sheet.props.displayColumn === column.name) delete sheet.props.displayColumn;
-    if (sheet.props && sheet.props.displayIcon === column.name) delete sheet.props.displayIcon;
-    CDBVS.removeViewColumn(sheet.name, column.name);
-    const selection = state.selectedCells && state.selectedCells[sheet.name];
-    if (selection) {
-      if (selection.columnIndex > index) selection.columnIndex -= 1;
-      if (selection.columnIndex >= sheet.columns.length) delete state.selectedCells[sheet.name];
-    }
-    const active = state.activeCells && state.activeCells[sheet.name];
-    if (active) {
-      if (active.columnIndex > index) active.columnIndex -= 1;
-      if (active.columnIndex >= sheet.columns.length) delete state.activeCells[sheet.name];
-    }
-    sendUpdate();
-    if (typeof CDBVS.render === "function") CDBVS.render();
+    if (!deleteColumnAt(sheet, index)) return false;
+    renderAfterUpdate();
     return true;
   }
 
   function deleteSheet(sheet) {
-    if (!sheet || !state.data || !Array.isArray(state.data.sheets)) return false;
-    const oldName = sheet.name;
-    const sheetsBefore = visibleSheets();
-    const currentBefore = currentSheet();
-    const deletedSheets = new Set(sheetBlock(sheet));
-    if (!deletedSheets.size) deletedSheets.add(sheet);
-    const deletedIndex = sheetsBefore.indexOf(sheet);
-
-    mapTypeStrings((raw) => {
-      const separator = raw.indexOf(":");
-      if (separator < 0) return raw;
-      const code = raw.slice(0, separator);
-      const target = raw.slice(separator + 1);
-      return (code === "6" || code === "12") && (target === oldName || target.startsWith(`${oldName}@`)) ? "1" : raw;
-    });
-    state.data.sheets = state.data.sheets.filter((item) => !deletedSheets.has(item));
-    removeViewSheet(oldName);
-    ["selectedRows", "activeRows", "rowSelectionAnchors", "selectedCells", "activeCells", "selectedListRows", "listSelectionAnchors"].forEach((key) => {
-      Object.keys(state[key] || {}).forEach((name) => {
-        if (name === oldName || name.startsWith(`${oldName}@`)) delete state[key][name];
-      });
-    });
-    state.expandedLists.clear();
-
-    const sheetsAfter = visibleSheets();
-    if (currentBefore && !deletedSheets.has(currentBefore)) {
-      state.sheetIndex = Math.max(0, sheetsAfter.indexOf(currentBefore));
-    } else {
-      state.sheetIndex = Math.max(0, Math.min(deletedIndex < 0 ? 0 : deletedIndex, sheetsAfter.length - 1));
-    }
-    sendUpdate();
-    if (typeof CDBVS.render === "function") CDBVS.render();
+    if (!deleteSheetAt(sheet)) return false;
+    renderAfterUpdate();
     return true;
   }
 
@@ -104,8 +54,7 @@
     if (!sheet) return;
     if (!Array.isArray(sheet.lines)) sheet.lines = [];
     sheet.lines.push(CDBVS.createRowForSchema(sheet, sheet.lines));
-    sendUpdate();
-    if (typeof CDBVS.render === "function") CDBVS.render();
+    renderAfterUpdate();
   }
 
   function deleteRow(sheet, index) {
@@ -120,8 +69,7 @@
       confirmLabel: "Delete row",
       onConfirm: () => {
         CDBVS.deleteRowAt(sheet, index);
-        sendUpdate();
-        if (typeof CDBVS.render === "function") CDBVS.render();
+        renderAfterUpdate();
       }
     });
     return true;
@@ -136,7 +84,7 @@
     const index = selected === null ? (Array.isArray(sheet.lines) ? sheet.lines.length : 0) : selected + 1;
     insertRowAt(sheet, index);
     selectRow(sheet, index);
-    if (typeof CDBVS.render === "function") CDBVS.render();
+    renderNow();
     return true;
   }
 
@@ -153,8 +101,7 @@
     selected.slice().sort((left, right) => right - left).forEach((index) => deleteRowAt(sheet, index));
     const remaining = Array.isArray(sheet.lines) ? sheet.lines.length : 0;
     selectRow(sheet, remaining ? Math.min(selected[0], remaining - 1) : null);
-    sendUpdate();
-    if (typeof CDBVS.render === "function") CDBVS.render();
+    renderAfterUpdate();
     return true;
   }
 
@@ -168,7 +115,7 @@
     moveRowAt(sheet, selected, delta);
     if (cell) selectCell(sheet, target, cell.columnIndex);
     else selectRow(sheet, target);
-    if (typeof CDBVS.render === "function") CDBVS.render();
+    renderNow();
   }
 
   function moveSelectedCell(sheet, rowDelta, columnDelta) {
@@ -190,7 +137,7 @@
     selectCell(sheet, rowIndex, columnIndex);
     const next = CDBVS.selectedCell(sheet);
     if (typeof CDBVS.updateRenderedSelection === "function") CDBVS.updateRenderedSelection(sheet, previous, next);
-    else if (typeof CDBVS.render === "function") CDBVS.render();
+    else renderNow();
     return true;
   }
 

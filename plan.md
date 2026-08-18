@@ -40,6 +40,8 @@ The first working editor baseline is in place. The repository now contains a des
 - Added schema-driven `TProperties` expansion, a JSON custom-type editor with reference validation, checkbox-based `TFlags`, and a color picker for `TColor`.
 - Added quick row search plus a type-aware filter/sort modal covering every column, with non-destructive sorting and a clear-all view reset.
 - Refactored the webview from one large script into focused runtime, DOM, model, actions, cell, modal, view, and bootstrap modules loaded in dependency order.
+- Added a shared webview utility layer for CastleDB type parsing, value formatting, IDs, cloning, keyed state migration, and persist-then-render mutations; centralized column deletion and host document parsing/replacement so feature modules no longer duplicate those workflows.
+- Consolidated sheet rename/delete behavior into a dedicated sheet-structure model pipeline, centralized modal closing/activation, and routed render-only versus persist-and-render paths through shared runtime helpers.
 - Split the webview's cell layer into primitive controls and nested list/property rendering modules.
 - Split actions into clipboard operations and structural row/column/sheet mutations.
 - Split the model into schema/value helpers and view-state, validation, and structural mutation logic.
@@ -145,6 +147,8 @@ These are intentionally still open for the next milestone:
 - The first-load arrow-navigation fix makes keyboard-handler installation idempotent and independent of script order, with document and window event routing; all 44 regression tests and recursive syntax checks pass.
 - The cell-click navigation regression now preserves the first click as selection-only even when the click lands directly on an embedded input, and handles arrow keys during capture; the focused-input click/arrow test passes.
 - The feature-folder organization passes all 44 Node tests, recursive JavaScript syntax checks, and `git diff --check`.
+- The shared-utility refactor reduces repeated plumbing in the feature modules while keeping all 44 Node tests passing; recursive JavaScript syntax checks and `git diff --check` pass. A real VS Code Extension Development Host smoke test remains outstanding.
+- The second refactor pass keeps all 44 Node tests passing after extracting sheet lifecycle logic into `cdbEditorModelSheets.js` and removing repeated modal/render plumbing; recursive syntax checks and `git diff --check` pass, while a real packaged Extension Development Host smoke test remains outstanding.
 - Newly selected table cells now receive programmatic keyboard focus, keeping arrow navigation reliable immediately after a click; regression coverage verifies the first-click focus path.
 - Enter now exits an active cell through the shared blur/commit transition, returning focus to the selected cell; regression coverage verifies Enter toggles activation in both directions.
 - The build-script update passes PowerShell parsing; the build/install flow itself was not run during this change to avoid bumping the project version and installing a new extension instance.

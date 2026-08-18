@@ -1,10 +1,12 @@
 (function (global) {
   const CDBVS = global.CDBVS;
   const state = CDBVS.state;
-  const typeOf = (...args) => CDBVS.typeOf(...args);
-  const valueText = (...args) => CDBVS.valueText(...args);
-  const colorText = (...args) => CDBVS.colorText(...args);
-  const sendUpdate = () => CDBVS.sendUpdate();
+  const typeOf = CDBVS.typeOf;
+  const valueText = CDBVS.valueText;
+  const colorText = CDBVS.colorText;
+  const renameStateKeys = CDBVS.renameStateKeys;
+  const removeStateKeys = CDBVS.removeStateKeys;
+  const renderNow = CDBVS.renderNow;
 
   function visibleSheets() {
     if (!state.data || !Array.isArray(state.data.sheets)) return [];
@@ -25,33 +27,15 @@
 
   function renameViewSheet(oldName, newName) {
     if (oldName === newName) return;
-    Object.keys(state.columnFilters).forEach((sheetName) => {
-      if (sheetName !== oldName && !sheetName.startsWith(`${oldName}@`)) return;
-      state.columnFilters[`${newName}${sheetName.slice(oldName.length)}`] = state.columnFilters[sheetName];
-      delete state.columnFilters[sheetName];
-    });
-    Object.keys(state.sorts).forEach((sheetName) => {
-      if (sheetName !== oldName && !sheetName.startsWith(`${oldName}@`)) return;
-      state.sorts[`${newName}${sheetName.slice(oldName.length)}`] = state.sorts[sheetName];
-      delete state.sorts[sheetName];
-    });
-    Object.keys(state.collapsedSeparators || {}).forEach((sheetName) => {
-      if (sheetName !== oldName && !sheetName.startsWith(`${oldName}@`)) return;
-      state.collapsedSeparators[`${newName}${sheetName.slice(oldName.length)}`] = state.collapsedSeparators[sheetName];
-      delete state.collapsedSeparators[sheetName];
-    });
+    renameStateKeys(state.columnFilters, oldName, newName);
+    renameStateKeys(state.sorts, oldName, newName);
+    renameStateKeys(state.collapsedSeparators, oldName, newName);
   }
 
   function removeViewSheet(sheetName) {
-    Object.keys(state.columnFilters).forEach((name) => {
-      if (name === sheetName || name.startsWith(`${sheetName}@`)) delete state.columnFilters[name];
-    });
-    Object.keys(state.sorts).forEach((name) => {
-      if (name === sheetName || name.startsWith(`${sheetName}@`)) delete state.sorts[name];
-    });
-    Object.keys(state.collapsedSeparators || {}).forEach((name) => {
-      if (name === sheetName || name.startsWith(`${sheetName}@`)) delete state.collapsedSeparators[name];
-    });
+    removeStateKeys(state.columnFilters, sheetName);
+    removeStateKeys(state.sorts, sheetName);
+    removeStateKeys(state.collapsedSeparators, sheetName);
   }
 
   function renameViewColumn(sheetName, oldName, newName) {
@@ -75,7 +59,7 @@
     state.filter = "";
     state.columnFilters = {};
     state.sorts = {};
-    CDBVS.render();
+    renderNow();
   }
 
   function filterMatches(column, value, rule) {
@@ -136,26 +120,16 @@
     return rows;
   }
 
-  function idColumn(sheet) {
-    return (sheet && Array.isArray(sheet.columns) ? sheet.columns : []).find((column) => typeOf(column).code === 0) || null;
-  }
-
-  function setColumnTypeString(column, typeString) {
-    if (!column || typeof column !== "object") return;
-    const property = Object.prototype.hasOwnProperty.call(column, "typeStr") ? "typeStr" : (Object.prototype.hasOwnProperty.call(column, "type") ? "type" : "typeStr");
-    column[property] = typeString;
-  }
-
   function setPrimaryColumn(sheet, columnName) {
     if (!sheet || !Array.isArray(sheet.columns)) return;
     sheet.columns.forEach((column) => {
-      if (column.name === columnName) setColumnTypeString(column, "0");
-      else if (typeOf(column).code === 0) setColumnTypeString(column, "1");
+      if (column.name === columnName) CDBVS.setColumnTypeString(column, "0");
+      else if (typeOf(column).code === 0) CDBVS.setColumnTypeString(column, "1");
     });
   }
 
   Object.assign(CDBVS, {
     visibleSheets, currentSheet, viewForSheet, renameViewSheet, removeViewSheet, renameViewColumn, removeViewColumn,
-    clearViewState, filterMatches, rowsForView, idColumn, setPrimaryColumn
+    clearViewState, filterMatches, rowsForView, setPrimaryColumn
   });
 })(window);

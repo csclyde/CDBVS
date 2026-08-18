@@ -4,6 +4,7 @@ const {
   isEditorShapeValid,
   serializeCdb
 } = require("./src/cdbParser");
+const { parseEditableCdb, replaceDocument } = require("./src/cdbDocument");
 
 class CdbEditorProvider {
   constructor(context) {
@@ -67,20 +68,14 @@ class CdbEditorProvider {
       if (message.type === "update") {
         const applyUpdate = async () => {
           if (typeof message.text !== "string" || message.text === document.getText()) return;
-          const parsed = parseCdb(message.text);
-          if (!parsed.data || parsed.issues.some((issue) => issue.startsWith("Invalid JSON")) || !isEditorShapeValid(parsed.data)) {
-            const issues = parsed.issues.slice();
-            if (!isEditorShapeValid(parsed.data)) issues.push("CastleDB data must contain valid sheets, columns, rows, and custom type arrays before it can be applied.");
-            if (!disposed) webview.postMessage({ type: "error", message: issues.join("\n") });
+          const parsed = parseEditableCdb(message.text);
+          if (!parsed.valid) {
+            if (!disposed) webview.postMessage({ type: "error", message: parsed.issues.join("\n") });
             return;
           }
           applyingEdit = true;
           try {
-            const edit = new vscode.WorkspaceEdit();
-            const start = document.positionAt(0);
-            const end = document.positionAt(document.getText().length);
-            edit.replace(document.uri, new vscode.Range(start, end), message.text);
-            const applied = await vscode.workspace.applyEdit(edit);
+            const applied = await replaceDocument(vscode, document, message.text);
             if (!applied) {
               if (!disposed) webview.postMessage({ type: "error", message: "CDBVS could not apply the document update." });
               sendDocument();
@@ -127,10 +122,12 @@ class CdbEditorProvider {
     const scriptUris = [
       "runtime/cdbEditorRuntime.js",
       "runtime/cdbEditorDom.js",
+      "runtime/cdbEditorUtils.js",
       "model/cdbEditorModelSchema.js",
       "model/cdbEditorModel.js",
       "model/cdbEditorModelErrors.js",
       "model/cdbEditorModelStructure.js",
+      "model/cdbEditorModelSheets.js",
       "model/cdbEditorSelection.js",
       "actions/cdbEditorActionsClipboard.js",
       "actions/cdbEditorActions.js",
@@ -218,15 +215,13 @@ function activate(context) {
     }
     const document = vscode.workspace.textDocuments.find((item) => item.uri.toString() === uri.toString());
     if (!document) return;
-    const result = parseCdb(document.getText());
-    if (!result.data || result.issues.some((issue) => issue.startsWith("Invalid JSON")) || !isEditorShapeValid(result.data)) {
+    const result = parseEditableCdb(document.getText());
+    if (!result.valid) {
       const message = result.issues[0] || "CastleDB data has an invalid sheet or schema shape.";
       vscode.window.showErrorMessage(`CDBVS cannot format this file: ${message}`);
       return;
     }
-    const edit = new vscode.WorkspaceEdit();
-    edit.replace(uri, new vscode.Range(document.positionAt(0), document.positionAt(document.getText().length)), serializeCdb(result.data));
-    await vscode.workspace.applyEdit(edit);
+    await replaceDocument(vscode, document, serializeCdb(result.data));
   }));
 }
 

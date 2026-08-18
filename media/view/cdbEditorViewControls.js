@@ -5,6 +5,7 @@
   const makeButton = CDBVS.makeButton;
   const typeOf = CDBVS.typeOf;
   const viewForSheet = CDBVS.viewForSheet;
+  const renderNow = CDBVS.renderNow;
 
   function activeViewItems(sheet) {
     if (!sheet) return [];
@@ -13,7 +14,7 @@
     if (state.filter.trim()) {
       items.push({
         label: `Search: "${state.filter.trim()}"`,
-        remove: () => { state.filter = ""; CDBVS.render(); }
+        remove: () => { state.filter = ""; renderNow(); }
       });
     }
     Object.keys(view.filters).forEach((columnName) => {
@@ -40,7 +41,7 @@
         label,
         remove: () => {
           delete view.filters[columnName];
-          CDBVS.render();
+          renderNow();
         }
       });
     });
@@ -49,7 +50,7 @@
       remove: () => {
         view.sort.column = "";
         view.sort.direction = "asc";
-        CDBVS.render();
+        renderNow();
       }
     });
     return items;
@@ -84,7 +85,7 @@
       sort.column = "";
       sort.direction = "asc";
     }
-    CDBVS.render();
+    renderNow();
   }
 
   Object.assign(CDBVS, { activeViewItems, renderViewSummary, cycleColumnSort });

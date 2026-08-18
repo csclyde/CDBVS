@@ -6,7 +6,9 @@
   const setStatus = (message, error) => CDBVS.setStatus(message, error);
   const typeOf = CDBVS.typeOf;
   const closeActiveModal = CDBVS.closeActiveModal;
-  const modalState = CDBVS.modalState;
+  const closeModal = CDBVS.closeModal;
+  const setActiveModal = CDBVS.setActiveModal;
+  const renderAfterUpdate = CDBVS.renderAfterUpdate;
 
   function openTypesEditor() {
     if (!state.data || typeof state.data !== "object") {
@@ -27,10 +29,7 @@
     textarea.value = JSON.stringify(state.data.customTypes || [], null, "\t");
     const error = makeElement("div", null, "column-form-error");
     const footer = makeElement("div", null, "text-modal-footer");
-    const close = () => {
-      if (modalState.active === overlay) modalState.active = null;
-      overlay.remove();
-    };
+    const close = () => closeModal(overlay);
     const save = () => {
       let customTypes;
       try {
@@ -58,7 +57,7 @@
       }
       state.data.customTypes = customTypes;
       close();
-      CDBVS.sendUpdate();
+      renderAfterUpdate();
     };
     heading.appendChild(makeButton("x", close, "text-modal-close"));
     footer.appendChild(makeButton("Cancel", close));
@@ -75,7 +74,7 @@
       if ((event.ctrlKey || event.metaKey) && event.key === "Enter") save();
     });
     document.body.appendChild(overlay);
-    modalState.active = overlay;
+    setActiveModal(overlay);
     textarea.focus();
   }
 

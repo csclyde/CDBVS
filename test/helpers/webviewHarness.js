@@ -5,8 +5,8 @@ const { FakeDocument, FakeOption } = require("./fakeDom");
 
 const mediaRoot = path.resolve(__dirname, "..", "..", "media");
 const scriptFolders = new Map([
-  ["cdbEditorRuntime.js", "runtime"], ["cdbEditorDom.js", "runtime"],
-  ["cdbEditorModelSchema.js", "model"], ["cdbEditorModel.js", "model"], ["cdbEditorModelErrors.js", "model"], ["cdbEditorModelStructure.js", "model"], ["cdbEditorSelection.js", "model"],
+  ["cdbEditorRuntime.js", "runtime"], ["cdbEditorDom.js", "runtime"], ["cdbEditorUtils.js", "runtime"],
+  ["cdbEditorModelSchema.js", "model"], ["cdbEditorModel.js", "model"], ["cdbEditorModelErrors.js", "model"], ["cdbEditorModelStructure.js", "model"], ["cdbEditorModelSheets.js", "model"], ["cdbEditorSelection.js", "model"],
   ["cdbEditorActionsClipboard.js", "actions"], ["cdbEditorActions.js", "actions"],
   ["cdbEditorModalShared.js", "modals"], ["cdbEditorModalsConfirm.js", "modals"], ["cdbEditorModalsRows.js", "modals"], ["cdbEditorModalsColumns.js", "modals"],
   ["cdbEditorModalsSheetCreate.js", "modals"], ["cdbEditorModalsSheetDelete.js", "modals"], ["cdbEditorModalsSheets.js", "modals"], ["cdbEditorModalsTypes.js", "modals"], ["cdbEditorModalsFilters.js", "modals"], ["cdbEditorModals.js", "modals"],
@@ -114,10 +114,12 @@ function createWebviewHarness(data) {
   context.prompt = () => { throw new Error("Native prompt must not be called."); };
   context.confirm = () => { throw new Error("Native confirm must not be called."); };
 
+  loadScript(context, "cdbEditorUtils.js");
   loadScript(context, "cdbEditorModelSchema.js");
   loadScript(context, "cdbEditorModel.js");
   loadScript(context, "cdbEditorModelErrors.js");
   loadScript(context, "cdbEditorModelStructure.js");
+  loadScript(context, "cdbEditorModelSheets.js");
   loadScript(context, "cdbEditorSelection.js");
   loadScript(context, "cdbEditorCellsLists.js");
   loadScript(context, "cdbEditorCellsProperties.js");

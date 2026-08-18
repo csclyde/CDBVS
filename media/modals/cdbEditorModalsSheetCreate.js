@@ -3,17 +3,12 @@
   const state = CDBVS.state;
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
-  const sendUpdate = () => CDBVS.sendUpdate();
+  const renderAfterUpdate = CDBVS.renderAfterUpdate;
   const visibleSheets = CDBVS.visibleSheets;
   const modalField = CDBVS.modalField;
   const closeActiveModal = CDBVS.closeActiveModal;
+  const closeModal = CDBVS.closeModal;
   const setActiveModal = CDBVS.setActiveModal;
-  const modalState = CDBVS.modalState;
-
-  function closeDialog(overlay) {
-    if (modalState.active === overlay) modalState.active = null;
-    overlay.remove();
-  }
 
   function openNewSheetEditor() {
     closeActiveModal();
@@ -34,7 +29,7 @@
     form.appendChild(modalField("Name", nameInput));
     const error = makeElement("div", null, "column-form-error");
     form.appendChild(error);
-    const close = () => closeDialog(overlay);
+    const close = () => closeModal(overlay);
     const save = () => {
       const name = nameInput.value.trim();
       if (!name) {
@@ -56,8 +51,7 @@
       if (index >= 0) state.sheetIndex = index;
       state.rawMode = false;
       close();
-      sendUpdate();
-      if (typeof CDBVS.render === "function") CDBVS.render();
+      renderAfterUpdate();
     };
     heading.appendChild(makeButton("x", close, "text-modal-close"));
     const footer = makeElement("div", null, "text-modal-footer");

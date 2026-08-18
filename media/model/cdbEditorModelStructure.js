@@ -2,7 +2,26 @@
   const CDBVS = global.CDBVS;
   const state = CDBVS.state;
   const sendUpdate = () => CDBVS.sendUpdate();
+  const renderAfterUpdate = CDBVS.renderAfterUpdate;
   const visibleSheets = (...args) => CDBVS.visibleSheets(...args);
+
+  function deleteColumnAt(sheet, index) {
+    if (!sheet || !Array.isArray(sheet.columns) || !Number.isInteger(index)) return false;
+    const column = sheet.columns[index];
+    if (!column) return false;
+    sheet.columns.splice(index, 1);
+    (sheet.lines || []).forEach((line) => { if (line) delete line[column.name]; });
+    if (sheet.props && sheet.props.displayColumn === column.name) delete sheet.props.displayColumn;
+    if (sheet.props && sheet.props.displayIcon === column.name) delete sheet.props.displayIcon;
+    CDBVS.removeViewColumn(sheet.name, column.name);
+    [state.selectedCells, state.activeCells].forEach((selections) => {
+      const selection = selections && selections[sheet.name];
+      if (!selection) return;
+      if (selection.columnIndex > index) selection.columnIndex -= 1;
+      if (selection.columnIndex >= sheet.columns.length) delete selections[sheet.name];
+    });
+    return true;
+  }
 
   function isSeparatorCollapsed(sheet, index) {
     if (!sheet || !state.collapsedSeparators) return false;
@@ -81,8 +100,7 @@
     if (sheet.separators.some((separator) => separatorIndex(separator) === index)) return false;
     sheet.separators.push({ index, title: "Section" });
     sheet.separators.sort((left, right) => separatorIndex(left) - separatorIndex(right));
-    sendUpdate();
-    if (typeof CDBVS.render === "function") CDBVS.render();
+    renderAfterUpdate();
     return true;
   }
 
@@ -93,8 +111,7 @@
     sheet.separators.splice(position, 1);
     if (sheet.props && Array.isArray(sheet.props.separatorTitles)) sheet.props.separatorTitles.splice(position, 1);
     if (state.collapsedSeparators && state.collapsedSeparators[sheet.name]) delete state.collapsedSeparators[sheet.name][String(index)];
-    sendUpdate();
-    if (typeof CDBVS.render === "function") CDBVS.render();
+    renderAfterUpdate();
     return true;
   }
 
@@ -123,8 +140,7 @@
     const active = state.activeCells && state.activeCells[sheet.name];
     if (active && active.columnIndex === index) active.columnIndex = target;
     else if (active && active.columnIndex === target) active.columnIndex = index;
-    sendUpdate();
-    if (typeof CDBVS.render === "function") CDBVS.render();
+    renderAfterUpdate();
   }
 
   function sheetBlock(sheet) {
@@ -147,8 +163,7 @@
     const insertAt = delta < 0 ? otherIndex : otherIndex + otherBlock.length;
     remaining.splice(insertAt, 0, ...firstBlock);
     state.data.sheets = remaining;
-    sendUpdate();
-    if (typeof CDBVS.render === "function") CDBVS.render();
+    renderAfterUpdate();
   }
 
   function mapTypeStrings(callback) {
@@ -168,6 +183,6 @@
   Object.assign(CDBVS, {
     isSeparatorCollapsed, toggleSeparatorCollapsed, shiftCollapsedSeparators, separatorIndex,
     moveSeparators, insertRow, moveRow, toggleSeparator, addSeparator, removeSeparator, deleteRowAt,
-    moveColumn, sheetBlock, moveSheet, mapTypeStrings
+    deleteColumnAt, moveColumn, sheetBlock, moveSheet, mapTypeStrings
   });
 })(window);

@@ -3,7 +3,7 @@
   const state = CDBVS.state;
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
-  const sendUpdate = () => CDBVS.sendUpdate();
+  const renderAfterUpdate = CDBVS.renderAfterUpdate;
   const setStatus = (message, error) => CDBVS.setStatus(message, error);
   const renderTableHeader = (...args) => CDBVS.renderTableHeader(...args);
   const renderTableBody = (...args) => CDBVS.renderTableBody(...args);
@@ -19,8 +19,7 @@
         const parsed = JSON.parse(raw.value);
         if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("The root must be an object.");
         state.data = parsed;
-        sendUpdate();
-        CDBVS.render();
+        renderAfterUpdate();
       } catch (error) {
         setStatus(`Invalid JSON: ${error.message}`, true);
       }

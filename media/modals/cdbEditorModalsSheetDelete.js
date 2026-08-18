@@ -3,14 +3,9 @@
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
   const deleteSheet = CDBVS.deleteSheet;
-  const modalState = CDBVS.modalState;
   const closeActiveModal = CDBVS.closeActiveModal;
+  const closeModal = CDBVS.closeModal;
   const setActiveModal = CDBVS.setActiveModal;
-
-  function closeDialog(overlay) {
-    if (modalState.active === overlay) modalState.active = null;
-    overlay.remove();
-  }
 
   function openDeleteSheetConfirmation(sheet) {
     if (!sheet) return;
@@ -23,7 +18,7 @@
     heading.appendChild(makeElement("strong", `Delete sheet: ${sheet.name}`));
     const message = makeElement("p", `Delete '${sheet.name}' and all of its sub-sheets? References to this sheet will be cleared.`, "delete-sheet-message");
     const footer = makeElement("div", null, "text-modal-footer");
-    const close = () => closeDialog(overlay);
+    const close = () => closeModal(overlay);
     heading.appendChild(makeButton("x", close, "text-modal-close"));
     footer.appendChild(makeButton("Cancel", close, "modal-cancel"));
     footer.appendChild(makeButton("Delete sheet", () => { close(); deleteSheet(sheet); }, "danger-button"));

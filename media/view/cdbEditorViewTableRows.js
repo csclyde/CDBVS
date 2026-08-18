@@ -2,7 +2,8 @@
   const CDBVS = global.CDBVS;
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
-  const sendUpdate = () => CDBVS.sendUpdate();
+  const renderNow = CDBVS.renderNow;
+  const renderAfterUpdate = CDBVS.renderAfterUpdate;
   const rowsForView = (...args) => CDBVS.rowsForView(...args);
   const selectedRowIndices = (...args) => CDBVS.selectedRowIndices(...args);
   const selectedCell = (...args) => CDBVS.selectedCell(...args);
@@ -37,8 +38,7 @@
         if (!Array.isArray(sheet.props.separatorTitles)) sheet.props.separatorTitles = [];
         sheet.props.separatorTitles[separatorPosition] = title;
       }
-      sendUpdate();
-      CDBVS.render();
+      renderAfterUpdate();
     };
     label.replaceChild(input, titleSpan);
     input.addEventListener("keydown", (event) => {
@@ -71,7 +71,7 @@
       const label = makeElement("span", null, "separator-label");
       const toggle = makeButton(collapsed ? "\u25B6" : "\u25BC", () => {
         toggleSeparatorCollapsed(sheet, index);
-        CDBVS.render();
+        renderNow();
       }, "separator-toggle");
       toggle.title = collapsed ? "Expand section" : "Collapse section";
       toggle.setAttribute("aria-label", toggle.title);

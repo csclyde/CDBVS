@@ -9,6 +9,7 @@
   const colorText = CDBVS.colorText;
   const referenceOptions = CDBVS.referenceOptions;
   const sendUpdate = () => CDBVS.sendUpdate();
+  const renderNow = CDBVS.renderNow;
   const setStatus = (message, error) => CDBVS.setStatus(message, error);
   const openTextEditor = (...args) => CDBVS.openTextEditor(...args);
 
@@ -48,7 +49,7 @@
           ? cellContext.sheet.columns.indexOf(column)
           : -1;
         CDBVS.refreshRenderedCell(cellContext.sheet, cellContext.rowIndex, columnIndex);
-      } else if (typeof CDBVS.render === "function") CDBVS.render();
+      } else renderNow();
     };
     if (type.code === 10 && type.values.length) {
       const flags = makeElement("div", null, "flags-input");

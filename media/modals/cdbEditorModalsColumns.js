@@ -3,14 +3,16 @@
   const state = CDBVS.state;
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
-  const sendUpdate = () => CDBVS.sendUpdate();
+  const renderAfterUpdate = CDBVS.renderAfterUpdate;
   const typeOf = CDBVS.typeOf;
-  const removeViewColumn = CDBVS.removeViewColumn;
+  const closeModal = CDBVS.closeModal;
+  const closeActiveModal = CDBVS.closeActiveModal;
+  const setActiveModal = CDBVS.setActiveModal;
   const renameViewColumn = CDBVS.renameViewColumn;
   const moveColumn = CDBVS.moveColumn;
+  const deleteColumnAt = CDBVS.deleteColumnAt;
   const mapTypeStrings = CDBVS.mapTypeStrings;
   const setPrimaryColumn = CDBVS.setPrimaryColumn;
-  const modalState = CDBVS.modalState || (CDBVS.modalState = { active: null });
   const columnTypeOptions = [
     [0, "Primary ID"], [1, "Text"], [2, "Boolean"], [3, "Integer"], [4, "Float"],
     [5, "Enum"], [6, "Reference"], [7, "Image"], [8, "List"], [9, "Custom type"],
@@ -28,10 +30,9 @@
   }
 
   function closeExistingModal() {
-    if (modalState.active) modalState.active.remove();
+    closeActiveModal();
     const existing = document.querySelector && document.querySelector(".text-modal-overlay");
     if (existing) existing.remove();
-    modalState.active = null;
   }
 
   function openColumnEditor(sheet, column, columnIndex, isNew = false) {
@@ -91,21 +92,13 @@
     const error = makeElement("div", null, "column-form-error");
     form.appendChild(error);
     const footer = makeElement("div", null, "text-modal-footer column-modal-footer");
-    const close = () => {
-      if (modalState.active === overlay) modalState.active = null;
-      overlay.remove();
-    };
+    const close = () => closeModal(overlay);
     const showError = (message) => { error.textContent = message; };
     const removeColumn = () => {
       if (isNew) { close(); return; }
-      sheet.columns.splice(columnIndex, 1);
-      (sheet.lines || []).forEach((line) => { if (line) delete line[column.name]; });
-      if (sheet.props && sheet.props.displayColumn === column.name) delete sheet.props.displayColumn;
-      if (sheet.props && sheet.props.displayIcon === column.name) delete sheet.props.displayIcon;
-      removeViewColumn(sheet.name, column.name);
+      deleteColumnAt(sheet, columnIndex);
       close();
-      sendUpdate();
-      CDBVS.render();
+      renderAfterUpdate();
     };
     const save = () => {
       const newName = nameInput.value.trim();
@@ -148,8 +141,7 @@
       if (isNew) sheet.columns.splice(Math.min(columnIndex, sheet.columns.length), 0, column);
       if (Number(typeSelect.value) === 0) setPrimaryColumn(sheet, column.name);
       close();
-      sendUpdate();
-      if (typeof CDBVS.render === "function") CDBVS.render();
+      renderAfterUpdate();
     };
     heading.appendChild(makeButton("x", close, "text-modal-close"));
     const moveLeft = makeButton("Move left", () => { close(); moveColumn(sheet, columnIndex, -1); });
@@ -168,7 +160,7 @@
     overlay.addEventListener("click", (event) => { if (event.target === overlay) close(); });
     overlay.addEventListener("keydown", (event) => { if (event.key === "Escape") close(); });
     document.body.appendChild(overlay);
-    modalState.active = overlay;
+    setActiveModal(overlay);
     nameInput.focus();
     nameInput.select();
   }

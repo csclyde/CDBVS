@@ -9,7 +9,9 @@
   const viewForSheet = CDBVS.viewForSheet;
   const referenceOptions = CDBVS.referenceOptions;
   const closeActiveModal = CDBVS.closeActiveModal;
-  const modalState = CDBVS.modalState;
+  const closeModal = CDBVS.closeModal;
+  const setActiveModal = CDBVS.setActiveModal;
+  const renderNow = CDBVS.renderNow;
 
   function openFilterModal(sheet) {
     if (!sheet) {
@@ -24,7 +26,7 @@
     const heading = makeElement("div", null, "text-modal-heading");
     heading.appendChild(makeElement("strong", `Filter: ${sheet.name}`));
     const view = viewForSheet(sheet);
-    const draftFilters = JSON.parse(JSON.stringify(view.filters));
+    const draftFilters = CDBVS.cloneValue(view.filters) || {};
     const form = makeElement("div", null, "filter-form");
     form.appendChild(makeElement("h3", "Column filters", "filter-section-heading"));
     const controls = makeElement("div", null, "filter-controls");
@@ -132,14 +134,11 @@
     });
     form.appendChild(controls);
     const footer = makeElement("div", null, "text-modal-footer");
-    const close = () => {
-      if (modalState.active === overlay) modalState.active = null;
-      overlay.remove();
-    };
+    const close = () => closeModal(overlay);
     const apply = () => {
       state.columnFilters[sheet.name] = draftFilters;
       close();
-      CDBVS.render();
+      renderNow();
     };
     heading.appendChild(makeButton("x", close, "text-modal-close"));
     footer.appendChild(makeButton("Cancel", close, "modal-cancel"));
@@ -151,7 +150,7 @@
     overlay.addEventListener("click", (event) => { if (event.target === overlay) close(); });
     overlay.addEventListener("keydown", (event) => { if (event.key === "Escape") close(); });
     document.body.appendChild(overlay);
-    modalState.active = overlay;
+    setActiveModal(overlay);
     const firstControl = controls.querySelector("input, select");
     if (firstControl) firstControl.focus();
   }

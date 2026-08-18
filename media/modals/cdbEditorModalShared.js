@@ -8,6 +8,11 @@
     modalState.active = null;
   }
 
+  function closeModal(overlay) {
+    if (modalState.active === overlay) modalState.active = null;
+    if (overlay) overlay.remove();
+  }
+
   function setActiveModal(overlay) {
     modalState.active = overlay;
     return overlay;
@@ -20,5 +25,5 @@
     return field;
   }
 
-  Object.assign(CDBVS, { modalState, closeActiveModal, setActiveModal, modalField });
+  Object.assign(CDBVS, { modalState, closeActiveModal, closeModal, setActiveModal, modalField });
 })(window);

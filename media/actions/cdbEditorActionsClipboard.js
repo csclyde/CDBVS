@@ -1,7 +1,7 @@
 (function (global) {
   const CDBVS = global.CDBVS;
   const state = CDBVS.state;
-  const sendUpdate = () => CDBVS.sendUpdate();
+  const renderAfterUpdate = CDBVS.renderAfterUpdate;
   const setStatus = (message, error) => CDBVS.setStatus(message, error);
   const selectedRowIndex = CDBVS.selectedRowIndex;
   const selectedRowIndices = CDBVS.selectedRowIndices;
@@ -12,7 +12,7 @@
   const deleteRowAt = CDBVS.deleteRowAt;
 
   function cloneRow(row) {
-    return JSON.parse(JSON.stringify(row));
+    return CDBVS.cloneValue(row);
   }
 
   function writeRowClipboard(rows) {
@@ -29,7 +29,7 @@
   }
 
   function cloneValue(value) {
-    return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
+    return CDBVS.cloneValue(value);
   }
 
   function clearCellValue(row, column) {
@@ -52,8 +52,7 @@
     writeCellClipboard(cell);
     if (!cut) return true;
     clearCellValue(row, selection.column);
-    sendUpdate();
-    if (typeof CDBVS.render === "function") CDBVS.render();
+    renderAfterUpdate();
     return true;
   }
 
@@ -71,8 +70,7 @@
     selected.slice().sort((left, right) => right - left).forEach((index) => deleteRowAt(sheet, index));
     const remaining = Array.isArray(sheet.lines) ? sheet.lines.length : 0;
     selectRow(sheet, remaining ? Math.min(selected[0], remaining - 1) : null);
-    sendUpdate();
-    if (typeof CDBVS.render === "function") CDBVS.render();
+    renderAfterUpdate();
     return true;
   }
 
@@ -80,8 +78,7 @@
     const selection = selectedCell(sheet);
     if (!selection || !sheet.lines[selection.rowIndex]) return false;
     clearCellValue(sheet.lines[selection.rowIndex], selection.column);
-    sendUpdate();
-    if (typeof CDBVS.render === "function") CDBVS.render();
+    renderAfterUpdate();
     return true;
   }
 
@@ -91,8 +88,7 @@
     const index = selected === null ? (Array.isArray(sheet.lines) ? sheet.lines.length : 0) : selected + 1;
     rows.forEach((row, offset) => insertRowAt(sheet, index + offset, cloneRow(row), false));
     selectRows(sheet, rows.map((_, offset) => index + offset), index + rows.length - 1);
-    sendUpdate();
-    if (typeof CDBVS.render === "function") CDBVS.render();
+    renderAfterUpdate();
     return true;
   }
 
@@ -129,8 +125,7 @@
     if (!row) return false;
     if (cell.hasValue) row[selection.column.name] = cloneValue(cell.value);
     else clearCellValue(row, selection.column);
-    sendUpdate();
-    if (typeof CDBVS.render === "function") CDBVS.render();
+    renderAfterUpdate();
     return true;
   }
 

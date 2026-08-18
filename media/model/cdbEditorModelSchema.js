@@ -1,27 +1,9 @@
 (function (global) {
   const CDBVS = global.CDBVS;
   const state = CDBVS.state;
-  const TYPE_NAMES = CDBVS.TYPE_NAMES;
+  const typeOf = CDBVS.typeOf;
+  const idColumn = CDBVS.idColumn;
   let referenceOptionsCache = new Map();
-
-  function typeOf(column) {
-    const raw = column && column.typeStr !== undefined ? column.typeStr : column && column.type;
-    const value = String(raw ?? "");
-    const separator = value.indexOf(":");
-    const code = Number.parseInt(separator < 0 ? value : value.slice(0, separator), 10);
-    const argument = separator < 0 ? "" : value.slice(separator + 1);
-    return {
-      code: Number.isInteger(code) ? code : -1,
-      name: TYPE_NAMES[code] || "unknown",
-      argument,
-      values: (code === 5 || code === 10) && argument ? argument.split(",") : []
-    };
-  }
-
-  function typeLabel(column) {
-    const raw = column && column.typeStr !== undefined ? column.typeStr : column && column.type;
-    return String(raw ?? "?");
-  }
 
   function guidValue() {
     const chars = "#&0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -40,20 +22,6 @@
 
   function listKey(context, column) {
     return `${context.path}/${column.name}`;
-  }
-
-  function valueText(value) {
-    if (value === undefined || value === null) return "";
-    if (typeof value === "object") return JSON.stringify(value);
-    return String(value);
-  }
-
-  function colorText(value) {
-    return `#${Math.max(0, Number(value) || 0).toString(16).slice(-6).padStart(6, "0")}`;
-  }
-
-  function idColumn(sheet) {
-    return (sheet && Array.isArray(sheet.columns) ? sheet.columns : []).find((column) => typeOf(column).code === 0) || null;
   }
 
   function referenceOptions(column) {
@@ -166,7 +134,7 @@
   }
 
   Object.assign(CDBVS, {
-    typeOf, typeLabel, defaultValue, listSheet, listKey, readValue, valueText, colorText,
+    defaultValue, listSheet, listKey, readValue,
     referenceOptions, clearReferenceOptionsCache, createRowForSchema, listPreview,
     columnExtraProperties, sheetExtraProperties
   });
