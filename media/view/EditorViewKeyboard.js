@@ -4,6 +4,47 @@
 
   let installed = false;
 
+  function selectOpenListAbove(sheet, selection) {
+    if (!sheet || !selection || typeof CDBVS.findRenderedCell !== "function"
+      || typeof CDBVS.rowsForView !== "function") return false;
+    const currentCell = CDBVS.findRenderedCell(selection.rowIndex, selection.columnIndex);
+    if (!currentCell || !currentCell.classList || !currentCell.classList.contains("list-cell")) return false;
+    const rows = CDBVS.rowsForView(sheet);
+    const visibleIndex = rows.findIndex((entry) => entry.rowIndex === selection.rowIndex);
+    if (visibleIndex <= 0) return false;
+    const previousCell = CDBVS.findRenderedCell(rows[visibleIndex - 1].rowIndex, selection.columnIndex);
+    if (!previousCell || !previousCell.classList || !previousCell.classList.contains("list-cell")
+      || !previousCell.querySelector(".list-editor")
+      || typeof previousCell._cdbvsSelectListBoundary !== "function") return false;
+    return previousCell._cdbvsSelectListBoundary(-1);
+  }
+
+  function moveToTabCell(sheet, selection, direction) {
+    if (!sheet || !selection || typeof CDBVS.rowsForView !== "function"
+      || typeof CDBVS.moveSelectedCell !== "function") return false;
+    const rows = CDBVS.rowsForView(sheet);
+    const columns = Array.isArray(sheet.columns) ? sheet.columns : [];
+    const rowPosition = rows.findIndex((entry) => entry.rowIndex === selection.rowIndex);
+    if (rowPosition < 0 || !columns.length) return false;
+    const currentPosition = rowPosition * columns.length + selection.columnIndex;
+    const targetPosition = currentPosition + direction;
+    if (targetPosition < 0 || targetPosition >= rows.length * columns.length) return false;
+    const targetRowPosition = Math.floor(targetPosition / columns.length);
+    const targetColumnIndex = targetPosition % columns.length;
+    const rowDelta = targetRowPosition - rowPosition;
+    const columnDelta = targetColumnIndex - selection.columnIndex;
+    if (!CDBVS.moveSelectedCell(sheet, rowDelta, columnDelta)) return false;
+    const next = CDBVS.selectedCell(sheet);
+    if (!next || typeof CDBVS.activateRenderedCell !== "function") return true;
+    const nextCell = typeof CDBVS.findRenderedCell === "function"
+      ? CDBVS.findRenderedCell(next.rowIndex, next.columnIndex)
+      : null;
+    // Boolean cells are selection-owned controls, so Tab should not toggle them.
+    if (nextCell && typeof nextCell._cdbvsToggleBoolean === "function") return true;
+    CDBVS.activateRenderedCell(sheet, next.rowIndex, next.columnIndex);
+    return true;
+  }
+
   function handleKeydown(event) {
     if (event.__cdbvsKeyboardHandled) return;
     event.__cdbvsKeyboardHandled = true;
@@ -22,6 +63,15 @@
     const arrowKey = key === "arrowup" || key === "arrowdown" || key === "arrowleft" || key === "arrowright";
     const clipboardKey = key === "c" || key === "x" || key === "v";
     const deleteKey = key === "delete" || key === "del";
+    if (!modified && !event.altKey && key === "tab" && cellSelection) {
+      const tableTarget = event.target && event.target.closest && event.target.closest("td");
+      const cellSelectMenuTarget = event.target && event.target.closest && event.target.closest(".cell-select-menu");
+      if (tableTarget || cellSelectMenuTarget) {
+        if (moveToTabCell(sheet, cellSelection, event.shiftKey ? -1 : 1)) event.preventDefault();
+        else if (activeSelection) CDBVS.exitRenderedCell(sheet, false);
+        return;
+      }
+    }
     if (modified && key === "s") {
       event.preventDefault();
       if (editorTarget) CDBVS.commitEditorTarget(editorTarget);
@@ -75,6 +125,7 @@
         return;
       }
       event.preventDefault();
+      if (key === "arrowup" && !nestedListCellSelected && selectOpenListAbove(sheet, cellSelection)) return;
       CDBVS.commitEditorTarget(editorTarget);
       CDBVS.moveSelectedCell(sheet, key === "arrowup" ? -1 : (key === "arrowdown" ? 1 : 0), key === "arrowleft" ? -1 : (key === "arrowright" ? 1 : 0));
       return;

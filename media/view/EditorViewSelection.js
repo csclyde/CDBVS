@@ -316,8 +316,10 @@
   }
 
   function activateRenderedCell(sheet, rowIndex, columnIndex, event) {
+    const cell = findRenderedCell(rowIndex, columnIndex);
+    if (cell && typeof cell._cdbvsToggleBoolean === "function") return cell._cdbvsToggleBoolean(event);
     if (!CDBVS.activateCell(sheet, rowIndex, columnIndex)) return false;
-    return activateEditorInCell(findRenderedCell(rowIndex, columnIndex), sheet, event);
+    return activateEditorInCell(cell, sheet, event);
   }
 
   function exitEditorInCell(cell, sheet, focusTarget, collapseList) {
@@ -342,16 +344,16 @@
     return true;
   }
 
-  function exitRenderedCell(sheet) {
+  function exitRenderedCell(sheet, collapseList = true) {
     const active = CDBVS.activeCell(sheet);
     if (!active) return false;
     const cell = findRenderedCell(active.rowIndex, active.columnIndex);
-    return exitEditorInCell(cell, sheet, cell, true);
+    return exitEditorInCell(cell, sheet, cell, collapseList);
   }
 
   function selectRenderedRow(sheet, rowIndex, rowElement, event) {
     const previous = CDBVS.selectedCell(sheet);
-    if (previous) CDBVS.exitRenderedCell(sheet);
+    if (previous) CDBVS.exitRenderedCell(sheet, false);
     if (event && (event.shiftKey || event.ctrlKey || event.metaKey)) CDBVS.selectRowWithModifiers(sheet, rowIndex, event);
     else CDBVS.selectRow(sheet, rowIndex);
     CDBVS.updateRenderedSelection(sheet, previous, null);
@@ -360,7 +362,7 @@
 
   function selectRenderedCell(sheet, rowIndex, columnIndex, rowElement, cellElement) {
     const previous = CDBVS.selectedCell(sheet);
-    if (!previous || previous.rowIndex !== rowIndex || previous.columnIndex !== columnIndex) CDBVS.exitRenderedCell(sheet);
+    if (!previous || previous.rowIndex !== rowIndex || previous.columnIndex !== columnIndex) CDBVS.exitRenderedCell(sheet, false);
     CDBVS.selectCell(sheet, rowIndex, columnIndex);
     CDBVS.updateRenderedSelection(sheet, previous, CDBVS.selectedCell(sheet));
     if (cellElement && !cellElement.classList.contains("cell-selected")) cellElement.classList.add("cell-selected");

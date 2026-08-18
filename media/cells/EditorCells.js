@@ -167,6 +167,20 @@
         CDBVS.openTextEditor(row, column, input);
       });
     }
+    if (type.code === 2 && !cellContext.deferChanges) {
+      input.tabIndex = -1;
+      input.style.pointerEvents = "none";
+      input.setAttribute("aria-readonly", "true");
+      cell._cdbvsToggleBoolean = () => {
+        row[column.name] = row[column.name] !== true;
+        input.checked = row[column.name] === true;
+        if (!cellContext.deferChanges) {
+          CDBVS.sendUpdate();
+          refreshAfterCommit();
+        }
+        return true;
+      };
+    }
     cell.appendChild(input);
   }
 

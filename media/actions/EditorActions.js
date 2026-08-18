@@ -132,7 +132,7 @@
     }
     if (columnIndex < 0 || columnIndex >= (sheet.columns || []).length) return false;
     const previous = selection;
-    if (typeof CDBVS.exitRenderedCell === "function") CDBVS.exitRenderedCell(sheet);
+    if (typeof CDBVS.exitRenderedCell === "function") CDBVS.exitRenderedCell(sheet, false);
     selectCell(sheet, rowIndex, columnIndex);
     const next = CDBVS.selectedCell(sheet);
     if (typeof CDBVS.updateRenderedSelection === "function") CDBVS.updateRenderedSelection(sheet, previous, next);

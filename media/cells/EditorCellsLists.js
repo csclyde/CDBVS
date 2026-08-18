@@ -120,7 +120,7 @@
       if (!editSheet || !Number.isInteger(editRowIndex) || !Number.isInteger(editColumnIndex)) return false;
       const selected = typeof CDBVS.selectedCell === "function" ? CDBVS.selectedCell(editSheet) : null;
       if (!selected || selected.rowIndex !== editRowIndex || selected.columnIndex !== editColumnIndex) {
-        if (typeof CDBVS.exitRenderedCell === "function") CDBVS.exitRenderedCell(editSheet);
+        if (typeof CDBVS.exitRenderedCell === "function") CDBVS.exitRenderedCell(editSheet, false);
         if (typeof CDBVS.selectCell === "function") CDBVS.selectCell(editSheet, editRowIndex, editColumnIndex);
         if (typeof CDBVS.updateRenderedSelection === "function") CDBVS.updateRenderedSelection(editSheet, null, CDBVS.selectedCell(editSheet));
       }
@@ -136,6 +136,7 @@
       const selected = selectedListCell();
       const target = selectedListCellElement();
       if (!selected || !target || !ensureParentCellSelected()) return false;
+      if (typeof target._cdbvsToggleBoolean === "function") return target._cdbvsToggleBoolean(event);
       if (typeof CDBVS.activateCell === "function") CDBVS.activateCell(editSheet, editRowIndex, editColumnIndex);
       if (typeof CDBVS.activateEditorInCell === "function") CDBVS.activateEditorInCell(target, editSheet, event, exitSelectedListCell);
       else if (typeof target.focus === "function") target.focus({ preventScroll: true });
@@ -255,11 +256,10 @@
           if (state.listSelectionAnchors) delete state.listSelectionAnchors[key];
           updateListItemSelection(new Set());
           if (editSheet && typeof CDBVS.deactivateCell === "function") CDBVS.deactivateCell(editSheet);
-          closeExpandedList();
           if (typeof cell.focus === "function") cell.focus({ preventScroll: true });
           return true;
         }
-        if (nextRow >= rows.length) return true;
+        if (nextRow >= rows.length) return false;
         selectListItem(nextRow, rows[nextRow], {});
         if (typeof rows[nextRow].focus === "function") rows[nextRow].focus({ preventScroll: true });
         return true;
@@ -274,11 +274,10 @@
           if (state.listSelectionAnchors) delete state.listSelectionAnchors[key];
           updateListItemSelection(new Set());
           if (editSheet && typeof CDBVS.deactivateCell === "function") CDBVS.deactivateCell(editSheet);
-          closeExpandedList();
           if (typeof cell.focus === "function") cell.focus({ preventScroll: true });
           return true;
         }
-        if (nextRow >= rows.length) return true;
+        if (nextRow >= rows.length) return false;
         return selectListCell(nextRow, columnDelta > 0 ? columns.length - 1 : 0);
       }
       const nextRow = currentCell.itemIndex + rowDelta;
@@ -290,12 +289,19 @@
         updateListItemSelection(new Set());
         updateListCellSelection();
         if (editSheet && typeof CDBVS.deactivateCell === "function") CDBVS.deactivateCell(editSheet);
-        closeExpandedList();
         if (typeof cell.focus === "function") cell.focus({ preventScroll: true });
         return true;
       }
-      if (nextRow >= rows.length || nextColumn < 0 || nextColumn >= columns.length) return true;
+      if (nextRow >= rows.length) return false;
+      if (nextColumn < 0 || nextColumn >= columns.length) return true;
       return selectListCell(nextRow, nextColumn);
+    };
+    cell._cdbvsSelectListBoundary = (direction) => {
+      if (!expanded || (direction !== -1 && direction !== 1)) return false;
+      const rows = listItemRows();
+      if (!rows.length || !(schema.columns || []).length) return false;
+      if (!ensureParentCellSelected()) return false;
+      return selectListCell(direction < 0 ? rows.length - 1 : 0, 0);
     };
     cell._cdbvsNavigateList = (delta) => {
       if (delta !== -1 && delta !== 1) return false;

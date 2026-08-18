@@ -208,6 +208,39 @@ test("numeric editors reject malformed values instead of coercing them to zero",
   assert.equal(harness.statuses.at(-1).error, true);
 });
 
+test("boolean cells toggle on second click and Enter without entering edit mode", () => {
+  const target = sheet("Players");
+  target.columns = [{ name: "label", typeStr: "1" }, { name: "enabled", typeStr: "2" }];
+  target.lines = [{ label: "Ada", enabled: false }];
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target] });
+  harness.context.innerWidth = 1200;
+  harness.context.innerHeight = 800;
+  harness.CDBVS.app = harness.document.createElement("div");
+  harness.CDBVS.rememberViewport = () => {};
+  harness.CDBVS.restoreViewport = () => {};
+  loadScript(harness.context, "EditorCells.js");
+  loadScript(harness.context, "EditorView.js");
+  harness.CDBVS.render();
+
+  const cells = harness.CDBVS.app.querySelectorAll("td");
+  const labelCell = cells.find((cell) => cell.dataset.columnIndex === "0");
+  const boolCell = cells.find((cell) => cell.dataset.columnIndex === "1");
+  labelCell.dispatchEvent({ type: "mousedown", target: labelCell, button: 0, preventDefault() {} });
+  labelCell.dispatchEvent({ type: "click", target: labelCell });
+  harness.document.dispatchEvent({ type: "keydown", key: "ArrowRight", target: labelCell, preventDefault() {} });
+  assert.equal(harness.CDBVS.selectedCell(target).columnIndex, 1);
+  assert.equal(target.lines[0].enabled, false);
+
+  harness.document.dispatchEvent({ type: "keydown", key: "Enter", target: boolCell, preventDefault() {} });
+  assert.equal(target.lines[0].enabled, true);
+  assert.equal(harness.CDBVS.activeCell(target), null);
+
+  boolCell.dispatchEvent({ type: "mousedown", target: boolCell, button: 0, preventDefault() {} });
+  boolCell.dispatchEvent({ type: "click", target: boolCell });
+  assert.equal(target.lines[0].enabled, false);
+  assert.equal(harness.CDBVS.activeCell(target), null);
+});
+
 test("Ctrl/Cmd+S commits a focused cell and requests a document save", () => {
   const target = sheet("Players");
   target.columns = [{ name: "title", typeStr: "1" }];
@@ -455,6 +488,65 @@ test("cells select first and activate on the second click or Enter", () => {
   kindCell.dispatchEvent({ type: "mousedown", button: 0, target: kindCell, preventDefault() {} });
   assert.equal(harness.document.querySelector(".cell-select-menu"), null);
   assert.equal(harness.CDBVS.activeCell(target), null);
+});
+
+test("Tab exits the current editor and activates the next cell", () => {
+  const target = sheet("Players");
+  target.columns = [{ name: "first", typeStr: "1" }, { name: "second", typeStr: "1" }];
+  target.lines = [{ first: "A", second: "B" }, { first: "C", second: "D" }];
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target] });
+  harness.context.innerWidth = 1200;
+  harness.context.innerHeight = 800;
+  harness.context.Event = class { constructor(type) { this.type = type; } };
+  harness.CDBVS.app = harness.document.createElement("div");
+  harness.CDBVS.rememberViewport = () => {};
+  harness.CDBVS.restoreViewport = () => {};
+  loadScript(harness.context, "EditorCells.js");
+  loadScript(harness.context, "EditorView.js");
+  harness.CDBVS.render();
+
+  const firstRowCells = harness.CDBVS.app.querySelectorAll("tr")[1].children;
+  const currentCell = firstRowCells[1];
+  const nextCell = firstRowCells[2];
+  currentCell.dispatchEvent({ type: "click" });
+  currentCell.dispatchEvent({ type: "click" });
+  const currentInput = currentCell.querySelector("input");
+  assert.equal(harness.CDBVS.activeCell(target).columnIndex, 0);
+
+  let prevented = false;
+  harness.document.dispatchEvent({
+    type: "keydown",
+    key: "Tab",
+    target: currentInput,
+    preventDefault() { prevented = true; }
+  });
+
+  assert.equal(prevented, true);
+  assert.equal(harness.CDBVS.selectedCell(target).columnIndex, 1);
+  assert.equal(harness.CDBVS.activeCell(target).columnIndex, 1);
+  assert.equal(harness.document.activeElement, nextCell.querySelector("input"));
+  assert.equal(currentCell.querySelector("input"), currentInput);
+
+  harness.document.dispatchEvent({
+    type: "keydown",
+    key: "Tab",
+    target: nextCell.querySelector("input"),
+    preventDefault() {}
+  });
+  assert.equal(harness.CDBVS.activeCell(target).rowIndex, 1);
+  assert.equal(harness.CDBVS.activeCell(target).columnIndex, 0);
+
+  const previousCell = harness.CDBVS.app.querySelectorAll("tr")[1].children[2];
+  harness.document.dispatchEvent({
+    type: "keydown",
+    key: "Tab",
+    shiftKey: true,
+    target: harness.document.activeElement,
+    preventDefault() {}
+  });
+  assert.equal(harness.CDBVS.activeCell(target).rowIndex, 0);
+  assert.equal(harness.CDBVS.activeCell(target).columnIndex, 1);
+  assert.equal(harness.document.activeElement, previousCell.querySelector("input"));
 });
 
 test("arrow keys select an initial cell before any cell has been selected", () => {
@@ -779,6 +871,53 @@ test("vertical arrows enter and traverse expanded list items", () => {
   assert.equal(harness.CDBVS.selectedCell(target).columnIndex, 0);
 });
 
+test("vertical arrows cross list-cell boundaries without skipping open lists", () => {
+  const target = sheet("Groups");
+  const listColumn = { name: "members", typeStr: "8" };
+  target.columns = [listColumn];
+  target.lines = [
+    { members: [{ name: "Ada" }, { name: "Grace" }] },
+    { members: [{ name: "Lee" }, { name: "Max" }] }
+  ];
+  const child = sheet("Groups@members");
+  child.columns = [{ name: "name", typeStr: "1" }];
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target, child] });
+  harness.context.innerWidth = 1200;
+  harness.context.innerHeight = 800;
+  harness.CDBVS.app = harness.document.createElement("div");
+  harness.CDBVS.rememberViewport = () => {};
+  harness.CDBVS.restoreViewport = () => {};
+  harness.state.expandedLists.add("Groups/0/members");
+  harness.state.expandedLists.add("Groups/1/members");
+  loadScript(harness.context, "EditorCells.js");
+  loadScript(harness.context, "EditorView.js");
+  harness.CDBVS.render();
+
+  const listCells = harness.CDBVS.app.querySelectorAll("td").filter((cell) => cell.dataset.columnIndex === "0");
+  const keydown = (key) => harness.document.dispatchEvent({
+    type: "keydown", key, target: harness.document.activeElement || listCells[0], preventDefault() {}
+  });
+  listCells[0].dispatchEvent({ type: "click", target: listCells[0] });
+  keydown("ArrowDown");
+  keydown("ArrowDown");
+  assert.equal(harness.state.selectedListCells["Groups/0/members"].itemIndex, 1);
+
+  keydown("ArrowDown");
+  assert.equal(harness.CDBVS.selectedCell(target).rowIndex, 1);
+  assert.equal(harness.state.selectedListCells["Groups/0/members"].itemIndex, 1);
+
+  keydown("ArrowDown");
+  assert.equal(harness.state.selectedListCells["Groups/1/members"].itemIndex, 0);
+  assert.equal(harness.CDBVS.selectedCell(target).rowIndex, 1);
+
+  keydown("ArrowUp");
+  assert.equal(harness.CDBVS.selectedCell(target).rowIndex, 1);
+  assert.equal(harness.state.selectedListCells["Groups/1/members"], undefined);
+  keydown("ArrowUp");
+  assert.equal(harness.CDBVS.selectedCell(target).rowIndex, 0);
+  assert.equal(harness.state.selectedListCells["Groups/0/members"].itemIndex, 1);
+});
+
 test("list-cell click and Enter consistently toggle edit mode with expansion", () => {
   const target = sheet("Groups");
   target.columns = [{ name: "members", typeStr: "8" }];
@@ -820,6 +959,40 @@ test("list-cell click and Enter consistently toggle edit mode with expansion", (
   listToggle.dispatchEvent({ type: "click", target: listToggle, preventDefault() {}, stopPropagation() {} });
   assert.equal(harness.state.expandedLists.has("Groups/0/members"), false);
   assert.equal(harness.CDBVS.activeCell(target), null);
+});
+
+test("selecting another cell does not collapse previously expanded lists", () => {
+  const target = sheet("Groups");
+  const listColumn = { name: "members", typeStr: "8" };
+  target.columns = [listColumn];
+  target.lines = [{ members: [{ name: "Ada" }] }, { members: [{ name: "Grace" }] }];
+  const child = sheet("Groups@members");
+  child.columns = [{ name: "name", typeStr: "1" }];
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target, child] });
+  harness.context.innerWidth = 1200;
+  harness.context.innerHeight = 800;
+  harness.CDBVS.app = harness.document.createElement("div");
+  harness.CDBVS.rememberViewport = () => {};
+  harness.CDBVS.restoreViewport = () => {};
+  loadScript(harness.context, "EditorCells.js");
+  loadScript(harness.context, "EditorView.js");
+  harness.CDBVS.render();
+
+  const listCells = harness.CDBVS.app.querySelectorAll("td").filter((cell) => cell.dataset.columnIndex === "0");
+  const firstKey = "Groups/0/members";
+  const secondKey = "Groups/1/members";
+  listCells[0].dispatchEvent({ type: "mousedown", target: listCells[0], button: 0, preventDefault() {} });
+  listCells[0].dispatchEvent({ type: "click", target: listCells[0] });
+  listCells[0].dispatchEvent({ type: "click", target: listCells[0] });
+  assert.equal(harness.state.expandedLists.has(firstKey), true);
+
+  listCells[1].dispatchEvent({ type: "mousedown", target: listCells[1], button: 0, preventDefault() {} });
+  listCells[1].dispatchEvent({ type: "click", target: listCells[1] });
+  listCells[1].dispatchEvent({ type: "click", target: listCells[1] });
+
+  assert.equal(harness.state.expandedLists.has(firstKey), true);
+  assert.equal(harness.state.expandedLists.has(secondKey), true);
+  assert.equal(harness.CDBVS.app.querySelectorAll(".list-editor").length, 2);
 });
 
 test("Insert adds a list item when the list cell is selected", () => {
