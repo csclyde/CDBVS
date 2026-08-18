@@ -779,6 +779,82 @@ test("vertical arrows enter and traverse expanded list items", () => {
   assert.equal(harness.CDBVS.selectedCell(target).columnIndex, 0);
 });
 
+test("list-cell click and Enter consistently toggle edit mode with expansion", () => {
+  const target = sheet("Groups");
+  target.columns = [{ name: "members", typeStr: "8" }];
+  target.lines = [{ members: [{ name: "Ada" }] }];
+  const child = sheet("Groups@members");
+  child.columns = [{ name: "name", typeStr: "1" }];
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target, child] });
+  harness.context.innerWidth = 1200;
+  harness.context.innerHeight = 800;
+  harness.context.Event = class { constructor(type) { this.type = type; } };
+  harness.CDBVS.app = harness.document.createElement("div");
+  harness.CDBVS.rememberViewport = () => {};
+  harness.CDBVS.restoreViewport = () => {};
+  loadScript(harness.context, "EditorCells.js");
+  loadScript(harness.context, "EditorView.js");
+  harness.CDBVS.render();
+
+  const listCell = harness.CDBVS.app.querySelectorAll("td").find((cell) => cell.dataset.columnIndex === "0");
+  listCell.dispatchEvent({ type: "mousedown", target: listCell, button: 0, preventDefault() {} });
+  listCell.dispatchEvent({ type: "click", target: listCell });
+  assert.equal(harness.state.expandedLists.has("Groups/0/members"), false);
+
+  let listToggle = listCell.querySelector(".list-toggle");
+  listCell.dispatchEvent({ type: "mousedown", target: listToggle, button: 0, preventDefault() {} });
+  listToggle.dispatchEvent({ type: "click", target: listToggle });
+  assert.equal(harness.state.expandedLists.has("Groups/0/members"), true);
+  assert.equal(harness.CDBVS.activeCell(target).columnIndex, 0);
+
+  harness.document.dispatchEvent({ type: "keydown", key: "Enter", target: listCell, preventDefault() {} });
+  assert.equal(harness.state.expandedLists.has("Groups/0/members"), false);
+  assert.equal(harness.CDBVS.activeCell(target), null);
+
+  harness.document.dispatchEvent({ type: "keydown", key: "Enter", target: listCell, preventDefault() {} });
+  assert.equal(harness.state.expandedLists.has("Groups/0/members"), true);
+  assert.equal(harness.CDBVS.activeCell(target).columnIndex, 0);
+
+  listToggle = listCell.querySelector(".list-toggle");
+  listCell.dispatchEvent({ type: "mousedown", target: listToggle, button: 0, preventDefault() {} });
+  listToggle.dispatchEvent({ type: "click", target: listToggle, preventDefault() {}, stopPropagation() {} });
+  assert.equal(harness.state.expandedLists.has("Groups/0/members"), false);
+  assert.equal(harness.CDBVS.activeCell(target), null);
+});
+
+test("Insert adds a list item when the list cell is selected", () => {
+  const target = sheet("Groups");
+  target.columns = [{ name: "members", typeStr: "8" }];
+  target.lines = [{ members: [{ name: "Ada" }] }];
+  const child = sheet("Groups@members");
+  child.columns = [{ name: "name", typeStr: "1" }];
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target, child] });
+  harness.context.innerWidth = 1200;
+  harness.context.innerHeight = 800;
+  harness.context.Event = class { constructor(type) { this.type = type; } };
+  harness.CDBVS.app = harness.document.createElement("div");
+  harness.CDBVS.rememberViewport = () => {};
+  harness.CDBVS.restoreViewport = () => {};
+  loadScript(harness.context, "EditorCells.js");
+  loadScript(harness.context, "EditorView.js");
+  harness.CDBVS.render();
+
+  let listCell = harness.CDBVS.app.querySelectorAll("td").find((cell) => cell.dataset.columnIndex === "0");
+  listCell.dispatchEvent({ type: "mousedown", target: listCell, button: 0, preventDefault() {} });
+  listCell.dispatchEvent({ type: "click", target: listCell });
+  listCell.dispatchEvent({ type: "click", target: listCell });
+  assert.equal(harness.state.expandedLists.has("Groups/0/members"), true);
+
+  harness.document.dispatchEvent({ type: "keydown", key: "Insert", target: listCell, preventDefault() {} });
+
+  assert.equal(target.lines.length, 1);
+  assert.equal(target.lines[0].members.length, 2);
+  assert.equal(target.lines[0].members[1].name, "");
+  assert.equal(harness.state.expandedLists.has("Groups/0/members"), true);
+  listCell = harness.CDBVS.app.querySelectorAll("td").find((cell) => cell.dataset.columnIndex === "0");
+  assert.equal(listCell.querySelectorAll(".nested-list-item").length, 2);
+});
+
 test("nested list cells share normal cell selection and edit transitions", () => {
   const target = sheet("Groups");
   const listColumn = { name: "members", typeStr: "8" };
@@ -806,6 +882,11 @@ test("nested list cells share normal cell selection and edit transitions", () =>
   let nestedCells = listCell.querySelector(".nested-list-item").querySelectorAll(".nested-cell");
   listCell.dispatchEvent({ type: "click" });
   harness.document.dispatchEvent({ type: "keydown", key: "ArrowDown", target: listCell, preventDefault() {} });
+
+  const nestedEditor = listCell.querySelector(".list-editor");
+  const nestedCellTarget = nestedEditor.querySelector(".nested-cell");
+  listCell.dispatchEvent({ type: "mousedown", target: nestedCellTarget, button: 0, preventDefault() {} });
+  assert.equal(harness.state.expandedLists.has("Groups/0/members"), true);
 
   let prevented = false;
   harness.document.dispatchEvent({

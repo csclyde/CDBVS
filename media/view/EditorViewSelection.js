@@ -86,6 +86,19 @@
     return !!target && (target === control || (typeof control.contains === "function" && control.contains(target)));
   }
 
+  function clickControl(control) {
+    if (!control) return false;
+    if (typeof control.click === "function") {
+      control.click();
+      return true;
+    }
+    if (typeof control.dispatchEvent === "function") {
+      control.dispatchEvent({ type: "click", target: control, preventDefault() {}, stopPropagation() {} });
+      return true;
+    }
+    return false;
+  }
+
   function selectOptions(control) {
     if (control && control.options) return Array.from(control.options);
     return control && typeof control.querySelectorAll === "function" ? Array.from(control.querySelectorAll("option")) : [];
@@ -283,15 +296,21 @@
       || controls.find((item) => item.tagName === "INPUT" || item.tagName === "SELECT" || item.tagName === "TEXTAREA");
     if (!control) return true;
     const directControlClick = isControlTarget(event && event.target, control);
+    const directListToggleClick = !!(event && event.target && event.target.closest
+      && event.target.closest(".list-toggle"));
     if (typeof control.focus === "function") control.focus();
     if (control.tagName === "SELECT") {
       openSelectMenu(control, sheet, onClose);
-    } else if (!directControlClick && control.classList && control.classList.contains("list-toggle") && typeof control.click === "function") {
-      control.click();
+    } else if (control.classList && control.classList.contains("list-toggle") && !directListToggleClick) {
+      if (typeof cell._cdbvsToggleList === "function") cell._cdbvsToggleList();
+      else clickControl(control);
     } else if (!directControlClick && control.tagName === "INPUT" && control.type === "color" && typeof control.showPicker === "function") {
       try { control.showPicker(); } catch (_) {}
     } else if (!directControlClick && typeof control.setSelectionRange === "function") {
       try { control.setSelectionRange(String(control.value || "").length, String(control.value || "").length); } catch (_) {}
+    }
+    if (control.classList && control.classList.contains("list-toggle") && typeof cell.focus === "function") {
+      cell.focus({ preventScroll: true });
     }
     return true;
   }
@@ -301,7 +320,7 @@
     return activateEditorInCell(findRenderedCell(rowIndex, columnIndex), sheet, event);
   }
 
-  function exitEditorInCell(cell, sheet, focusTarget) {
+  function exitEditorInCell(cell, sheet, focusTarget, collapseList) {
     if (!cell) return false;
     if (openSelectState) closeSelectMenu();
     const focused = document.activeElement;
@@ -311,6 +330,13 @@
     if (focusedInCell && typeof focused.blur === "function") focused.blur();
     if (editorTarget) CDBVS.commitEditorTarget(editorTarget);
     CDBVS.deactivateCell(sheet);
+    if (collapseList) {
+      const toggle = cell.querySelector(".list-toggle.expanded");
+      if (toggle) {
+        if (typeof cell._cdbvsToggleList === "function") cell._cdbvsToggleList();
+        else clickControl(toggle);
+      }
+    }
     const nextFocusTarget = typeof focusTarget === "function" ? focusTarget() : focusTarget;
     if (nextFocusTarget && typeof nextFocusTarget.focus === "function") nextFocusTarget.focus({ preventScroll: true });
     return true;
@@ -320,7 +346,7 @@
     const active = CDBVS.activeCell(sheet);
     if (!active) return false;
     const cell = findRenderedCell(active.rowIndex, active.columnIndex);
-    return exitEditorInCell(cell, sheet, cell);
+    return exitEditorInCell(cell, sheet, cell, true);
   }
 
   function selectRenderedRow(sheet, rowIndex, rowElement, event) {

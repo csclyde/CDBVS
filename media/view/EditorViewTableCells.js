@@ -13,12 +13,21 @@
     const exit = options.exit;
     const showContextMenu = options.showContextMenu;
     const stopPropagation = options.stopPropagation === true;
+    const shouldIgnore = typeof options.shouldIgnore === "function" ? options.shouldIgnore : () => false;
     const matchesSelection = (selection) => !!selection
       && selection.rowIndex === rowIndex && selection.columnIndex === columnIndex;
     let selectionOnlyClick = false;
     td.addEventListener("mousedown", (event) => {
+      if (shouldIgnore(event.target, event)) return;
       if (event.button !== undefined && event.button !== 0) return;
       const alreadySelected = matchesSelection(getSelection());
+      const listToggleTarget = event.target && event.target.closest && event.target.closest(".list-toggle");
+      if (listToggleTarget) {
+        if (!alreadySelected) select(event);
+        if (!isActive()) activate(event);
+        selectionOnlyClick = false;
+        return;
+      }
       const selectTarget = event.target && event.target.closest && event.target.closest("select");
       if (alreadySelected && isActive()) {
         event.preventDefault();
@@ -40,11 +49,13 @@
     td.addEventListener("mouseleave", () => { selectionOnlyClick = false; });
     td.addEventListener("pointercancel", () => { selectionOnlyClick = false; });
     td.addEventListener("click", (event) => {
+      if (shouldIgnore(event.target, event)) return;
       if (!selectionOnlyClick) return;
       event.preventDefault();
       if (typeof event.stopPropagation === "function") event.stopPropagation();
     }, true);
     td.addEventListener("click", (event) => {
+      if (shouldIgnore(event.target, event)) return;
       if (!event.target.closest || event.target.closest("tr") !== tr) return;
       if (stopPropagation && typeof event.stopPropagation === "function") event.stopPropagation();
       if (selectionOnlyClick) { selectionOnlyClick = false; return; }
@@ -52,6 +63,7 @@
       else select(event);
     });
     td.addEventListener("contextmenu", (event) => {
+      if (shouldIgnore(event.target, event)) return;
       if (!event.target.closest || event.target.closest("tr") !== tr) return;
       event.preventDefault();
       if (stopPropagation && typeof event.stopPropagation === "function") event.stopPropagation();
@@ -89,6 +101,7 @@
       select: () => CDBVS.selectRenderedCell(sheet, rowIndex, columnIndex, tr, td),
       activate: (event) => CDBVS.activateRenderedCell(sheet, rowIndex, columnIndex, event),
       exit: () => CDBVS.exitRenderedCell(sheet),
+      shouldIgnore: (target) => !!(target && target.closest && target.closest(".list-editor")),
       showContextMenu: (event) => CDBVS.showCellContextMenu(event, sheet)
     });
     CDBVS.makeCellEditor(td, row, column, { sheet, rowIndex, path: `${sheet.name}/${rowIndex}` });

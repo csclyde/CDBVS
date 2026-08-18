@@ -45,6 +45,12 @@
     // moving the grid selection.
     if (typeof CDBVS.handleSelectKeydown === "function"
       && CDBVS.handleSelectKeydown(event.target, event)) return;
+    if (!modified && !event.altKey && key === "insert" && !editorTarget
+      && listCell && typeof listCell._cdbvsInsertSelectedListItem === "function") {
+      event.preventDefault();
+      listCell._cdbvsInsertSelectedListItem();
+      return;
+    }
     if ((!editorTarget || !activeSelection) && !modified && !event.altKey && arrowKey) {
       if (listCell && typeof listCell._cdbvsNavigateListGrid === "function") {
         const rowDelta = key === "arrowup" ? -1 : (key === "arrowdown" ? 1 : 0);

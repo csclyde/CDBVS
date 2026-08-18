@@ -144,7 +144,7 @@
     const exitSelectedListCell = () => {
       const target = selectedListCellElement();
       if (!target || !editSheet) return false;
-      if (typeof CDBVS.exitEditorInCell === "function") return CDBVS.exitEditorInCell(target, editSheet, () => selectedListCellElement());
+      if (typeof CDBVS.exitEditorInCell === "function") return CDBVS.exitEditorInCell(target, editSheet, () => selectedListCellElement(), true);
       if (typeof target.focus === "function") target.focus({ preventScroll: true });
       if (typeof CDBVS.deactivateCell === "function") CDBVS.deactivateCell(editSheet);
       return true;
@@ -153,7 +153,9 @@
       const current = selectedListCell();
       if (current && (current.itemIndex !== itemIndex || current.columnIndex !== columnIndex)
         && editSheet && typeof CDBVS.activeCell === "function" && CDBVS.activeCell(editSheet)
-        && typeof CDBVS.exitRenderedCell === "function") CDBVS.exitRenderedCell(editSheet);
+        && typeof CDBVS.exitEditorInCell === "function") {
+        CDBVS.exitEditorInCell(selectedListCellElement(), editSheet, null, true);
+      }
       ensureParentCellSelected();
       return selectListCell(itemIndex, columnIndex);
     };
@@ -214,6 +216,29 @@
     cell._cdbvsDeleteSelectedListCell = deleteSelectedListCell;
     cell._cdbvsCopySelectedListCell = copySelectedListCell;
     cell._cdbvsPasteSelectedListCell = pasteSelectedListCell;
+    const insertSelectedListItem = () => {
+      if (!Array.isArray(row[column.name])) row[column.name] = values;
+      const selected = currentSelectedItem();
+      const insertAt = selected === null ? values.length : selected + 1;
+      values.splice(insertAt, 0, createRowForSchema(schema, values));
+      storeSelectedItems([insertAt], insertAt, insertAt);
+      state.expandedLists.add(key);
+      rerender();
+      if (!deferChanges) CDBVS.sendUpdate();
+      return true;
+    };
+    cell._cdbvsInsertSelectedListItem = insertSelectedListItem;
+    const closeExpandedList = () => {
+      const toggle = cell.querySelector(".list-toggle.expanded");
+      if (!toggle) return false;
+      if (typeof cell._cdbvsToggleList === "function") cell._cdbvsToggleList();
+      else if (typeof toggle.click === "function") toggle.click();
+      else if (typeof toggle.dispatchEvent === "function") toggle.dispatchEvent({
+        type: "click", target: toggle, preventDefault() {}, stopPropagation() {}
+      });
+      return true;
+    };
+    cell._cdbvsCloseExpandedList = closeExpandedList;
     cell._cdbvsNavigateListGrid = (rowDelta, columnDelta) => {
       if (!expanded || (rowDelta !== -1 && rowDelta !== 0 && rowDelta !== 1)
         || (columnDelta !== -1 && columnDelta !== 0 && columnDelta !== 1)) return false;
@@ -230,6 +255,7 @@
           if (state.listSelectionAnchors) delete state.listSelectionAnchors[key];
           updateListItemSelection(new Set());
           if (editSheet && typeof CDBVS.deactivateCell === "function") CDBVS.deactivateCell(editSheet);
+          closeExpandedList();
           if (typeof cell.focus === "function") cell.focus({ preventScroll: true });
           return true;
         }
@@ -248,6 +274,7 @@
           if (state.listSelectionAnchors) delete state.listSelectionAnchors[key];
           updateListItemSelection(new Set());
           if (editSheet && typeof CDBVS.deactivateCell === "function") CDBVS.deactivateCell(editSheet);
+          closeExpandedList();
           if (typeof cell.focus === "function") cell.focus({ preventScroll: true });
           return true;
         }
@@ -263,6 +290,7 @@
         updateListItemSelection(new Set());
         updateListCellSelection();
         if (editSheet && typeof CDBVS.deactivateCell === "function") CDBVS.deactivateCell(editSheet);
+        closeExpandedList();
         if (typeof cell.focus === "function") cell.focus({ preventScroll: true });
         return true;
       }
@@ -301,11 +329,23 @@
       if (!deferChanges) CDBVS.sendUpdate();
       return true;
     };
-    const toggle = makeButton("", () => {
-      if (state.expandedLists.has(key)) state.expandedLists.delete(key);
-      else state.expandedLists.add(key);
+    const toggleList = () => {
+      const wasExpanded = state.expandedLists.has(key);
+      if (wasExpanded) {
+        const active = editSheet && typeof CDBVS.activeCell === "function" ? CDBVS.activeCell(editSheet) : null;
+        if (active && active.rowIndex === editRowIndex && active.columnIndex === editColumnIndex
+          && typeof CDBVS.deactivateCell === "function") CDBVS.deactivateCell(editSheet);
+        state.expandedLists.delete(key);
+      } else {
+        ensureParentCellSelected();
+        if (editSheet && typeof CDBVS.activeCell === "function" && !CDBVS.activeCell(editSheet)
+          && typeof CDBVS.activateCell === "function") CDBVS.activateCell(editSheet, editRowIndex, editColumnIndex);
+        state.expandedLists.add(key);
+      }
       rerender();
-    }, expanded ? "list-toggle expanded" : "list-toggle");
+    };
+    const toggle = makeButton("", toggleList, expanded ? "list-toggle expanded" : "list-toggle");
+    cell._cdbvsToggleList = toggleList;
     toggle.title = expanded ? "Collapse list" : "Expand list";
     toggle.setAttribute("aria-label", toggle.title);
     toggle.appendChild(makeElement("span", listPreview(values, schema), "list-preview"));
@@ -317,16 +357,7 @@
     const editor = makeElement("div", null, "list-editor");
     const editorToolbar = makeElement("div", null, "nested-toolbar");
     editorToolbar.appendChild(makeElement("span", `${schema.name} items`, "nested-title"));
-    editorToolbar.appendChild(makeButton("Insert Item", () => {
-      if (!Array.isArray(row[column.name])) row[column.name] = values;
-      const selected = currentSelectedItem();
-      const insertAt = selected === null ? values.length : selected + 1;
-      values.splice(insertAt, 0, createRowForSchema(schema, values));
-      storeSelectedItems([insertAt], insertAt, insertAt);
-      state.expandedLists.add(key);
-      rerender();
-      if (!deferChanges) CDBVS.sendUpdate();
-    }));
+    editorToolbar.appendChild(makeButton("Insert Item", insertSelectedListItem));
     const deleteItem = makeButton("Delete Item", deleteSelectedListItem, "danger-button nested-delete-item");
     deleteItem.disabled = !initialSelectedItems.length;
     editorToolbar.appendChild(deleteItem);
@@ -400,6 +431,10 @@
           },
           exit: exitSelectedListCell,
           stopPropagation: true,
+          shouldIgnore: (target) => {
+            const nestedEditor = target && target.closest && target.closest(".list-editor");
+            return !!(nestedEditor && typeof childCell.contains === "function" && childCell.contains(nestedEditor));
+          },
           showContextMenu: showNestedCellContextMenu
         });
         CDBVS.makeCellEditor(childCell, item, childColumn, {
