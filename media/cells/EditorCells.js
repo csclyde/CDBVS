@@ -39,6 +39,17 @@
     }
     let input;
     let needsCommit = false;
+    let committing = false;
+    const isActiveCellEditor = () => {
+      const editSheet = cellContext.editSheet || cellContext.sheet;
+      if (!editSheet || typeof CDBVS.activeCell !== "function") return false;
+      const active = CDBVS.activeCell(editSheet);
+      const editRowIndex = Number.isInteger(cellContext.editRowIndex) ? cellContext.editRowIndex : cellContext.rowIndex;
+      const editColumnIndex = Number.isInteger(cellContext.editColumnIndex)
+        ? cellContext.editColumnIndex
+        : (Array.isArray(editSheet.columns) ? editSheet.columns.indexOf(column) : -1);
+      return !!active && active.rowIndex === editRowIndex && active.columnIndex === editColumnIndex;
+    };
     const refreshAfterCommit = () => {
       if (typeof cellContext.refresh === "function") cellContext.refresh();
       else if (typeof CDBVS.refreshRenderedCell === "function") {
@@ -51,17 +62,28 @@
     if (type.code === 10 && type.values.length) {
       const flags = makeElement("div", null, "flags-input");
       let current = Number(value) || 0;
+      let flagsNeedCommit = false;
       type.values.forEach((label, flagIndex) => {
         const flagLabel = makeElement("label", null, "flag-item");
         const checkbox = document.createElement("input");
         checkbox.type = "checkbox";
         checkbox.checked = (current & (1 << flagIndex)) !== 0;
-        checkbox._cdbvsCommit = () => {};
+        checkbox._cdbvsCommit = () => {
+          if (!flagsNeedCommit) return;
+          committing = true;
+          try { checkbox.dispatchEvent(new Event("change", { bubbles: false })); }
+          finally { committing = false; }
+        };
         checkbox.addEventListener("change", () => {
           if (checkbox.checked) current |= 1 << flagIndex;
           else current &= ~(1 << flagIndex);
           if (column.opt && current === 0) row[column.name] = null;
           else row[column.name] = current;
+          if (isActiveCellEditor() && !committing) {
+            flagsNeedCommit = true;
+            return;
+          }
+          flagsNeedCommit = false;
           if (!cellContext.deferChanges) {
             CDBVS.sendUpdate();
             refreshAfterCommit();
@@ -102,7 +124,9 @@
       const current = row[column.name];
       const changed = next !== undefined && JSON.stringify(next) !== JSON.stringify(current);
       if (!needsCommit && !changed) return;
-      input.dispatchEvent(new Event("change", { bubbles: false }));
+      committing = true;
+      try { input.dispatchEvent(new Event("change", { bubbles: false })); }
+      finally { committing = false; }
     };
     input.addEventListener("input", () => {
       if (cellContext.deferChanges || !canSyncInputValue(type, input)) return;
@@ -110,6 +134,7 @@
       if (next === undefined) return;
       needsCommit = true;
       row[column.name] = next;
+      if (isActiveCellEditor()) return;
       if (typeof CDBVS.scheduleUpdate === "function") CDBVS.scheduleUpdate();
       else CDBVS.sendUpdate();
     });
@@ -125,6 +150,10 @@
         return;
       }
       if (next !== undefined) row[column.name] = next;
+      if (isActiveCellEditor() && !committing) {
+        needsCommit = true;
+        return;
+      }
       needsCommit = false;
       if (!cellContext.deferChanges) {
         CDBVS.sendUpdate();

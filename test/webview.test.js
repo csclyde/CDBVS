@@ -215,6 +215,7 @@ test("Ctrl/Cmd+S commits a focused cell and requests a document save", () => {
   const harness = createWebviewHarness({ customTypes: [], sheets: [target] });
   harness.context.innerWidth = 1200;
   harness.context.innerHeight = 800;
+  harness.context.Event = class { constructor(type) { this.type = type; } };
   harness.context.Event = class {
     constructor(type) { this.type = type; }
   };
@@ -326,7 +327,7 @@ test("arrow navigation commits a dirty cell without rebuilding the sheet", () =>
 
 test("cells select first and activate on the second click or Enter", () => {
   const target = sheet("Players");
-  target.columns = [{ name: "title", typeStr: "1" }, { name: "kind", typeStr: "5:Basic,Advanced" }];
+  target.columns = [{ name: "title", typeStr: "1" }, { name: "kind", typeStr: "5:Basic,Advanced,Expert" }];
   target.lines = [{ title: "A", kind: 0 }];
   const harness = createWebviewHarness({ customTypes: [], sheets: [target] });
   harness.context.innerWidth = 1200;
@@ -351,8 +352,11 @@ test("cells select first and activate on the second click or Enter", () => {
   assert.equal(harness.document.activeElement, titleCell.querySelector("input"));
 
   const kindCell = harness.CDBVS.app.querySelectorAll("td").find((cell) => cell.dataset.columnIndex === "1");
+  const pendingUpdates = harness.updates.length;
   titleInput.value = "edited";
   titleInput.dispatchEvent({ type: "input" });
+  assert.equal(harness.updates.length, pendingUpdates);
+  assert.equal(harness.CDBVS.activeCell(target).columnIndex, 0);
   kindCell.dispatchEvent({ type: "click" });
   assert.equal(target.lines[0].title, "edited");
   assert.equal(harness.CDBVS.activeCell(target), null);
@@ -391,6 +395,7 @@ test("cells select first and activate on the second click or Enter", () => {
   assert.ok(menu);
   const filter = menu.querySelector(".cell-select-filter");
   assert.ok(filter);
+  assert.equal(harness.document.activeElement, filter);
   filter.value = "advanced";
   filter.dispatchEvent({ type: "input" });
   const options = menu.querySelectorAll(".cell-select-option");
@@ -402,9 +407,18 @@ test("cells select first and activate on the second click or Enter", () => {
   assert.equal(harness.CDBVS.activeCell(target), null);
 
   harness.document.dispatchEvent({ type: "keydown", key: "Enter", target: select, preventDefault() {} });
-  assert.ok(harness.document.querySelector(".cell-select-menu"));
-  assert.equal(menu.querySelectorAll(".cell-select-option").length, 2);
+  const currentMenu = harness.document.querySelector(".cell-select-menu");
+  assert.ok(currentMenu);
+  assert.equal(currentMenu.querySelectorAll(".cell-select-option").length, 3);
   assert.equal(harness.CDBVS.activeCell(target).columnIndex, 1);
+  select.getBoundingClientRect = () => ({ left: 240, bottom: 176, width: 205 });
+  harness.document.dispatchEvent({ type: "scroll", target: harness.document });
+  assert.equal(currentMenu.style.left, "240px");
+  assert.equal(currentMenu.style.top, "176px");
+  assert.equal(currentMenu.style.minWidth, "205px");
+  const menuOptions = currentMenu.querySelectorAll(".cell-select-option");
+  let scrollCalls = 0;
+  menuOptions[2].scrollIntoView = () => { scrollCalls += 1; };
 
   let arrowPrevented = false;
   harness.document.dispatchEvent({
@@ -414,6 +428,19 @@ test("cells select first and activate on the second click or Enter", () => {
     preventDefault() { arrowPrevented = true; }
   });
   assert.equal(arrowPrevented, true);
+  assert.equal(select.value, "2");
+  assert.equal(scrollCalls, 1);
+  assert.equal(harness.CDBVS.selectedCell(target).columnIndex, 1);
+  assert.equal(harness.CDBVS.activeCell(target).columnIndex, 1);
+
+  let secondArrowPrevented = false;
+  harness.document.dispatchEvent({
+    type: "keydown",
+    key: "ArrowUp",
+    target: harness.document,
+    preventDefault() { secondArrowPrevented = true; }
+  });
+  assert.equal(secondArrowPrevented, true);
   assert.equal(select.value, "1");
   assert.equal(harness.CDBVS.selectedCell(target).columnIndex, 1);
   assert.equal(harness.CDBVS.activeCell(target).columnIndex, 1);
@@ -421,6 +448,7 @@ test("cells select first and activate on the second click or Enter", () => {
   harness.document.dispatchEvent({ type: "keydown", key: "Enter", target: select, preventDefault() {} });
   assert.equal(harness.document.querySelector(".cell-select-menu"), null);
   assert.equal(harness.CDBVS.activeCell(target), null);
+  assert.equal(target.lines[0].kind, 1);
 
   kindCell.dispatchEvent({ type: "click", target: kindCell });
   assert.ok(harness.document.querySelector(".cell-select-menu"));
@@ -683,6 +711,141 @@ test("rendering malformed nested list items does not rewrite document data", () 
   harness.CDBVS.makeCellEditor(cell, target.lines[0], column, { sheet: target, rowIndex: 0, path: "Main/0" });
 
   assert.deepEqual(target.lines[0].items, [["malformed"]]);
+});
+
+test("vertical arrows enter and traverse expanded list items", () => {
+  const target = sheet("Groups");
+  const listColumn = { name: "members", typeStr: "8" };
+  target.columns = [listColumn];
+  target.lines = [{ members: [{ name: "Ada", score: 1 }, { name: "Grace", score: 2 }, { name: "Lee", score: 3 }] }];
+  const child = sheet("Groups@members");
+  child.columns = [{ name: "name", typeStr: "1" }, { name: "score", typeStr: "3" }];
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target, child] });
+  harness.context.innerWidth = 1200;
+  harness.context.innerHeight = 800;
+  harness.CDBVS.app = harness.document.createElement("div");
+  harness.CDBVS.rememberViewport = () => {};
+  harness.CDBVS.restoreViewport = () => {};
+  harness.state.expandedLists.add("Groups/0/members");
+  loadScript(harness.context, "EditorCells.js");
+  loadScript(harness.context, "EditorView.js");
+  harness.CDBVS.render();
+
+  const listCell = harness.CDBVS.app.querySelectorAll("td").find((cell) => cell.dataset.columnIndex === "0");
+  listCell.dispatchEvent({ type: "click" });
+  const nestedRows = listCell.querySelectorAll(".nested-list-item");
+  const keydown = (key) => {
+    let prevented = false;
+    harness.document.dispatchEvent({
+      type: "keydown",
+      key,
+      target: harness.document.activeElement || listCell,
+      preventDefault() { prevented = true; }
+    });
+    assert.equal(prevented, true);
+  };
+
+  keydown("ArrowDown");
+  assert.equal(harness.state.selectedListRows["Groups/0/members"], 0);
+  assert.equal(harness.state.selectedListCells["Groups/0/members"].itemIndex, 0);
+  assert.equal(harness.state.selectedListCells["Groups/0/members"].columnIndex, 0);
+  assert.equal(nestedRows[0].classList.contains("list-item-selected"), true);
+  assert.equal(nestedRows[0].children[1].classList.contains("cell-selected"), true);
+  assert.equal(harness.document.activeElement, nestedRows[0].children[1]);
+
+  keydown("ArrowDown");
+  assert.equal(harness.state.selectedListRows["Groups/0/members"], 1);
+  assert.equal(harness.state.selectedListCells["Groups/0/members"].itemIndex, 1);
+  assert.equal(harness.state.selectedListCells["Groups/0/members"].columnIndex, 0);
+  keydown("ArrowDown");
+  assert.equal(harness.state.selectedListRows["Groups/0/members"], 2);
+  keydown("ArrowUp");
+  assert.equal(harness.state.selectedListCells["Groups/0/members"].itemIndex, 1);
+  assert.equal(harness.state.selectedListCells["Groups/0/members"].columnIndex, 0);
+  keydown("ArrowRight");
+  assert.equal(harness.state.selectedListCells["Groups/0/members"].itemIndex, 1);
+  assert.equal(harness.state.selectedListCells["Groups/0/members"].columnIndex, 1);
+  keydown("ArrowLeft");
+  assert.equal(harness.state.selectedListCells["Groups/0/members"].itemIndex, 1);
+  assert.equal(harness.state.selectedListCells["Groups/0/members"].columnIndex, 0);
+  keydown("ArrowUp");
+  assert.equal(harness.state.selectedListRows["Groups/0/members"], 0);
+  assert.equal(harness.state.selectedListCells["Groups/0/members"].itemIndex, 0);
+  assert.equal(harness.state.selectedListCells["Groups/0/members"].columnIndex, 0);
+  keydown("ArrowUp");
+  assert.equal(harness.state.selectedListRows["Groups/0/members"], undefined);
+  assert.equal(harness.state.selectedListCells["Groups/0/members"], undefined);
+  assert.equal(harness.document.activeElement, listCell);
+  assert.equal(harness.CDBVS.selectedCell(target).columnIndex, 0);
+});
+
+test("nested list cells share normal cell selection and edit transitions", () => {
+  const target = sheet("Groups");
+  const listColumn = { name: "members", typeStr: "8" };
+  target.columns = [listColumn];
+  target.lines = [{ members: [{ name: "Ada", kind: 0, score: 3 }] }];
+  const child = sheet("Groups@members");
+  child.columns = [
+    { name: "name", typeStr: "1" },
+    { name: "kind", typeStr: "5:Basic,Advanced" },
+    { name: "score", typeStr: "3" }
+  ];
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target, child] });
+  harness.context.innerWidth = 1200;
+  harness.context.innerHeight = 800;
+  harness.context.Event = class { constructor(type) { this.type = type; } };
+  harness.CDBVS.app = harness.document.createElement("div");
+  harness.CDBVS.rememberViewport = () => {};
+  harness.CDBVS.restoreViewport = () => {};
+  harness.state.expandedLists.add("Groups/0/members");
+  loadScript(harness.context, "EditorCells.js");
+  loadScript(harness.context, "EditorView.js");
+  harness.CDBVS.render();
+
+  const listCell = harness.CDBVS.app.querySelectorAll("td").find((cell) => cell.dataset.columnIndex === "0");
+  let nestedCells = listCell.querySelector(".nested-list-item").querySelectorAll(".nested-cell");
+  listCell.dispatchEvent({ type: "click" });
+  harness.document.dispatchEvent({ type: "keydown", key: "ArrowDown", target: listCell, preventDefault() {} });
+
+  let prevented = false;
+  harness.document.dispatchEvent({
+    type: "keydown",
+    key: "Enter",
+    target: nestedCells[0],
+    preventDefault() { prevented = true; }
+  });
+  assert.equal(prevented, true);
+  assert.equal(harness.CDBVS.activeCell(target).columnIndex, 0);
+  assert.equal(harness.document.activeElement, nestedCells[0].querySelector("input"));
+
+  nestedCells[0].querySelector("input").value = "Grace";
+  nestedCells[0].querySelector("input").dispatchEvent({ type: "input" });
+  harness.document.dispatchEvent({ type: "keydown", key: "Enter", target: nestedCells[0].querySelector("input"), preventDefault() {} });
+  assert.equal(target.lines[0].members[0].name, "Grace");
+  assert.equal(harness.CDBVS.activeCell(target), null);
+  assert.equal(harness.document.activeElement.classList.contains("nested-cell"), true);
+  nestedCells = listCell.querySelector(".nested-list-item").querySelectorAll(".nested-cell");
+
+  nestedCells[1].dispatchEvent({ type: "mousedown", target: nestedCells[1], button: 0, preventDefault() {} });
+  nestedCells[1].dispatchEvent({ type: "click", target: nestedCells[1], preventDefault() {}, stopPropagation() {} });
+  assert.equal(harness.state.selectedListCells["Groups/0/members"].columnIndex, 1);
+  assert.equal(harness.CDBVS.activeCell(target), null);
+
+  nestedCells[1].dispatchEvent({ type: "click", target: nestedCells[1], preventDefault() {}, stopPropagation() {} });
+  const nestedMenu = harness.document.querySelector(".cell-select-menu");
+  assert.ok(nestedMenu);
+  const nestedSelect = nestedCells[1].querySelector("select");
+  nestedSelect.getBoundingClientRect = () => ({ left: 315, bottom: 224, width: 180 });
+  listCell.querySelector(".list-editor").dispatchEvent({ type: "scroll", target: listCell.querySelector(".list-editor") });
+  assert.equal(nestedMenu.style.left, "315px");
+  assert.equal(nestedMenu.style.top, "224px");
+  harness.document.dispatchEvent({ type: "keydown", key: "Enter", target: harness.document.querySelector(".cell-select-filter"), preventDefault() {} });
+  assert.equal(harness.document.querySelector(".cell-select-menu"), null);
+  assert.equal(harness.CDBVS.activeCell(target), null);
+
+  nestedCells[2].dispatchEvent({ type: "click", target: nestedCells[2], preventDefault() {}, stopPropagation() {} });
+  harness.document.dispatchEvent({ type: "keydown", key: "Delete", target: nestedCells[2], preventDefault() {} });
+  assert.equal(target.lines[0].members[0].score, null);
 });
 
 test("column type changes convert safe values and reject lossy values before mutation", () => {

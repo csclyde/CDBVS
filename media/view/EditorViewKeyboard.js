@@ -31,12 +31,30 @@
     }
     const editorCell = editorTarget && editorTarget.closest && editorTarget.closest("td");
     const cellEditorTarget = editorCell && editorCell.closest && editorCell.closest("td") ? editorTarget : null;
+    const nestedTable = editorCell && editorCell.closest && editorCell.closest("table");
+    const nestedGridTarget = nestedTable && nestedTable.classList && nestedTable.classList.contains("nested-table");
+    const listCell = nestedGridTarget && nestedTable.closest
+      ? nestedTable.closest(".list-cell")
+      : (cellSelection && CDBVS.typeOf(cellSelection.column).code === 8 && typeof CDBVS.findRenderedCell === "function"
+        ? CDBVS.findRenderedCell(cellSelection.rowIndex, cellSelection.columnIndex)
+        : null);
+    const nestedListCellSelected = listCell && typeof listCell._cdbvsHasSelectedListCell === "function"
+      && listCell._cdbvsHasSelectedListCell();
     // Once a cell is active, its editor owns arrow keys so text cursors, number
     // inputs, selects, and nested editors can navigate their own value without
     // moving the grid selection.
-    if (activeSelection && cellEditorTarget && cellEditorTarget.tagName === "SELECT"
-      && typeof CDBVS.handleSelectKeydown === "function"
-      && CDBVS.handleSelectKeydown(cellEditorTarget, event)) return;
+    if (typeof CDBVS.handleSelectKeydown === "function"
+      && CDBVS.handleSelectKeydown(event.target, event)) return;
+    if ((!editorTarget || !activeSelection) && !modified && !event.altKey && arrowKey) {
+      if (listCell && typeof listCell._cdbvsNavigateListGrid === "function") {
+        const rowDelta = key === "arrowup" ? -1 : (key === "arrowdown" ? 1 : 0);
+        const columnDelta = key === "arrowleft" ? -1 : (key === "arrowright" ? 1 : 0);
+        if (listCell._cdbvsNavigateListGrid(rowDelta, columnDelta)) {
+          event.preventDefault();
+          return;
+        }
+      }
+    }
     if (activeSelection && cellEditorTarget && arrowKey) return;
     if (!modified && !event.altKey && arrowKey && (!editorTarget || cellEditorTarget || cellSelection)) {
       if (!cellSelection) {
@@ -56,6 +74,12 @@
       return;
     }
     if (!modified && !event.altKey && cellSelection && key === "enter") {
+      if (nestedListCellSelected && listCell && typeof listCell._cdbvsActivateSelectedListCell === "function") {
+        if (activeSelection && typeof listCell._cdbvsExitSelectedListCell === "function") listCell._cdbvsExitSelectedListCell();
+        else listCell._cdbvsActivateSelectedListCell(event);
+        event.preventDefault();
+        return;
+      }
       if (activeSelection) {
         event.preventDefault();
         CDBVS.exitRenderedCell(sheet);
@@ -67,7 +91,14 @@
     }
     if (!modified && !event.altKey && activeSelection && key === "escape") {
       event.preventDefault();
-      CDBVS.exitRenderedCell(sheet);
+      if (nestedListCellSelected && listCell && typeof listCell._cdbvsExitSelectedListCell === "function") listCell._cdbvsExitSelectedListCell();
+      else CDBVS.exitRenderedCell(sheet);
+      return;
+    }
+    if (!modified && !event.altKey && deleteKey && nestedListCellSelected && listCell
+      && typeof listCell._cdbvsDeleteSelectedListCell === "function" && !editorTarget) {
+      event.preventDefault();
+      listCell._cdbvsDeleteSelectedListCell();
       return;
     }
     if (!modified && !event.altKey && activeSelection && editorTarget && deleteKey) return;
@@ -92,14 +123,18 @@
       if (CDBVS.selectedRowIndex(sheet) === null) return;
       event.preventDefault();
       CDBVS.commitEditorTarget(editorTarget);
-      CDBVS.copySelectedRow(sheet, key === "x");
+      if (nestedListCellSelected && listCell && typeof listCell._cdbvsCopySelectedListCell === "function") {
+        listCell._cdbvsCopySelectedListCell(key === "x");
+      } else CDBVS.copySelectedRow(sheet, key === "x");
       return;
     }
     if (key === "v") {
       if (!sheet) return;
       event.preventDefault();
       CDBVS.commitEditorTarget(editorTarget);
-      CDBVS.pasteSelectedRow(sheet);
+      if (nestedListCellSelected && listCell && typeof listCell._cdbvsPasteSelectedListCell === "function") {
+        listCell._cdbvsPasteSelectedListCell();
+      } else CDBVS.pasteSelectedRow(sheet);
       return;
     }
     if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;

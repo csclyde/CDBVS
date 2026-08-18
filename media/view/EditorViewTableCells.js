@@ -1,6 +1,65 @@
 (function (global) {
   const CDBVS = global.CDBVS;
-  const makeElement = CDBVS.makeElement;
+
+  function bindCellInteractions(td, options) {
+    const sheet = options.sheet;
+    const rowIndex = options.rowIndex;
+    const columnIndex = options.columnIndex;
+    const tr = options.tr;
+    const getSelection = options.getSelection;
+    const isActive = options.isActive;
+    const select = options.select;
+    const activate = options.activate;
+    const exit = options.exit;
+    const showContextMenu = options.showContextMenu;
+    const stopPropagation = options.stopPropagation === true;
+    const matchesSelection = (selection) => !!selection
+      && selection.rowIndex === rowIndex && selection.columnIndex === columnIndex;
+    let selectionOnlyClick = false;
+    td.addEventListener("mousedown", (event) => {
+      if (event.button !== undefined && event.button !== 0) return;
+      const alreadySelected = matchesSelection(getSelection());
+      const selectTarget = event.target && event.target.closest && event.target.closest("select");
+      if (alreadySelected && isActive()) {
+        event.preventDefault();
+        exit(event);
+        selectionOnlyClick = true;
+        return;
+      }
+      if (alreadySelected && selectTarget) {
+        event.preventDefault();
+        activate(event);
+        selectionOnlyClick = true;
+        return;
+      }
+      if (alreadySelected || event.target === td) return;
+      event.preventDefault();
+      select(event);
+      selectionOnlyClick = true;
+    }, true);
+    td.addEventListener("mouseleave", () => { selectionOnlyClick = false; });
+    td.addEventListener("pointercancel", () => { selectionOnlyClick = false; });
+    td.addEventListener("click", (event) => {
+      if (!selectionOnlyClick) return;
+      event.preventDefault();
+      if (typeof event.stopPropagation === "function") event.stopPropagation();
+    }, true);
+    td.addEventListener("click", (event) => {
+      if (!event.target.closest || event.target.closest("tr") !== tr) return;
+      if (stopPropagation && typeof event.stopPropagation === "function") event.stopPropagation();
+      if (selectionOnlyClick) { selectionOnlyClick = false; return; }
+      if (matchesSelection(getSelection())) activate(event);
+      else select(event);
+    });
+    td.addEventListener("contextmenu", (event) => {
+      if (!event.target.closest || event.target.closest("tr") !== tr) return;
+      event.preventDefault();
+      if (stopPropagation && typeof event.stopPropagation === "function") event.stopPropagation();
+      select(event);
+      showContextMenu(event);
+    });
+    return td;
+  }
 
   function renderTableCell(sheet, row, rowIndex, column, columnIndex, tr, cellErrors, selectedCellValue) {
     const td = document.createElement("td");
@@ -20,52 +79,22 @@
       td.dataset.errorMessage = td.title;
     }
     if (selectedCellValue && selectedCellValue.rowIndex === rowIndex && selectedCellValue.columnIndex === columnIndex) td.classList.add("cell-selected");
-    let selectionOnlyClick = false;
-    td.addEventListener("mousedown", (event) => {
-      if (event.button !== undefined && event.button !== 0) return;
-      const current = CDBVS.selectedCell(sheet);
-      const alreadySelected = current && current.rowIndex === rowIndex && current.columnIndex === columnIndex;
-      const selectTarget = event.target && event.target.closest && event.target.closest("select");
-      if (alreadySelected && CDBVS.activeCell(sheet)) {
-        event.preventDefault();
-        CDBVS.exitRenderedCell(sheet);
-        selectionOnlyClick = true;
-        return;
-      }
-      if (alreadySelected && selectTarget) {
-        event.preventDefault();
-        CDBVS.activateRenderedCell(sheet, rowIndex, columnIndex, event);
-        selectionOnlyClick = true;
-        return;
-      }
-      if (alreadySelected || event.target === td) return;
-      event.preventDefault();
-      CDBVS.selectRenderedCell(sheet, rowIndex, columnIndex, tr, td);
-      selectionOnlyClick = true;
-    }, true);
-    td.addEventListener("mouseleave", () => { selectionOnlyClick = false; });
-    td.addEventListener("pointercancel", () => { selectionOnlyClick = false; });
-    td.addEventListener("click", (event) => {
-      if (!selectionOnlyClick) return;
-      event.preventDefault();
-      if (typeof event.stopPropagation === "function") event.stopPropagation();
-    }, true);
-    td.addEventListener("click", (event) => {
-      if (!event.target.closest || event.target.closest("tr") !== tr) return;
-      const current = CDBVS.selectedCell(sheet);
-      if (selectionOnlyClick) { selectionOnlyClick = false; return; }
-      if (current && current.rowIndex === rowIndex && current.columnIndex === columnIndex) CDBVS.activateRenderedCell(sheet, rowIndex, columnIndex, event);
-      else CDBVS.selectRenderedCell(sheet, rowIndex, columnIndex, tr, td);
-    });
-    td.addEventListener("contextmenu", (event) => {
-      if (!event.target.closest || event.target.closest("tr") !== tr) return;
-      event.preventDefault();
-      CDBVS.selectRenderedCell(sheet, rowIndex, columnIndex, tr, td);
-      CDBVS.showCellContextMenu(event, sheet);
+    bindCellInteractions(td, {
+      sheet,
+      rowIndex,
+      columnIndex,
+      tr,
+      getSelection: () => CDBVS.selectedCell(sheet),
+      isActive: () => !!CDBVS.activeCell(sheet),
+      select: () => CDBVS.selectRenderedCell(sheet, rowIndex, columnIndex, tr, td),
+      activate: (event) => CDBVS.activateRenderedCell(sheet, rowIndex, columnIndex, event),
+      exit: () => CDBVS.exitRenderedCell(sheet),
+      showContextMenu: (event) => CDBVS.showCellContextMenu(event, sheet)
     });
     CDBVS.makeCellEditor(td, row, column, { sheet, rowIndex, path: `${sheet.name}/${rowIndex}` });
     return td;
   }
 
   CDBVS.renderTableCell = renderTableCell;
+  CDBVS.bindCellInteractions = bindCellInteractions;
 })(window);

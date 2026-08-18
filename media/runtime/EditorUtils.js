@@ -97,6 +97,7 @@
       renameStateKeys(state[key], oldName, newName);
     });
     renameStateKeys(state.selectedListRows, oldName, newName, "/");
+    renameStateKeys(state.selectedListCells, oldName, newName, "/");
     renameStateKeys(state.listSelectionAnchors, oldName, newName, "/");
     state.expandedLists.clear();
   }
@@ -107,6 +108,7 @@
       removeStateKeys(state[key], sheetName);
     });
     removeStateKeys(state.selectedListRows, sheetName, "/");
+    removeStateKeys(state.selectedListCells, sheetName, "/");
     removeStateKeys(state.listSelectionAnchors, sheetName, "/");
     state.expandedLists.clear();
   }
@@ -114,6 +116,7 @@
   function clearListState() {
     const state = CDBVS.state;
     state.selectedListRows = {};
+    state.selectedListCells = {};
     state.listSelectionAnchors = {};
     state.expandedLists.clear();
   }

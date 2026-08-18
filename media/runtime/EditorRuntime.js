@@ -22,6 +22,7 @@
     selectedCells: {},
     activeCells: {},
     selectedListRows: {},
+    selectedListCells: {},
     listSelectionAnchors: {},
     rowClipboard: null,
     cellClipboard: null,

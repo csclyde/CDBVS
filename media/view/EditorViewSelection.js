@@ -93,7 +93,8 @@
 
   function closeSelectMenu() {
     if (!openSelectState) return;
-    const { control, menu } = openSelectState;
+    const { control, menu, cleanup } = openSelectState;
+    if (typeof cleanup === "function") cleanup();
     if (menu && typeof menu.remove === "function") menu.remove();
     else if (menu && menu.parentNode && typeof menu.parentNode.removeChild === "function") menu.parentNode.removeChild(menu);
     if (control && typeof control.removeAttribute === "function") {
@@ -103,12 +104,6 @@
     openSelectState = null;
   }
 
-  function dispatchSelectChange(control) {
-    if (!control || typeof control.dispatchEvent !== "function") return;
-    const event = typeof Event === "function" ? new Event("change", { bubbles: false }) : { type: "change" };
-    control.dispatchEvent(event);
-  }
-
   function updateSelectMenu() {
     if (!openSelectState) return;
     const { control, optionItems, filterValue } = openSelectState;
@@ -116,15 +111,20 @@
     const selectedIndex = Math.max(0, options.findIndex((option) => String(option.value) === String(control.value)));
     openSelectState.selectedIndex = selectedIndex;
     const normalizedFilter = String(filterValue || "").trim().toLowerCase();
+    let selectedItem = null;
     optionItems.forEach((item, index) => {
       const optionText = String(options[index].textContent || options[index].value || "").toLowerCase();
       const visible = !normalizedFilter || optionText.includes(normalizedFilter);
       item.style.display = visible ? "" : "none";
       const selected = index === selectedIndex;
+      if (selected && visible) selectedItem = item;
       if (selected) item.classList.add("selected");
       else item.classList.remove("selected");
       item.setAttribute("aria-selected", String(selected));
     });
+    if (selectedItem && typeof selectedItem.scrollIntoView === "function") {
+      selectedItem.scrollIntoView({ block: "nearest" });
+    }
   }
 
   function visibleSelectIndexes() {
@@ -144,10 +144,9 @@
     const nextIndex = Math.max(0, Math.min(index, options.length - 1));
     control.value = String(options[nextIndex].value);
     updateSelectMenu();
-    dispatchSelectChange(control);
   }
 
-  function openSelectMenu(control, sheet) {
+  function openSelectMenu(control, sheet, onClose) {
     closeSelectMenu();
     const options = selectOptions(control);
     if (!options.length || !document.body || typeof document.createElement !== "function") return false;
@@ -180,8 +179,10 @@
         chooseSelectOption(index);
         if (typeof control.focus === "function") control.focus();
         const sheet = openSelectState && openSelectState.sheet;
+        const closeHandler = openSelectState && openSelectState.onClose;
         closeSelectMenu();
-        if (sheet) CDBVS.exitRenderedCell(sheet);
+        if (typeof closeHandler === "function") closeHandler();
+        else if (sheet) CDBVS.exitRenderedCell(sheet);
       });
       optionsContainer.appendChild(item);
       optionItems.push(item);
@@ -191,23 +192,54 @@
       updateSelectMenu();
     });
     document.body.appendChild(menu);
-    const rect = typeof control.getBoundingClientRect === "function" ? control.getBoundingClientRect() : null;
-    if (rect && menu.style) {
+    const reposition = () => {
+      const rect = typeof control.getBoundingClientRect === "function" ? control.getBoundingClientRect() : null;
+      if (!rect || !menu.style) return;
       menu.style.left = `${rect.left}px`;
       menu.style.top = `${rect.bottom}px`;
       menu.style.minWidth = `${Math.max(rect.width || 0, 120)}px`;
+    };
+    const listeners = [];
+    const listen = (target, type, capture) => {
+      if (!target || typeof target.addEventListener !== "function") return;
+      target.addEventListener(type, reposition, capture);
+      listeners.push(() => target.removeEventListener(type, reposition, capture));
+    };
+    listen(document, "scroll", true);
+    listen(global, "scroll", true);
+    listen(global, "resize");
+    const cleanup = () => listeners.splice(0).forEach((remove) => remove());
+    let ancestor = control.parentNode;
+    while (ancestor) {
+      listen(ancestor, "scroll", false);
+      ancestor = ancestor.parentNode;
     }
-    openSelectState = { control, menu, filter, optionItems, filterValue: "", selectedIndex: 0, sheet: sheet || CDBVS.currentSheet() };
+    openSelectState = {
+      control, menu, filter, optionItems, filterValue: "", selectedIndex: 0,
+      sheet: sheet || CDBVS.currentSheet(), onClose, reposition, cleanup
+    };
+    reposition();
     if (typeof control.setAttribute === "function") {
       control.setAttribute("aria-expanded", "true");
       control.setAttribute("aria-controls", menuId);
     }
     updateSelectMenu();
+    if (typeof filter.focus === "function") filter.focus();
     return true;
   }
 
   function handleSelectKeydown(control, event) {
     const key = String(event.key || "").toLowerCase();
+    const menuTarget = openSelectState && openSelectState.menu
+      && (event.target === openSelectState.menu
+        || (typeof openSelectState.menu.contains === "function" && openSelectState.menu.contains(event.target)));
+    const filterTarget = openSelectState && openSelectState.filter
+      && (event.target === openSelectState.filter
+        || (typeof openSelectState.filter.contains === "function" && openSelectState.filter.contains(event.target)));
+    const verticalArrow = key === "arrowup" || key === "arrowdown";
+    if (menuTarget || (openSelectState && verticalArrow)) control = openSelectState.control;
+    if (filterTarget && (key === "arrowleft" || key === "arrowright")) return false;
+    if (!menuTarget && (!control || control.tagName !== "SELECT")) return false;
     if (!openSelectState || openSelectState.control !== control) {
       if (key === "enter") return false;
       if (key !== " " && !["arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key)) return false;
@@ -225,9 +257,15 @@
     }
     if (key !== "arrowup" && key !== "arrowdown" && key !== "home" && key !== "end") return false;
     const options = selectOptions(control);
-    if (!options.length) return false;
+    if (!options.length) {
+      if (typeof event.preventDefault === "function") event.preventDefault();
+      return true;
+    }
     const visibleIndexes = visibleSelectIndexes();
-    if (!visibleIndexes.length) return false;
+    if (!visibleIndexes.length) {
+      if (typeof event.preventDefault === "function") event.preventDefault();
+      return true;
+    }
     let position = visibleIndexes.indexOf(openSelectState.selectedIndex);
     if (position < 0) position = key === "arrowup" || key === "end" ? visibleIndexes.length - 1 : 0;
     if (key === "home") position = 0;
@@ -238,9 +276,7 @@
     return true;
   }
 
-  function activateRenderedCell(sheet, rowIndex, columnIndex, event) {
-    if (!CDBVS.activateCell(sheet, rowIndex, columnIndex)) return false;
-    const cell = findRenderedCell(rowIndex, columnIndex);
+  function activateEditorInCell(cell, sheet, event, onClose) {
     if (!cell) return true;
     const controls = Array.from(cell.querySelectorAll("input, select, textarea, button"));
     const control = controls.find((item) => item.classList && item.classList.contains("list-toggle"))
@@ -249,7 +285,7 @@
     const directControlClick = isControlTarget(event && event.target, control);
     if (typeof control.focus === "function") control.focus();
     if (control.tagName === "SELECT") {
-      openSelectMenu(control, sheet);
+      openSelectMenu(control, sheet, onClose);
     } else if (!directControlClick && control.classList && control.classList.contains("list-toggle") && typeof control.click === "function") {
       control.click();
     } else if (!directControlClick && control.tagName === "INPUT" && control.type === "color" && typeof control.showPicker === "function") {
@@ -260,20 +296,31 @@
     return true;
   }
 
-  function exitRenderedCell(sheet) {
-    const active = CDBVS.activeCell(sheet);
-    if (!active) return false;
+  function activateRenderedCell(sheet, rowIndex, columnIndex, event) {
+    if (!CDBVS.activateCell(sheet, rowIndex, columnIndex)) return false;
+    return activateEditorInCell(findRenderedCell(rowIndex, columnIndex), sheet, event);
+  }
+
+  function exitEditorInCell(cell, sheet, focusTarget) {
+    if (!cell) return false;
     if (openSelectState) closeSelectMenu();
-    const cell = findRenderedCell(active.rowIndex, active.columnIndex);
     const focused = document.activeElement;
-    const focusedInCell = cell && focused && typeof cell.contains === "function" && cell.contains(focused);
+    const focusedInCell = focused && typeof cell.contains === "function" && cell.contains(focused);
     const editorTarget = focusedInCell && focused.closest && focused.closest("input, textarea, select, [contenteditable=\"true\"]")
-      || (cell && cell.querySelector("input, textarea, select, [contenteditable=\"true\"]"));
+      || cell.querySelector("input, textarea, select, [contenteditable=\"true\"]");
     if (focusedInCell && typeof focused.blur === "function") focused.blur();
     if (editorTarget) CDBVS.commitEditorTarget(editorTarget);
     CDBVS.deactivateCell(sheet);
-    if (cell && typeof cell.focus === "function") cell.focus({ preventScroll: true });
+    const nextFocusTarget = typeof focusTarget === "function" ? focusTarget() : focusTarget;
+    if (nextFocusTarget && typeof nextFocusTarget.focus === "function") nextFocusTarget.focus({ preventScroll: true });
     return true;
+  }
+
+  function exitRenderedCell(sheet) {
+    const active = CDBVS.activeCell(sheet);
+    if (!active) return false;
+    const cell = findRenderedCell(active.rowIndex, active.columnIndex);
+    return exitEditorInCell(cell, sheet, cell);
   }
 
   function selectRenderedRow(sheet, rowIndex, rowElement, event) {
@@ -296,7 +343,7 @@
 
   Object.assign(CDBVS, {
     renderedRoot, findRenderedRow, findRenderedCell, refreshRenderedCell, updateRenderedSelection,
-    activateRenderedCell, exitRenderedCell, selectRenderedRow, selectRenderedCell,
+    activateEditorInCell, exitEditorInCell, activateRenderedCell, exitRenderedCell, selectRenderedRow, selectRenderedCell,
     handleSelectKeydown, closeSelectMenu, openSelectMenu
   });
 })(window);

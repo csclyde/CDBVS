@@ -86,6 +86,15 @@ The first working editor baseline is in place. The repository now contains a des
 - Dropdown cells consistently use the in-webview menu for mouse and keyboard activation; native select popup activation is suppressed.
 - The custom dropdown menu now commits and closes on option click and includes a text filter for narrowing options and keyboard navigation.
 - Dropdown edit state now matches menu state: opening activates the cell, while option selection, Enter, Escape, or clicking the active cell closes the menu and exits editing.
+- Arrow keys from either the dropdown control or its filter input are routed to the open custom menu instead of grid navigation.
+- Removed the accent-colored ring from selected table cells while preserving selected backgrounds and validation-error styling.
+- Restored a consistent fixed blue outline for selected cells and focused cell editors, independent of an orange theme focus color.
+- Custom dropdown navigation now scrolls the selected option into view after each vertical move, including filtered results.
+- Opening a custom dropdown now focuses its filter input so typing always filters; Up/Down remain reserved for option navigation.
+- Active cell text edits now avoid debounced document round-trips until commit, preventing delayed rerenders from ending edit mode.
+- Audited every schema editor path: primitive inputs, number/float steppers, booleans, enums, references, colors, IDs, JSON-backed values, flags, and nested list/property editors now defer active-cell commits consistently.
+- Vertical arrows remain captured by an open dropdown even after the first option change or when filtering produces no matches.
+- Dropdown arrow changes now remain local while the menu is open and commit once on menu close, preventing document rerenders from invalidating repeated navigation.
 - Made the Delete key clear only the selected cell while preserving row deletion when no cell is selected; the explicit Delete Row toolbar button remains row-level.
 - Removed the top Delete Row button and added right-click context menus: row numbers expose insert/delete/move/copy/cut/paste row actions, while cells expose copy/cut/paste/clear cell actions.
 - Added a reusable cell-error registry/API plus automatic duplicate-primary-ID validation that marks only later duplicate cells with an error badge, tooltip, and accessible invalid state; cell edits refresh validation immediately.
@@ -156,6 +165,19 @@ These are intentionally still open for the next milestone:
 - Dropdown mouse and keyboard activation now suppresses the native popup and routes through the in-webview menu; all 44 Node tests, recursive JavaScript syntax checks, and `git diff --check` pass.
 - Custom dropdown option clicks now select and close, with filtered option rendering and navigation covered by the regression suite; all 44 Node tests, recursive JavaScript syntax checks, and `git diff --check` pass.
 - Dropdown menu/edit-mode transitions are now unified and covered for selection, Enter, Escape, and active-cell clicks; all 44 Node tests, recursive JavaScript syntax checks, and `git diff --check` pass.
+- Open-menu arrow routing now covers the control and filter-input focus paths; all 51 Node tests, recursive JavaScript syntax checks, and `git diff --check` pass.
+- Repeated vertical-arrow routing remains inside the open dropdown after option changes; all 51 Node tests, recursive JavaScript syntax checks, and `git diff --check` pass.
+- Repeated multi-option navigation now preserves the live editor and commits its final value on exit; all 51 Node tests, recursive JavaScript syntax checks, and `git diff --check` pass.
+- Selected-cell styling no longer draws the accent ring; all 51 Node tests and `git diff --check` pass.
+- Selected and editing cells now share the fixed blue outline style; all 51 Node tests and `git diff --check` pass.
+- Focused cell edits now remain active through the debounce interval and commit through existing exit/save paths; all 51 Node tests, recursive JavaScript syntax checks, and `git diff --check` pass.
+- The all-cell-type commit audit passes 51 Node tests, recursive JavaScript syntax checks, and `git diff --check`; active specialized editors no longer trigger mid-edit document rerenders.
+- Dropdown selected-option scrolling is covered and all 51 Node tests, recursive JavaScript syntax checks, and `git diff --check` pass.
+- Dropdown filter focus and vertical-navigation behavior are covered; all 51 Node tests, recursive JavaScript syntax checks, and `git diff --check` pass.
+- Expanded list cells now support keyboard entry into the first nested item, Up/Down traversal with the active item kept selected, and Up from the first item returning to the parent cell; all 52 Node tests, recursive JavaScript syntax checks, and `git diff --check` pass.
+- Expanded list cells now track nested row-and-column cell selection, with blue cell highlighting and Left/Right/Up/Down navigation matching the main grid; all 52 Node tests, recursive JavaScript syntax checks, and `git diff --check` pass.
+- Nested item cells now use the shared table-cell interaction binder for mouse selection, activation, focus, context menus, Enter/Escape, editor commits, Delete, and cell clipboard actions; nested dropdown closing and text-editor commits preserve nested focus, and all 53 Node tests, recursive JavaScript syntax checks, and `git diff --check` pass.
+- Custom dropdowns now reposition from the live control rectangle on nested list-editor/table/document scrolling and window resizing; direct nested-scroll coverage is included in the 53-test suite.
 - The module-refactor pass passes all 44 Node tests, JavaScript syntax checks for the new modules, and `git diff --check`; visual verification in a real VS Code Extension Development Host remains outstanding.
 - The deeper module-refactor pass keeps all 44 Node tests passing, adds reusable table/modal/cell subcomponents, and reduces the largest remaining webview files to focused logical responsibilities; visual verification in a real VS Code Extension Development Host remains outstanding.
 - The first-load arrow-navigation fix makes keyboard-handler installation idempotent and independent of script order, with document and window event routing; all 44 regression tests and recursive syntax checks pass.

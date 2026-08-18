@@ -8,6 +8,11 @@
 
   function renderPropertiesCell(cell, row, column, context, schema) {
     const deferChanges = context && context.deferChanges === true;
+    const editSheet = context && (context.editSheet || context.sheet);
+    const editRowIndex = context && (Number.isInteger(context.editRowIndex) ? context.editRowIndex : context.rowIndex);
+    const editColumnIndex = context && (Number.isInteger(context.editColumnIndex)
+      ? context.editColumnIndex
+      : (editSheet && Array.isArray(editSheet.columns) ? editSheet.columns.indexOf(column) : -1));
     const properties = row[column.name] && typeof row[column.name] === "object" && !Array.isArray(row[column.name]) ? row[column.name] : {};
     const key = listKey(context, column);
     const expanded = state.expandedLists.has(key);
@@ -61,7 +66,10 @@
         sheet: schema,
         rowIndex: 0,
         path: `${context.path}/${column.name}/properties`,
-        deferChanges
+        deferChanges,
+        editSheet,
+        editRowIndex,
+        editColumnIndex
       });
       propertyRow.appendChild(propertyCell);
       body.appendChild(propertyRow);
