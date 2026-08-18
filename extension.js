@@ -33,6 +33,7 @@ class CdbEditorProvider {
 
     let disposed = false;
     let applyingEdit = false;
+    let pendingDocumentRefresh = false;
     let updateQueue = Promise.resolve();
     const markActive = () => {
       if (webviewPanel.active) this.activeDocumentUri = document.uri;
@@ -55,7 +56,8 @@ class CdbEditorProvider {
 
     const changeSubscription = vscode.workspace.onDidChangeTextDocument((event) => {
       if (event.document.uri.toString() !== document.uri.toString()) return;
-      if (!applyingEdit) sendDocument();
+      if (applyingEdit) pendingDocumentRefresh = true;
+      else sendDocument();
     });
     const configurationSubscription = vscode.workspace.onDidChangeConfiguration((event) => {
       if (event.affectsConfiguration("cdbvs.showHiddenSheets")) sendDocument();
@@ -83,6 +85,10 @@ class CdbEditorProvider {
             }
           } finally {
             applyingEdit = false;
+            if (pendingDocumentRefresh) {
+              pendingDocumentRefresh = false;
+              sendDocument();
+            }
           }
         };
         updateQueue = updateQueue.then(applyUpdate, applyUpdate).catch((error) => {
@@ -189,7 +195,8 @@ function activate(context) {
       vscode.window.showErrorMessage(`CDBVS cannot format this file: ${message}`);
       return;
     }
-    await replaceDocument(vscode, document, serializeCdb(result.data));
+    const applied = await replaceDocument(vscode, document, serializeCdb(result.data));
+    if (!applied) vscode.window.showErrorMessage("CDBVS could not apply the formatted document.");
   }));
 }
 

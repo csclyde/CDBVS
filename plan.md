@@ -93,6 +93,8 @@ The first working editor baseline is in place. The repository now contains a des
 - Fixed column-modal deletion by removing the unreliable native confirmation gate; deleting a column now removes its schema entry and row values, updates view metadata, and remains undoable through VS Code.
 - Fixed stale webview state after adding or deleting sheets, rows, and columns, applying raw JSON, and saving sheet metadata.
 - Added structural-shape validation before webview edits, automatic raw JSON fallback for malformed CastleDB documents, and clearer validation errors.
+- Hardened schema integrity and editing migrations: malformed type prefixes and separators are rejected, ambiguous sheet/column/custom-type definitions fall back to raw recovery, list/property sub-sheets are created and removed with their parent columns, safe column type conversions are applied transactionally, unsafe conversions are refused before mutation, and separator titles stay aligned when rows are deleted.
+- Hardened numeric cell parsing so malformed integer, float, and color input cannot silently become zero; the extension host now refreshes the webview after document changes that arrive during queued edits and reports failed format edits.
 - Made Validate and Format resolve the active custom editor document, and report failed workspace edits instead of silently leaving stale state.
 - Preserved display-column metadata and reference type strings when renaming or deleting columns and sheets; advanced column properties can no longer overwrite form-controlled fields.
 - Removed render-time replacement of malformed rows so raw data is not silently discarded.
@@ -122,7 +124,7 @@ The first working editor baseline is in place. The repository now contains a des
 These are intentionally still open for the next milestone:
 
 1. Expand automated coverage for formatting, reference validation, and additional CastleDB type conversions.
-2. Improve schema editing with a dedicated type picker, required/optional conversion rules, and safer type conversions when a column's type changes.
+2. Improve schema editing with a dedicated type picker, richer required/optional conversion rules, and broader CastleDB-compatible type conversions when a column's type changes.
 3. Add richer controls for remaining CastleDB values: tile positions, gradients, curves, dynamic values, and file/image pickers.
 4. Add reference validation and useful navigation from a reference cell to the target sheet/row.
 5. Match CastleDB separator/group behavior from the Haxe model, including separator titles, group materialization, and preserving separator metadata safely.
@@ -140,6 +142,7 @@ These are intentionally still open for the next milestone:
 - The sheet-deletion pass passes JavaScript syntax, diff-whitespace, and a headless model/action mutation check; a real VS Code extension-host smoke test remains outstanding.
 - The modal viewport fix passes JavaScript syntax and diff-whitespace checks; visual verification in a real VS Code extension host remains outstanding.
 - The native-dialog replacement and regression-suite pass 12 Node tests, all JavaScript syntax checks, JSON fixture checks, and diff-whitespace checks; visual verification in a real VS Code extension host remains outstanding.
+- The hardening pass passes 51 Node tests, recursive JavaScript syntax checks, fixture parse/round-trip checks, and `git diff --check`; `vsce.cmd ls` confirms the current runtime, parser, vendor license, and media files are included; a real packaged VS Code Extension Development Host smoke test remains outstanding.
 - The deep audit, compact column-editor, nested-list selection/insertion/deletion, focused-input persistence, and local list-cell refresh pass passes 39 Node tests, all JavaScript syntax checks, JSON fixture checks, and diff-whitespace checks; a real packaged VS Code Extension Development Host smoke test remains outstanding.
 - The explicit-null clearing pass adds coverage for Delete/cut clearing and blank text, reference, and numeric editors; a real packaged VS Code Extension Development Host smoke test remains outstanding.
 - The sheet-switch rendering optimization passes all 40 Node tests, JavaScript syntax checks, and diff-whitespace checks; real-world timing on a desktop VS Code Extension Development Host remains outstanding.

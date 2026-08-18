@@ -12,6 +12,11 @@
   const setPrimaryColumn = CDBVS.setPrimaryColumn;
   const clearListState = CDBVS.clearListState;
   const createModal = CDBVS.createModal;
+  const isNestedType = CDBVS.isNestedType;
+  const prepareColumnTypeChange = CDBVS.prepareColumnTypeChange;
+  const ensureNestedSheet = CDBVS.ensureNestedSheet;
+  const removeNestedSheet = CDBVS.removeNestedSheet;
+  const defaultValue = CDBVS.defaultValue;
   const columnTypeOptions = [
     [0, "Primary ID"], [1, "Text"], [2, "Boolean"], [3, "Integer"], [4, "Float"],
     [5, "Enum"], [6, "Reference"], [7, "Image"], [8, "List"], [9, "Custom type"],
@@ -96,6 +101,9 @@
       const selectedType = typeSelect.value === "raw" ? rawTypeInput.value.trim() : `${typeSelect.value}${typeArgumentCodes.has(Number(typeSelect.value)) && typeArgumentInput.value.trim() ? `:${typeArgumentInput.value.trim()}` : ""}`;
       if (!selectedType) { showError("Type cannot be empty."); return; }
       const oldName = column.name;
+      const oldNested = isNestedType(typeOf(column));
+      const preparedType = prepareColumnTypeChange(sheet, column, selectedType);
+      if (!preparedType.ok) { showError(preparedType.message); return; }
       const typeProperty = Object.prototype.hasOwnProperty.call(column, "typeStr") ? "typeStr" : (Object.prototype.hasOwnProperty.call(column, "type") ? "type" : "typeStr");
       if (!isNew && oldName !== newName) {
         (sheet.lines || []).forEach((line) => {
@@ -123,10 +131,21 @@
       column.name = newName;
       column[typeProperty] = selectedType;
       column.opt = optionalInput.checked;
+      preparedType.values.forEach(({ line, value }) => { line[newName] = value; });
+      if (!column.opt) {
+        (sheet.lines || []).forEach((line) => {
+          if (!line || Object.prototype.hasOwnProperty.call(line, newName)) return;
+          const value = defaultValue(column, sheet);
+          if (value !== null) line[newName] = value;
+        });
+      }
       if (displayInput.value === "") delete column.display;
       else column.display = Number(displayInput.value);
       if (isNew) sheet.columns.splice(Math.min(columnIndex, sheet.columns.length), 0, column);
       if (Number(typeSelect.value) === 0) setPrimaryColumn(sheet, column.name);
+      const newNested = isNestedType(typeOf(column));
+      if (oldNested && !newNested) removeNestedSheet(sheet, newName);
+      else if (newNested) ensureNestedSheet(sheet, column);
       close();
       renderAfterUpdate();
     };

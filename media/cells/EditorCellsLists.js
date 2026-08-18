@@ -139,7 +139,6 @@
     const body = document.createElement("tbody");
     values.forEach((rawItem, itemIndex) => {
       const item = rawItem && typeof rawItem === "object" && !Array.isArray(rawItem) ? rawItem : {};
-      if (item !== rawItem) values[itemIndex] = item;
       const itemRow = document.createElement("tr");
       itemRow.className = "nested-list-item";
       itemRow.dataset = itemRow.dataset || {};

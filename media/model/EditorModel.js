@@ -20,6 +20,7 @@
   }
 
   function viewForSheet(sheet) {
+    if (!sheet || typeof sheet.name !== "string") return { filters: {}, sort: { column: "", direction: "asc" } };
     if (!state.columnFilters[sheet.name]) state.columnFilters[sheet.name] = {};
     if (!state.sorts[sheet.name]) state.sorts[sheet.name] = { column: "", direction: "asc" };
     return { filters: state.columnFilters[sheet.name], sort: state.sorts[sheet.name] };
@@ -94,6 +95,7 @@
   }
 
   function rowsForView(sheet) {
+    if (!sheet || typeof sheet !== "object") return [];
     const view = viewForSheet(sheet);
     const rows = (Array.isArray(sheet.lines) ? sheet.lines : []).map((rawRow, rowIndex) => {
       const row = rawRow && typeof rawRow === "object" && !Array.isArray(rawRow) ? rawRow : {};

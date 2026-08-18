@@ -73,9 +73,21 @@
     if (type.code === 2) return input.checked;
     const inputValue = input && input.value !== undefined && input.value !== null ? String(input.value) : "";
     if (inputValue.trim() === "") return null;
-    if (type.code === 11) return Number.parseInt(String(input.value).replace(/^#/, ""), 16) || 0;
-    if (type.code === 3 || type.code === 5 || type.code === 10) return Number.parseInt(input.value, 10) || 0;
-    if (type.code === 4) return Number.parseFloat(input.value) || 0;
+    if (type.code === 11) {
+      if (!/^#?[0-9a-f]{1,6}$/i.test(inputValue)) return undefined;
+      const color = Number.parseInt(inputValue.replace(/^#/, ""), 16);
+      return Number.isFinite(color) ? color : undefined;
+    }
+    if (type.code === 3 || type.code === 5 || type.code === 10) {
+      if (!/^[-+]?\d+$/.test(inputValue)) return undefined;
+      const number = Number(inputValue);
+      return Number.isSafeInteger(number) ? number : undefined;
+    }
+    if (type.code === 4) {
+      if (!/^[-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?$/i.test(inputValue)) return undefined;
+      const number = Number(inputValue);
+      return Number.isFinite(number) ? number : undefined;
+    }
     if ([8, 9, 14, 15, 16, 17, 18, 19].includes(type.code)) {
       try { return JSON.parse(input.value); } catch (_) { return undefined; }
     }

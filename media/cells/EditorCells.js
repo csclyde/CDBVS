@@ -120,6 +120,10 @@
         CDBVS.setStatus("Complex values must contain valid JSON before they can be saved.", true);
         return;
       }
+      if (next === undefined) {
+        CDBVS.setStatus(`${column.name} must contain a valid ${type.name} value.`, true);
+        return;
+      }
       if (next !== undefined) row[column.name] = next;
       needsCommit = false;
       if (!cellContext.deferChanges) {

@@ -21,6 +21,35 @@ test("type strings preserve CastleDB codes, arguments, and values", () => {
   assert.deepEqual(parser.parseType("5:easy,hard"), { code: 5, name: "enum", argument: "easy,hard", raw: "5:easy,hard", values: ["easy", "hard"] });
   assert.deepEqual(parser.parseType("6:Players"), { code: 6, name: "ref", argument: "Players", raw: "6:Players", target: "Players" });
   assert.equal(parser.parseType("999").code, -1);
+  assert.equal(parser.parseType("3garbage").code, -1);
+  assert.equal(parser.parseType("4.5").code, -1);
+});
+
+test("validation catches malformed separators and duplicate custom definitions", () => {
+  const issues = parser.validateData({
+    customTypes: [
+      { name: "Kind", cases: [{ name: "Basic", args: [] }, { name: "Basic", args: [] }] },
+      { name: "Kind", cases: [] }
+    ],
+    sheets: [{
+      name: "Players",
+      columns: [{ name: "id", typeStr: "0" }],
+      lines: [{ id: "one" }],
+      separators: [{ title: "missing index" }]
+    }]
+  });
+  assert.ok(issues.some((issue) => issue.includes("invalid separator")));
+  assert.ok(issues.some((issue) => issue.includes("Duplicate custom type 'Kind'")));
+  assert.ok(issues.some((issue) => issue.includes("Duplicate case 'Kind.Basic'")));
+});
+
+test("editor shape validation rejects ambiguous schemas but permits duplicate row IDs for repair", () => {
+  const duplicateColumns = { customTypes: [], sheets: [{ name: "Players", columns: [{ name: "id", typeStr: "0" }, { name: "id", typeStr: "1" }], lines: [] }] };
+  const unknownType = { customTypes: [], sheets: [{ name: "Players", columns: [{ name: "id", typeStr: "0garbage" }], lines: [] }] };
+  const duplicateIds = { customTypes: [], sheets: [{ name: "Players", columns: [{ name: "id", typeStr: "0" }], lines: [{ id: "same" }, { id: "same" }] }] };
+  assert.equal(parser.isEditorShapeValid(duplicateColumns), false);
+  assert.equal(parser.isEditorShapeValid(unknownType), false);
+  assert.equal(parser.isEditorShapeValid(duplicateIds), true);
 });
 
 test("validation reports malformed JSON, schema shape, and duplicate IDs", () => {

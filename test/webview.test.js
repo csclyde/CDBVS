@@ -185,6 +185,29 @@ test("blank editors and cell clearing serialize null instead of omission or defa
   assert.equal(row.title, null);
 });
 
+test("numeric editors reject malformed values instead of coercing them to zero", () => {
+  const target = sheet("Players");
+  target.columns = [{ name: "score", typeStr: "3" }, { name: "ratio", typeStr: "4" }];
+  target.lines = [{ score: 7, ratio: 1.5 }];
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target] });
+  loadScript(harness.context, "EditorCells.js");
+
+  const integerCell = harness.document.createElement("td");
+  harness.CDBVS.makeCellEditor(integerCell, target.lines[0], target.columns[0], { sheet: target, rowIndex: 0, path: "Players/0" });
+  const integerInput = integerCell.querySelector("input");
+  integerInput.value = "12oops";
+  integerInput.dispatchEvent({ type: "change" });
+
+  const floatCell = harness.document.createElement("td");
+  harness.CDBVS.makeCellEditor(floatCell, target.lines[0], target.columns[1], { sheet: target, rowIndex: 0, path: "Players/0" });
+  const floatInput = floatCell.querySelector("input");
+  floatInput.value = "not-a-number";
+  floatInput.dispatchEvent({ type: "change" });
+
+  assert.deepEqual(target.lines[0], { score: 7, ratio: 1.5 });
+  assert.equal(harness.statuses.at(-1).error, true);
+});
+
 test("Ctrl/Cmd+S commits a focused cell and requests a document save", () => {
   const target = sheet("Players");
   target.columns = [{ name: "title", typeStr: "1" }];
@@ -613,6 +636,69 @@ test("row mutations clamp indexes and keep separator state aligned", () => {
   assert.deepEqual(JSON.parse(JSON.stringify(harness.state.collapsedSeparators[target.name])), { "1": true });
   assert.equal(harness.CDBVS.deleteRowAt(target, -1), false);
   assert.equal(target.lines.length, 3);
+});
+
+test("deleting a separator row keeps separator titles aligned", () => {
+  const target = sheet();
+  target.lines = [{ id: "a" }, { id: "b" }, { id: "c" }];
+  target.separators = [0, 2];
+  target.props.separatorTitles = ["First", "Second"];
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target] });
+
+  assert.equal(harness.CDBVS.deleteRowAt(target, 0), true);
+  assert.deepEqual(target.separators, [1]);
+  assert.deepEqual(target.props.separatorTitles, ["Second"]);
+});
+
+test("nested schema structure is created and removed with list columns", () => {
+  const target = sheet("Main");
+  target.columns = [{ name: "items", typeStr: "8" }];
+  target.lines = [{ items: [{ value: "keep" }] }];
+  const other = sheet("Other");
+  other.columns = [{ name: "nested", typeStr: "6:Main@items" }];
+  other.lines = [{ nested: "value" }];
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target, other] });
+
+  const child = harness.CDBVS.ensureNestedSheet(target, target.columns[0]);
+  assert.equal(child.name, "Main@items");
+  assert.deepEqual(harness.state.data.sheets.map((item) => item.name), ["Main", "Main@items", "Other"]);
+  assert.equal(child.props.hide, true);
+
+  assert.equal(harness.CDBVS.deleteColumnAt(target, 0), true);
+  assert.deepEqual(harness.state.data.sheets.map((item) => item.name), ["Main", "Other"]);
+  assert.equal(other.columns[0].typeStr, "1");
+});
+
+test("rendering malformed nested list items does not rewrite document data", () => {
+  const target = sheet("Main");
+  const column = { name: "items", typeStr: "8" };
+  target.columns = [column];
+  target.lines = [{ items: [["malformed"]] }];
+  const child = sheet("Main@items");
+  child.columns = [{ name: "value", typeStr: "1" }];
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target, child] });
+  loadScript(harness.context, "EditorCells.js");
+  harness.state.expandedLists.add("Main/0/items");
+  const cell = harness.document.createElement("td");
+  harness.CDBVS.makeCellEditor(cell, target.lines[0], column, { sheet: target, rowIndex: 0, path: "Main/0" });
+
+  assert.deepEqual(target.lines[0].items, [["malformed"]]);
+});
+
+test("column type changes convert safe values and reject lossy values before mutation", () => {
+  const target = sheet();
+  const column = { name: "score", typeStr: "3" };
+  target.columns = [column];
+  target.lines = [{ score: 4 }, { score: -2 }];
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target] });
+
+  const safe = harness.CDBVS.prepareColumnTypeChange(target, column, "4");
+  assert.equal(safe.ok, true);
+  assert.deepEqual(JSON.parse(JSON.stringify(safe.values.map((item) => item.value))), [4, -2]);
+  const unsafe = harness.CDBVS.prepareColumnTypeChange(target, column, "8");
+  assert.equal(unsafe.ok, false);
+  assert.equal(column.typeStr, "3");
+  assert.deepEqual(target.lines.map((row) => row.score), [4, -2]);
 });
 
 test("schema defaults include required fields and unique generated IDs", () => {
