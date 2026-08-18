@@ -1,0 +1,143 @@
+(function (global) {
+  const CDBVS = global.CDBVS;
+  const makeElement = CDBVS.makeElement;
+  const typeOf = CDBVS.typeOf;
+  const currentSheet = CDBVS.currentSheet;
+  const listSheet = CDBVS.listSheet;
+  const readValue = CDBVS.readValue;
+  const valueText = CDBVS.valueText;
+  const colorText = CDBVS.colorText;
+  const referenceOptions = CDBVS.referenceOptions;
+  const sendUpdate = () => CDBVS.sendUpdate();
+  const setStatus = (message, error) => CDBVS.setStatus(message, error);
+  const openTextEditor = (...args) => CDBVS.openTextEditor(...args);
+
+  function canSyncInputValue(type, input) {
+    const value = String(input.value || "").trim();
+    if (type.code === 1 || type.code === 11) return true;
+    if (type.code === 3) return /^[-+]?\d+$/.test(value);
+    if (type.code === 4) return /^[-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?$/i.test(value);
+    return false;
+  }
+
+  function makeCellEditor(cell, row, column, context) {
+    const type = typeOf(column);
+    const value = row[column.name];
+    const cellContext = context || { sheet: currentSheet(), rowIndex: 0, path: "root" };
+    const references = type.code === 6 ? referenceOptions(column) : null;
+    if (type.code === 8) {
+      const schema = listSheet(cellContext.sheet, column);
+      if (schema && typeof CDBVS.renderListCell === "function") {
+        CDBVS.renderListCell(cell, row, column, cellContext, schema);
+        return;
+      }
+    }
+    if (type.code === 17) {
+      const schema = listSheet(cellContext.sheet, column);
+      if (schema && typeof CDBVS.renderPropertiesCell === "function") {
+        CDBVS.renderPropertiesCell(cell, row, column, cellContext, schema);
+        return;
+      }
+    }
+    let input;
+    let needsCommit = false;
+    const refreshAfterCommit = () => {
+      if (typeof cellContext.refresh === "function") cellContext.refresh();
+      else if (typeof CDBVS.refreshRenderedCell === "function") {
+        const columnIndex = (cellContext.sheet && Array.isArray(cellContext.sheet.columns))
+          ? cellContext.sheet.columns.indexOf(column)
+          : -1;
+        CDBVS.refreshRenderedCell(cellContext.sheet, cellContext.rowIndex, columnIndex);
+      } else if (typeof CDBVS.render === "function") CDBVS.render();
+    };
+    if (type.code === 10 && type.values.length) {
+      const flags = makeElement("div", null, "flags-input");
+      let current = Number(value) || 0;
+      type.values.forEach((label, flagIndex) => {
+        const flagLabel = makeElement("label", null, "flag-item");
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = (current & (1 << flagIndex)) !== 0;
+        checkbox._cdbvsCommit = () => {};
+        checkbox.addEventListener("change", () => {
+          if (checkbox.checked) current |= 1 << flagIndex;
+          else current &= ~(1 << flagIndex);
+          if (column.opt && current === 0) row[column.name] = null;
+          else row[column.name] = current;
+          if (!cellContext.deferChanges) {
+            sendUpdate();
+            refreshAfterCommit();
+          }
+        });
+        flagLabel.appendChild(checkbox);
+        flagLabel.appendChild(makeElement("span", label));
+        flags.appendChild(flagLabel);
+      });
+      cell.appendChild(flags);
+      return;
+    } else if (type.code === 2) {
+      input = document.createElement("input");
+      input.type = "checkbox";
+      input.checked = value === true;
+      input.className = "bool-input";
+    } else if (type.code === 5) {
+      input = document.createElement("select");
+      const values = type.values.length ? type.values : ["0"];
+      values.forEach((label, index) => input.add(new Option(label, String(index))));
+      input.value = String(value ?? 0);
+    } else if (type.code === 6 && references) {
+      input = document.createElement("select");
+      input.add(new Option("", ""));
+      references.forEach((item) => input.add(new Option(String(item), String(item))));
+      input.value = String(value ?? "");
+    } else {
+      input = document.createElement("input");
+      input.type = type.code === 11 ? "color" : ((type.code === 3 || type.code === 4 || type.code === 10) ? "number" : "text");
+      input.step = type.code === 4 ? "any" : "1";
+      input.value = type.code === 11 ? colorText(value) : valueText(value);
+      if (type.code === 11) input.classList.add("color-input");
+      if ([8, 9, 14, 15, 16, 17, 18, 19].includes(type.code)) input.classList.add("json-input");
+    }
+    input.title = `${column.name} (${type.name})`;
+    input._cdbvsCommit = () => {
+      const next = readValue(input, column);
+      const current = row[column.name];
+      const changed = next !== undefined && JSON.stringify(next) !== JSON.stringify(current);
+      if (!needsCommit && !changed) return;
+      input.dispatchEvent(new Event("change", { bubbles: false }));
+    };
+    input.addEventListener("input", () => {
+      if (cellContext.deferChanges || !canSyncInputValue(type, input)) return;
+      const next = readValue(input, column);
+      if (next === undefined) return;
+      needsCommit = true;
+      row[column.name] = next;
+      if (typeof CDBVS.scheduleUpdate === "function") CDBVS.scheduleUpdate();
+      else sendUpdate();
+    });
+    input.addEventListener("change", () => {
+      const next = readValue(input, column);
+      const complex = [8, 9, 14, 15, 16, 17, 18, 19].includes(type.code);
+      if (complex && input.value !== "" && next === undefined) {
+        setStatus("Complex values must contain valid JSON before they can be saved.", true);
+        return;
+      }
+      if (next !== undefined) row[column.name] = next;
+      needsCommit = false;
+      if (!cellContext.deferChanges) {
+        sendUpdate();
+        refreshAfterCommit();
+      }
+    });
+    if (type.code === 1 && !cellContext.deferChanges) {
+      input.title = `${column.name} (text) - double-click to open the larger editor`;
+      input.addEventListener("dblclick", (event) => {
+        event.preventDefault();
+        openTextEditor(row, column, input);
+      });
+    }
+    cell.appendChild(input);
+  }
+
+  Object.assign(CDBVS, { makeCellEditor });
+})(window);

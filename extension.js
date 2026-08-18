@@ -125,14 +125,38 @@ class CdbEditorProvider {
   getHtml(webview, mediaRoot) {
     const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(mediaRoot, "cdbEditor.css"));
     const scriptUris = [
-      "cdbEditorRuntime.js",
-      "cdbEditorDom.js",
-      "cdbEditorModel.js",
-      "cdbEditorActions.js",
-      "cdbEditorModals.js",
-      "cdbEditorCells.js",
-      "cdbEditorView.js",
-      "cdbEditor.js"
+      "runtime/cdbEditorRuntime.js",
+      "runtime/cdbEditorDom.js",
+      "model/cdbEditorModelSchema.js",
+      "model/cdbEditorModel.js",
+      "model/cdbEditorModelErrors.js",
+      "model/cdbEditorModelStructure.js",
+      "model/cdbEditorSelection.js",
+      "actions/cdbEditorActionsClipboard.js",
+      "actions/cdbEditorActions.js",
+      "modals/cdbEditorModalShared.js",
+      "modals/cdbEditorModalsConfirm.js",
+      "modals/cdbEditorModalsRows.js",
+      "modals/cdbEditorModalsColumns.js",
+      "modals/cdbEditorModalsSheetCreate.js",
+      "modals/cdbEditorModalsSheetDelete.js",
+      "modals/cdbEditorModalsSheets.js",
+      "modals/cdbEditorModalsTypes.js",
+      "modals/cdbEditorModalsFilters.js",
+      "modals/cdbEditorModals.js",
+      "cells/cdbEditorCellsLists.js",
+      "cells/cdbEditorCellsProperties.js",
+      "cells/cdbEditorCells.js",
+      "view/cdbEditorViewControls.js",
+      "view/cdbEditorViewContextMenus.js",
+      "view/cdbEditorViewSelection.js",
+      "view/cdbEditorViewTableHeader.js",
+      "view/cdbEditorViewTableCells.js",
+      "view/cdbEditorViewTableRows.js",
+      "view/cdbEditorViewTable.js",
+      "view/cdbEditorView.js",
+      "view/cdbEditorViewKeyboard.js",
+      "bootstrap/cdbEditor.js"
     ].map((name) => webview.asWebviewUri(vscode.Uri.joinPath(mediaRoot, name)));
     const nonce = String(Date.now());
     return `<!DOCTYPE html>

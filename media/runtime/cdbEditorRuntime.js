@@ -20,6 +20,7 @@
     activeRows: {},
     rowSelectionAnchors: {},
     selectedCells: {},
+    activeCells: {},
     selectedListRows: {},
     listSelectionAnchors: {},
     rowClipboard: null,

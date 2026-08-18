@@ -1,0 +1,162 @@
+(function (global) {
+  const CDBVS = global.CDBVS;
+  const makeElement = CDBVS.makeElement;
+  const makeButton = CDBVS.makeButton;
+  const sendUpdate = () => CDBVS.sendUpdate();
+  const rowsForView = (...args) => CDBVS.rowsForView(...args);
+  const selectedRowIndices = (...args) => CDBVS.selectedRowIndices(...args);
+  const selectedCell = (...args) => CDBVS.selectedCell(...args);
+  const isRowSelected = (...args) => CDBVS.isRowSelected(...args);
+  const cellErrorsForSheet = (...args) => CDBVS.cellErrorsForSheet(...args);
+  const separatorIndex = (...args) => CDBVS.separatorIndex(...args);
+  const isSeparatorCollapsed = (...args) => CDBVS.isSeparatorCollapsed(...args);
+  const toggleSeparatorCollapsed = (...args) => CDBVS.toggleSeparatorCollapsed(...args);
+  const showSeparatorContextMenu = (...args) => CDBVS.showSeparatorContextMenu(...args);
+  const selectRenderedRow = (...args) => CDBVS.selectRenderedRow(...args);
+  const showRowContextMenu = (...args) => CDBVS.showRowContextMenu(...args);
+  const renderTableCell = (...args) => CDBVS.renderTableCell(...args);
+  const openRowEditor = (...args) => CDBVS.openRowEditor(...args);
+
+  function editSeparatorTitle(sheet, separator, separatorPosition, titleSpan, label) {
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "separator-title-input";
+    input.value = titleSpan.textContent || "Section";
+    let finished = false;
+    const finish = (save) => {
+      if (finished) return;
+      finished = true;
+      if (!save) {
+        label.replaceChild(titleSpan, input);
+        return;
+      }
+      const title = input.value.trim() || "Section";
+      if (separator && typeof separator === "object") separator.title = title;
+      else {
+        if (!sheet.props || typeof sheet.props !== "object") sheet.props = {};
+        if (!Array.isArray(sheet.props.separatorTitles)) sheet.props.separatorTitles = [];
+        sheet.props.separatorTitles[separatorPosition] = title;
+      }
+      sendUpdate();
+      CDBVS.render();
+    };
+    label.replaceChild(input, titleSpan);
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") { event.preventDefault(); finish(true); }
+      else if (event.key === "Escape") { event.preventDefault(); finish(false); }
+    });
+    input.addEventListener("blur", () => finish(true));
+    input.focus();
+    input.select();
+  }
+
+  function renderSeparatorRows(body, sheet, rowIndex, positions) {
+    const separatorPositions = Array.isArray(positions) ? positions : (sheet.separators || []).map((_, index) => index);
+    separatorPositions.forEach((separatorPosition) => {
+      const separator = (sheet.separators || [])[separatorPosition];
+      const index = separatorIndex(separator);
+      if (index !== rowIndex) return;
+      const row = document.createElement("tr");
+      row.className = "separator-row";
+      row.addEventListener("contextmenu", (event) => {
+        event.preventDefault();
+        showSeparatorContextMenu(event, sheet, index);
+      });
+      const cell = document.createElement("td");
+      cell.colSpan = Math.max(1, (sheet.columns || []).length + 1);
+      const props = sheet.props || {};
+      const titles = Array.isArray(props.separatorTitles) ? props.separatorTitles : [];
+      const title = separator && typeof separator === "object" && separator.title ? separator.title : titles[separatorPosition];
+      const collapsed = isSeparatorCollapsed(sheet, index);
+      const label = makeElement("span", null, "separator-label");
+      const toggle = makeButton(collapsed ? "\u25B6" : "\u25BC", () => {
+        toggleSeparatorCollapsed(sheet, index);
+        CDBVS.render();
+      }, "separator-toggle");
+      toggle.title = collapsed ? "Expand section" : "Collapse section";
+      toggle.setAttribute("aria-label", toggle.title);
+      toggle.setAttribute("aria-expanded", String(!collapsed));
+      label.appendChild(toggle);
+      const titleSpan = makeElement("span", title || "Section");
+      titleSpan.title = "Double-click to edit section name";
+      titleSpan.addEventListener("dblclick", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        editSeparatorTitle(sheet, separator, separatorPosition, titleSpan, label);
+      });
+      label.appendChild(titleSpan);
+      cell.appendChild(label);
+      row.appendChild(cell);
+      body.appendChild(row);
+    });
+  }
+
+  function renderTableBody(sheet) {
+    const body = document.createElement("tbody");
+    const rows = rowsForView(sheet);
+    const separatorRows = new Map();
+    const separatorIndexes = [];
+    (sheet.separators || []).forEach((separator, separatorPosition) => {
+      const index = separatorIndex(separator);
+      if (!Number.isInteger(index)) return;
+      const positions = separatorRows.get(index) || [];
+      positions.push(separatorPosition);
+      separatorRows.set(index, positions);
+      separatorIndexes.push(index);
+    });
+    separatorIndexes.sort((left, right) => left - right);
+    const collapsedSectionForRow = (rowIndex) => {
+      let low = 0;
+      let high = separatorIndexes.length - 1;
+      let last = null;
+      while (low <= high) {
+        const middle = Math.floor((low + high) / 2);
+        if (separatorIndexes[middle] <= rowIndex) { last = separatorIndexes[middle]; low = middle + 1; }
+        else high = middle - 1;
+      }
+      return last !== null && isSeparatorCollapsed(sheet, last);
+    };
+    const selected = selectedRowIndices(sheet);
+    const selectedCellValue = selectedCell(sheet);
+    const cellErrors = cellErrorsForSheet(sheet);
+    rows.forEach(({ row, rowIndex }) => {
+      const separators = separatorRows.get(rowIndex);
+      if (separators) renderSeparatorRows(body, sheet, rowIndex, separators);
+      if (collapsedSectionForRow(rowIndex)) return;
+      const tr = document.createElement("tr");
+      tr.dataset.rowIndex = String(rowIndex);
+      if (selected.includes(rowIndex)) tr.className = "row-selected";
+      const rowCell = makeElement("td", null, "row-number");
+      rowCell.title = "Double-click to edit this row";
+      rowCell.addEventListener("click", (event) => selectRenderedRow(sheet, rowIndex, tr, event));
+      rowCell.addEventListener("dblclick", (event) => { event.preventDefault(); openRowEditor(sheet, rowIndex); });
+      rowCell.addEventListener("contextmenu", (event) => {
+        event.preventDefault();
+        if (!isRowSelected(sheet, rowIndex)) selectRenderedRow(sheet, rowIndex, tr);
+        showRowContextMenu(event, sheet, rowIndex);
+      });
+      const rowSelect = makeButton(String(rowIndex + 1), (event) => {
+        event.stopPropagation();
+        selectRenderedRow(sheet, rowIndex, tr, event);
+      }, "row-select");
+      rowSelect.title = `Select row ${rowIndex + 1}`;
+      rowSelect.setAttribute("aria-label", rowSelect.title);
+      rowCell.appendChild(rowSelect);
+      tr.appendChild(rowCell);
+      (sheet.columns || []).forEach((column, columnIndex) => {
+        tr.appendChild(renderTableCell(sheet, row, rowIndex, column, columnIndex, tr, cellErrors, selectedCellValue));
+      });
+      body.appendChild(tr);
+    });
+    if (!rows.length) {
+      const emptyRow = document.createElement("tr");
+      const emptyCell = makeElement("td", "No rows match the current search and filters.", "empty");
+      emptyCell.colSpan = Math.max(1, (sheet.columns || []).length + 1);
+      emptyRow.appendChild(emptyCell);
+      body.appendChild(emptyRow);
+    }
+    return body;
+  }
+
+  CDBVS.renderTableBody = renderTableBody;
+})(window);

@@ -220,6 +220,181 @@ test("Ctrl/Cmd+S commits a focused cell and requests a document save", () => {
   assert.ok(harness.updates.length >= 1);
 });
 
+test("arrow navigation updates selection in place without rebuilding the sheet", () => {
+  const target = sheet("Players");
+  target.columns = [{ name: "a", typeStr: "1" }, { name: "b", typeStr: "1" }];
+  target.lines = [{ a: "A", b: "B" }, { a: "C", b: "D" }];
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target] });
+  harness.context.innerWidth = 1200;
+  harness.context.innerHeight = 800;
+  harness.context.Event = class { constructor(type) { this.type = type; } };
+  harness.CDBVS.app = harness.document.createElement("div");
+  harness.CDBVS.rememberViewport = () => {};
+  harness.CDBVS.restoreViewport = () => {};
+  loadScript(harness.context, "cdbEditorCells.js");
+  loadScript(harness.context, "cdbEditorView.js");
+  let renderCount = 0;
+  const render = harness.CDBVS.render;
+  harness.CDBVS.render = () => { renderCount += 1; render(); };
+  render();
+  renderCount = 0;
+
+  const firstCell = harness.CDBVS.app.querySelectorAll("td").find((cell) => cell.dataset.columnIndex === "0");
+  firstCell.dispatchEvent({ type: "click" });
+  assert.equal(harness.document.activeElement, firstCell);
+  const firstInput = firstCell.querySelector("input");
+  const keydown = (key) => {
+    let prevented = false;
+    harness.document.dispatchEvent({
+      type: "keydown",
+      key,
+      target: firstInput,
+      preventDefault() { prevented = true; }
+    });
+    assert.equal(prevented, true);
+  };
+
+  keydown("ArrowRight");
+  assert.equal(harness.CDBVS.selectedCell(target).rowIndex, 0);
+  assert.equal(harness.CDBVS.selectedCell(target).columnIndex, 1);
+  assert.equal(renderCount, 0);
+  assert.equal(harness.CDBVS.app.querySelectorAll("td").filter((cell) => cell.classList.contains("cell-selected")).length, 1);
+  assert.equal(harness.updates.length, 0);
+
+  keydown("ArrowDown");
+  keydown("ArrowLeft");
+  keydown("ArrowUp");
+  assert.equal(harness.CDBVS.selectedCell(target).rowIndex, 0);
+  assert.equal(harness.CDBVS.selectedCell(target).columnIndex, 0);
+  assert.equal(renderCount, 0);
+  assert.equal(harness.updates.length, 0);
+});
+
+test("arrow navigation commits a dirty cell without rebuilding the sheet", () => {
+  const target = sheet("Players");
+  target.columns = [{ name: "a", typeStr: "1" }, { name: "b", typeStr: "1" }];
+  target.lines = [{ a: "A", b: "B" }];
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target] });
+  harness.context.innerWidth = 1200;
+  harness.context.innerHeight = 800;
+  harness.context.Event = class { constructor(type) { this.type = type; } };
+  harness.CDBVS.app = harness.document.createElement("div");
+  harness.CDBVS.rememberViewport = () => {};
+  harness.CDBVS.restoreViewport = () => {};
+  loadScript(harness.context, "cdbEditorCells.js");
+  loadScript(harness.context, "cdbEditorView.js");
+  let renderCount = 0;
+  const render = harness.CDBVS.render;
+  harness.CDBVS.render = () => { renderCount += 1; render(); };
+  render();
+  renderCount = 0;
+
+  const firstCell = harness.CDBVS.app.querySelectorAll("td").find((cell) => cell.dataset.columnIndex === "0");
+  firstCell.dispatchEvent({ type: "click" });
+  const input = firstCell.querySelector("input");
+  input.value = "edited";
+  input.dispatchEvent({ type: "input" });
+  harness.document.dispatchEvent({ type: "keydown", key: "ArrowRight", target: input, preventDefault() {} });
+
+  assert.equal(target.lines[0].a, "edited");
+  assert.equal(harness.CDBVS.selectedCell(target).columnIndex, 1);
+  assert.equal(renderCount, 0);
+});
+
+test("cells select first and activate on the second click or Enter", () => {
+  const target = sheet("Players");
+  target.columns = [{ name: "title", typeStr: "1" }, { name: "kind", typeStr: "5:Basic,Advanced" }];
+  target.lines = [{ title: "A", kind: 0 }];
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target] });
+  harness.context.innerWidth = 1200;
+  harness.context.innerHeight = 800;
+  harness.context.Event = class { constructor(type) { this.type = type; } };
+  harness.CDBVS.app = harness.document.createElement("div");
+  harness.CDBVS.rememberViewport = () => {};
+  harness.CDBVS.restoreViewport = () => {};
+  loadScript(harness.context, "cdbEditorCells.js");
+  loadScript(harness.context, "cdbEditorView.js");
+  harness.CDBVS.render();
+
+  const titleCell = harness.CDBVS.app.querySelectorAll("td").find((cell) => cell.dataset.columnIndex === "0");
+  const titleInput = titleCell.querySelector("input");
+  titleCell.dispatchEvent({ type: "mousedown", button: 0, target: titleInput, preventDefault() {} });
+  titleCell.dispatchEvent({ type: "click", target: titleInput, preventDefault() {}, stopPropagation() {} });
+  assert.equal(harness.CDBVS.activeCell(target), null);
+  assert.equal(harness.document.activeElement, titleCell);
+
+  titleCell.dispatchEvent({ type: "click" });
+  assert.equal(harness.CDBVS.activeCell(target).columnIndex, 0);
+  assert.equal(harness.document.activeElement, titleCell.querySelector("input"));
+
+  const kindCell = harness.CDBVS.app.querySelectorAll("td").find((cell) => cell.dataset.columnIndex === "1");
+  titleInput.value = "edited";
+  titleInput.dispatchEvent({ type: "input" });
+  kindCell.dispatchEvent({ type: "click" });
+  assert.equal(target.lines[0].title, "edited");
+  assert.equal(harness.CDBVS.activeCell(target), null);
+  assert.equal(harness.CDBVS.selectedCell(target).columnIndex, 1);
+
+  titleCell.dispatchEvent({ type: "click" });
+  harness.document.dispatchEvent({ type: "keydown", key: "Enter", target: harness.document, preventDefault() {} });
+  assert.equal(harness.CDBVS.activeCell(target).columnIndex, 0);
+  harness.document.dispatchEvent({ type: "keydown", key: "Enter", target: titleInput, preventDefault() {} });
+  assert.equal(harness.CDBVS.activeCell(target), null);
+  assert.equal(harness.document.activeElement, titleCell);
+
+  harness.document.dispatchEvent({ type: "keydown", key: "Enter", target: harness.document, preventDefault() {} });
+  assert.equal(harness.CDBVS.activeCell(target).columnIndex, 0);
+
+  let prevented = false;
+  harness.document.dispatchEvent({
+    type: "keydown",
+    key: "ArrowRight",
+    target: titleCell.querySelector("input"),
+    preventDefault() { prevented = true; }
+  });
+  assert.equal(prevented, true);
+  assert.equal(harness.CDBVS.selectedCell(target).columnIndex, 1);
+  assert.equal(harness.CDBVS.activeCell(target), null);
+
+  titleCell.dispatchEvent({ type: "click" });
+  harness.document.dispatchEvent({ type: "keydown", key: "Enter", target: harness.document, preventDefault() {} });
+  harness.document.dispatchEvent({ type: "keydown", key: "Escape", target: titleCell.querySelector("input"), preventDefault() {} });
+  assert.equal(harness.CDBVS.activeCell(target), null);
+
+  kindCell.dispatchEvent({ type: "click" });
+  const select = kindCell.querySelector("select");
+  let pickerOpened = 0;
+  select.showPicker = () => { pickerOpened += 1; };
+  harness.document.dispatchEvent({ type: "keydown", key: "Enter", target: harness.document, preventDefault() {} });
+  assert.equal(pickerOpened, 1);
+});
+
+test("arrow keys select an initial cell before any cell has been selected", () => {
+  const target = sheet("Players");
+  target.columns = [{ name: "a", typeStr: "1" }, { name: "b", typeStr: "1" }];
+  target.lines = [{ a: "A", b: "B" }, { a: "C", b: "D" }];
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target] });
+  harness.CDBVS.app = harness.document.createElement("div");
+  harness.CDBVS.rememberViewport = () => {};
+  harness.CDBVS.restoreViewport = () => {};
+  loadScript(harness.context, "cdbEditorCells.js");
+  loadScript(harness.context, "cdbEditorView.js");
+  harness.CDBVS.render();
+
+  let prevented = false;
+  harness.document.dispatchEvent({
+    type: "keydown",
+    key: "ArrowRight",
+    target: harness.document,
+    preventDefault() { prevented = true; }
+  });
+
+  assert.equal(prevented, true);
+  assert.equal(harness.CDBVS.selectedCell(target).rowIndex, 0);
+  assert.equal(harness.CDBVS.selectedCell(target).columnIndex, 0);
+  assert.equal(harness.CDBVS.activeCell(target), null);
+});
+
 test("list-cell edits refresh locally instead of rerendering the whole sheet", () => {
   const parent = sheet("Groups");
   const listColumn = { name: "members", typeStr: "8" };
@@ -347,8 +522,16 @@ test("deleting multiple selected nested list items removes them together", () =>
 
 test("webview source contains no native prompt, confirm, or alert calls", () => {
   const mediaRoot = path.join(__dirname, "..", "media");
-  const sources = fs.readdirSync(mediaRoot).filter((name) => name.endsWith(".js")).map((name) => fs.readFileSync(path.join(mediaRoot, name), "utf8")).join("\n");
-  assert.doesNotMatch(sources, /window\.(prompt|confirm|alert)\s*\(/);
+  const sources = [];
+  const collectSources = (directory) => {
+    fs.readdirSync(directory, { withFileTypes: true }).forEach((entry) => {
+      const filename = path.join(directory, entry.name);
+      if (entry.isDirectory()) collectSources(filename);
+      else if (entry.name.endsWith(".js")) sources.push(fs.readFileSync(filename, "utf8"));
+    });
+  };
+  collectSources(mediaRoot);
+  assert.doesNotMatch(sources.join("\n"), /window\.(prompt|confirm|alert)\s*\(/);
 });
 
 test("document messages can leave raw recovery mode after a valid update", () => {

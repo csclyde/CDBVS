@@ -40,6 +40,14 @@ The first working editor baseline is in place. The repository now contains a des
 - Added schema-driven `TProperties` expansion, a JSON custom-type editor with reference validation, checkbox-based `TFlags`, and a color picker for `TColor`.
 - Added quick row search plus a type-aware filter/sort modal covering every column, with non-destructive sorting and a clear-all view reset.
 - Refactored the webview from one large script into focused runtime, DOM, model, actions, cell, modal, view, and bootstrap modules loaded in dependency order.
+- Split the webview's cell layer into primitive controls and nested list/property rendering modules.
+- Split actions into clipboard operations and structural row/column/sheet mutations.
+- Split the model into schema/value helpers and view-state, validation, and structural mutation logic.
+- Split modal infrastructure into shared lifecycle/field helpers, confirmation, sheet create/edit/delete, custom-type, filter, row, and column modules.
+- Split table rendering into header, cell interaction, row/separator, raw-editor, keyboard, and scrolling/orchestration modules.
+- Split cell rendering into primitive, list, and properties modules, and isolate cell-error state from the core view model.
+- Split view controls and modal editors into dedicated row/text and column-editor modules, with explicit dependency ordering in the extension host and test harness.
+- Organized webview code into feature folders: `runtime`, `model`, `actions`, `cells`, `modals`, `view`, and `bootstrap`; shared CSS and icon assets remain at the media root.
 - Moved the sheet tabs into a sticky bottom dock while keeping the active sheet's search/filter/sort bar at the top.
 - Added a synchronized horizontal scrollbar dock directly above the sheet tabs for wide sheets, hiding the table's internal horizontal scrollbar.
 - Hardened the horizontal-scroll dock sizing and visible scrollbar styling, with an intrinsic-width table and native-scroll fallback.
@@ -64,6 +72,12 @@ The first working editor baseline is in place. The repository now contains a des
 - Made main-table cells and expanded list-item cells select their row on click, sharing the existing row-number selection behavior.
 - Added separate main-cell selection with visible highlighting, arrow-key navigation across visible rows/columns, row-number row-only selection, and cell-aware copy/cut/paste with row clipboard fallback.
 - Commits the active cell editor before keyboard navigation or clipboard actions so pending text/input changes are not lost.
+- Made cell navigation and cell commits update the existing DOM in place: arrow movement no longer rebuilds the whole sheet, clean editors no longer synthesize repeated change/update events, and dirty edits still commit immediately. The same fix covers clipboard/Delete keyboard paths, flag checkboxes, row/cell selection feedback, viewport reveal, and duplicate-ID error markers.
+- Split cell selection from cell activation: the first click or arrow move selects, while a second click or Enter activates the cell editor. Active text controls retain native cursor/delete keys; Enter commits and leaves edit mode, Escape leaves edit mode, and selects/list controls open or expand on activation.
+- Added an explicit active-cell exit transition when another cell or row is selected: the prior control blurs, pending edits commit, and its active state is cleared before the new selection is applied.
+- Arrow navigation now always performs that active-cell exit before moving, while Delete remains available as a native text-editing key inside an active text control.
+- Arrow keys now initialize selection from the current visible/sorted/filtered rows when no cell has been selected yet.
+- Arrow navigation is handled before the generic input guard for controls inside table cells, so a focused cell editor cannot swallow the navigation key; non-table inputs such as search remain excluded.
 - Made the Delete key clear only the selected cell while preserving row deletion when no cell is selected; the explicit Delete Row toolbar button remains row-level.
 - Removed the top Delete Row button and added right-click context menus: row numbers expose insert/delete/move/copy/cut/paste row actions, while cells expose copy/cut/paste/clear cell actions.
 - Added a reusable cell-error registry/API plus automatic duplicate-primary-ID validation that marks only later duplicate cells with an error badge, tooltip, and accessible invalid state; cell edits refresh validation immediately.
@@ -122,6 +136,17 @@ These are intentionally still open for the next milestone:
 - The explicit-null clearing pass adds coverage for Delete/cut clearing and blank text, reference, and numeric editors; a real packaged VS Code Extension Development Host smoke test remains outstanding.
 - The sheet-switch rendering optimization passes all 40 Node tests, JavaScript syntax checks, and diff-whitespace checks; real-world timing on a desktop VS Code Extension Development Host remains outstanding.
 - The multi-row selection pass passes a headless selection-model check, `node --check`, and `git diff --check`; visual verification in a real VS Code extension host remains outstanding.
+- The in-place cell-navigation pass passes all 42 Node tests, JavaScript syntax checks, and `git diff --check`; timing and visual verification in a real VS Code extension host remain outstanding.
+- The selection/activation pass passes all 43 Node tests, JavaScript syntax checks, and `git diff --check`; visual verification of native dropdown opening remains outstanding in a real VS Code extension host.
+- The initial arrow-selection fix passes all 44 Node tests, JavaScript syntax checks, and `git diff --check`.
+- The focused-cell arrow-routing fix also passes all 44 Node tests, JavaScript syntax checks, and `git diff --check`.
+- The module-refactor pass passes all 44 Node tests, JavaScript syntax checks for the new modules, and `git diff --check`; visual verification in a real VS Code Extension Development Host remains outstanding.
+- The deeper module-refactor pass keeps all 44 Node tests passing, adds reusable table/modal/cell subcomponents, and reduces the largest remaining webview files to focused logical responsibilities; visual verification in a real VS Code Extension Development Host remains outstanding.
+- The first-load arrow-navigation fix makes keyboard-handler installation idempotent and independent of script order, with document and window event routing; all 44 regression tests and recursive syntax checks pass.
+- The cell-click navigation regression now preserves the first click as selection-only even when the click lands directly on an embedded input, and handles arrow keys during capture; the focused-input click/arrow test passes.
+- The feature-folder organization passes all 44 Node tests, recursive JavaScript syntax checks, and `git diff --check`.
+- Newly selected table cells now receive programmatic keyboard focus, keeping arrow navigation reliable immediately after a click; regression coverage verifies the first-click focus path.
+- Enter now exits an active cell through the shared blur/commit transition, returning focus to the selected cell; regression coverage verifies Enter toggles activation in both directions.
 - The build-script update passes PowerShell parsing; the build/install flow itself was not run during this change to avoid bumping the project version and installing a new extension instance.
 - Release packaging includes the current README, manifest, runtime files, and `media/icon.png`; the publisher ID is still configured as `cdbvs` and must be created or confirmed in the Marketplace publisher account before publishing.
 - Keep the extension desktop-only and do not bring over the source repository's `src/lvl` or `Level.hx` level editor.
