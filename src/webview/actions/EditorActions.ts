@@ -150,5 +150,10 @@
     return commitMutation(() => removeSeparatorAt(sheet, index)) === true;
   }
 
+  const documentActions = services.application.registerActionGroup(services.application.documentActions, {
+    addSheet, addColumn, deleteColumn, deleteSheet, addRow, deleteRow,
+    insertSelectedRow, deleteSelectedRow, moveSelectedRow, moveSelectedCell,
+    addSeparator, removeSeparator
+  });
   Object.assign(CDBVS, { addSheet, addColumn, deleteColumn, deleteSheet, addRow, deleteRow, insertSelectedRow, deleteSelectedRow, moveSelectedRow, moveSelectedCell, addSeparator, removeSeparator });
 })(window);

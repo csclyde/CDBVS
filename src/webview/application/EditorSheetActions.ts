@@ -74,9 +74,9 @@
     return commitMutation(() => model.moveBlock(sheet, roots[target], delta)) === true;
   }
 
-  const sheetActions = services.application.sheetActions;
-  Object.assign(sheetActions, { createSheet, deleteSheet, moveSheet, rootVisibleSheets });
-  Object.freeze(sheetActions);
+  const sheetActions = services.application.registerActionGroup(services.application.sheetActions, {
+    createSheet, deleteSheet, moveSheet, rootVisibleSheets
+  });
   CDBVS.sheetActions = sheetActions;
   Object.assign(CDBVS, { createSheet, updateSheetMetadata, renameSheet, deleteSheet, moveSheet });
 })(window);

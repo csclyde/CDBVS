@@ -3,6 +3,7 @@
   const CDBVS = global.CDBVS;
   const viewCapabilities = CDBVS.capabilities.views;
   const services = CDBVS.services;
+  const documentActions = services.application.documentActions;
   const sheetState = services.sheetState;
   const sheetViewModel = services.sheetView;
   const viewState = services.viewState;
@@ -28,8 +29,8 @@
     app.replaceChildren();
     const toolbar = makeElement("div", null, "toolbar");
     toolbar.appendChild(makeElement("strong", "CDBVS", "brand"));
-    toolbar.appendChild(makeButton("+ Sheet", CDBVS.addSheet));
-    toolbar.appendChild(makeButton("+ Column", () => CDBVS.addColumn(sheetViewModel.currentSheet())));
+    toolbar.appendChild(makeButton("+ Sheet", documentActions.addSheet));
+    toolbar.appendChild(makeButton("+ Column", () => documentActions.addColumn(sheetViewModel.currentSheet())));
     toolbar.appendChild(makeButton("Types", CDBVS.openTypesEditor));
     toolbar.appendChild(makeButton("Table", () => { setRawMode(false); render(); }, isRawMode() ? "button" : "button active"));
     toolbar.appendChild(makeButton("Raw JSON", () => { setRawMode(true); render(); }, isRawMode() ? "button active" : "button"));

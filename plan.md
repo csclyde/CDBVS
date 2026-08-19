@@ -70,6 +70,13 @@ The first working editor baseline is in place. The repository now contains a des
 - Redirected selection, list editors, filtering/sorting, separator rendering, validation, and structural cleanup through the appropriate sheet-state sub-boundary.
 - Removed the obsolete `EditorStateMaps.ts` module and its duplicate state registry implementation. Verification completed: `npm.cmd test` (68 tests), `npm.cmd run package`, and `git diff --check` pass. A real packaged VS Code Extension Development Host smoke test remains outstanding.
 
+## Application action-boundary pass (2026-08-18)
+
+- Added explicit `services.application.documentActions` and `services.application.clipboardActions` registries alongside the sheet, column, and row coordinators.
+- Redirected toolbar commands, context menus, keyboard navigation, clipboard shortcuts, and sheet deletion confirmation through those application registries; `CDBVS` action globals remain compatibility exports only.
+- Centralized action-group registration and freezing in `EditorServices.ts`, removing repeated coordinator setup code.
+- Verification completed: `npm.cmd test` (68 tests), `npm.cmd run package`, and `git diff --check` pass. A real packaged VS Code Extension Development Host smoke test remains outstanding.
+
 ## Completed
 
 - Created the VS Code extension manifest and `.cdb` language registration.

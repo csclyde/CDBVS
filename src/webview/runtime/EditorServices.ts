@@ -9,7 +9,14 @@
   const sheetActions = {};
   const columnActions = {};
   const rowActions = {};
+  const documentActions = {};
+  const clipboardActions = {};
   const sheetView = {};
+  function registerActionGroup(registry, actions) {
+    Object.assign(registry, actions || {});
+    Object.freeze(registry);
+    return registry;
+  }
   const application = Object.freeze({
     applyMutation: CDBVS.applyMutation,
     commitMutation: CDBVS.commitMutation,
@@ -21,7 +28,10 @@
     persist: CDBVS.persist,
     sheetActions,
     columnActions,
-    rowActions
+    rowActions,
+    documentActions,
+    clipboardActions,
+    registerActionGroup
   });
 
   CDBVS.services = Object.freeze({

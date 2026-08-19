@@ -52,8 +52,8 @@
     return result;
   }
 
-  const rowActions = services.application.rowActions;
-  Object.assign(rowActions, { insertRow, appendRow, deleteRowAt, removeSeparatorAt });
-  Object.freeze(rowActions);
+  const rowActions = services.application.registerActionGroup(services.application.rowActions, {
+    insertRow, appendRow, deleteRowAt, removeSeparatorAt
+  });
   Object.assign(CDBVS, { insertRow, appendRow, deleteRowAt, removeSeparatorAt });
 })(window);

@@ -1,6 +1,9 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
+  const application = CDBVS.services.application;
+  const documentActions = application.documentActions;
+  const clipboardActions = application.clipboardActions;
   const sheetViewModel = CDBVS.services.sheetView;
   let installed = false;
 
@@ -21,7 +24,7 @@
 
   function moveToTabCell(sheet, selection, direction) {
     if (!sheet || !selection || typeof sheetViewModel.rowsForView !== "function"
-      || typeof CDBVS.moveSelectedCell !== "function") return false;
+      || typeof documentActions.moveSelectedCell !== "function") return false;
     const rows = sheetViewModel.rowsForView(sheet);
     const columns = Array.isArray(sheet.columns) ? sheet.columns : [];
     const rowPosition = rows.findIndex((entry) => entry.rowIndex === selection.rowIndex);
@@ -33,7 +36,7 @@
     const targetColumnIndex = targetPosition % columns.length;
     const rowDelta = targetRowPosition - rowPosition;
     const columnDelta = targetColumnIndex - selection.columnIndex;
-    if (!CDBVS.moveSelectedCell(sheet, rowDelta, columnDelta)) return false;
+    if (!documentActions.moveSelectedCell(sheet, rowDelta, columnDelta)) return false;
     const next = CDBVS.selectedCell(sheet);
     if (!next || typeof CDBVS.activateRenderedCell !== "function") return true;
     const nextCell = typeof CDBVS.findRenderedCell === "function"
@@ -150,7 +153,7 @@
       event.preventDefault();
       if (key === "arrowup" && !nestedListCellSelected && selectOpenListAbove(sheet, cellSelection)) return;
       CDBVS.commitEditorTarget(editorTarget);
-      CDBVS.moveSelectedCell(sheet, key === "arrowup" ? -1 : (key === "arrowdown" ? 1 : 0), key === "arrowleft" ? -1 : (key === "arrowright" ? 1 : 0));
+      documentActions.moveSelectedCell(sheet, key === "arrowup" ? -1 : (key === "arrowdown" ? 1 : 0), key === "arrowleft" ? -1 : (key === "arrowright" ? 1 : 0));
       return;
     }
     if (!modified && !event.altKey && cellSelection && key === "enter") {
@@ -191,15 +194,15 @@
     if (!modified) {
       if (key === "insert") {
         event.preventDefault();
-        CDBVS.insertSelectedRow(sheet);
+        documentActions.insertSelectedRow(sheet);
         return;
       }
       if (deleteKey) {
         event.preventDefault();
         if (cellSelection) {
           CDBVS.commitEditorTarget(editorTarget);
-          CDBVS.deleteSelectedCell(sheet);
-        } else CDBVS.deleteSelectedRow(sheet);
+          clipboardActions.deleteSelectedCell(sheet);
+        } else documentActions.deleteSelectedRow(sheet);
         return;
       }
     }
@@ -210,7 +213,7 @@
       CDBVS.commitEditorTarget(editorTarget);
       if (nestedListCellSelected && listCell && typeof listCell._cdbvsCopySelectedListCell === "function") {
         listCell._cdbvsCopySelectedListCell(key === "x");
-      } else CDBVS.copySelectedRow(sheet, key === "x");
+      } else clipboardActions.copySelectedRow(sheet, key === "x");
       return;
     }
     if (key === "v") {
@@ -219,13 +222,13 @@
       CDBVS.commitEditorTarget(editorTarget);
       if (nestedListCellSelected && listCell && typeof listCell._cdbvsPasteSelectedListCell === "function") {
         listCell._cdbvsPasteSelectedListCell();
-      } else CDBVS.pasteSelectedRow(sheet);
+      } else clipboardActions.pasteSelectedRow(sheet);
       return;
     }
     if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
     if (CDBVS.selectedRowIndex(sheet) === null) return;
     event.preventDefault();
-    CDBVS.moveSelectedRow(sheet, event.key === "ArrowUp" ? -1 : 1);
+    documentActions.moveSelectedRow(sheet, event.key === "ArrowUp" ? -1 : 1);
   }
 
   function installKeyboardNavigation() {

@@ -171,5 +171,8 @@
     }
   }
 
+  const clipboardActions = services.application.registerActionGroup(services.application.clipboardActions, {
+    deleteSelectedCell, copySelectedRow, pasteSelectedRow
+  });
   Object.assign(CDBVS, { deleteSelectedCell, copySelectedRow, pasteSelectedRow });
 })(window);

@@ -3,7 +3,7 @@
   const CDBVS = global.CDBVS;
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
-  const deleteSheet = CDBVS.deleteSheet;
+  const deleteSheet = CDBVS.services.application.sheetActions.deleteSheet;
   const createModal = CDBVS.createModal;
 
   function openDeleteSheetConfirmation(sheet) {

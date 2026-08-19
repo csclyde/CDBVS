@@ -53,8 +53,8 @@
     }) === true;
   }
 
-  const columnActions = services.application.columnActions;
-  Object.assign(columnActions, { applyColumnEdit, deleteColumn, moveColumn });
-  Object.freeze(columnActions);
+  const columnActions = services.application.registerActionGroup(services.application.columnActions, {
+    applyColumnEdit, deleteColumn, moveColumn
+  });
   Object.assign(CDBVS, { applyColumnEdit, deleteColumn, moveColumn });
 })(window);

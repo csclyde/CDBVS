@@ -1,6 +1,10 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
+  const services = CDBVS.services;
+  const documentActions = services.application.documentActions;
+  const clipboardActions = services.application.clipboardActions;
+  const columnActions = services.application.columnActions;
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
 
@@ -58,27 +62,27 @@
     showContextMenu(event, [
       { label: "Edit", action: () => CDBVS.openRowEditor(sheet, rowIndex) },
       { separator: true },
-      { label: "Add Separator", action: () => CDBVS.addSeparator(sheet, rowIndex), disabled: hasSeparator },
+      { label: "Add Separator", action: () => documentActions.addSeparator(sheet, rowIndex), disabled: hasSeparator },
       { separator: true },
-      { label: "Insert row below", action: () => CDBVS.insertSelectedRow(sheet) },
-      { label: `Delete ${selectionLabel}`, action: () => CDBVS.deleteSelectedRow(sheet) },
+      { label: "Insert row below", action: () => documentActions.insertSelectedRow(sheet) },
+      { label: `Delete ${selectionLabel}`, action: () => documentActions.deleteSelectedRow(sheet) },
       { separator: true },
-      { label: "Move row up", action: () => CDBVS.moveSelectedRow(sheet, -1), disabled: selected.length !== 1 || active === null || active <= 0 },
-      { label: "Move row down", action: () => CDBVS.moveSelectedRow(sheet, 1), disabled: selected.length !== 1 || active === null || active >= rowCount - 1 },
+      { label: "Move row up", action: () => documentActions.moveSelectedRow(sheet, -1), disabled: selected.length !== 1 || active === null || active <= 0 },
+      { label: "Move row down", action: () => documentActions.moveSelectedRow(sheet, 1), disabled: selected.length !== 1 || active === null || active >= rowCount - 1 },
       { separator: true },
-      { label: `Copy ${selectionLabel}`, action: () => CDBVS.copySelectedRow(sheet, false, true) },
-      { label: `Cut ${selectionLabel}`, action: () => CDBVS.copySelectedRow(sheet, true, true) },
-      { label: "Paste row below", action: () => CDBVS.pasteSelectedRow(sheet, true) }
+      { label: `Copy ${selectionLabel}`, action: () => clipboardActions.copySelectedRow(sheet, false, true) },
+      { label: `Cut ${selectionLabel}`, action: () => clipboardActions.copySelectedRow(sheet, true, true) },
+      { label: "Paste row below", action: () => clipboardActions.pasteSelectedRow(sheet, true) }
     ]);
   }
 
   function showCellContextMenu(event, sheet) {
     showContextMenu(event, [
-      { label: "Copy cell", action: () => CDBVS.copySelectedRow(sheet, false) },
-      { label: "Cut cell", action: () => CDBVS.copySelectedRow(sheet, true) },
-      { label: "Paste cell", action: () => CDBVS.pasteSelectedRow(sheet) },
+      { label: "Copy cell", action: () => clipboardActions.copySelectedRow(sheet, false) },
+      { label: "Cut cell", action: () => clipboardActions.copySelectedRow(sheet, true) },
+      { label: "Paste cell", action: () => clipboardActions.pasteSelectedRow(sheet) },
       { separator: true },
-      { label: "Clear cell", action: () => CDBVS.deleteSelectedCell(sheet) }
+      { label: "Clear cell", action: () => clipboardActions.deleteSelectedCell(sheet) }
     ]);
   }
 
@@ -87,21 +91,21 @@
     showContextMenu(event, [
       { label: "Add column", action: () => CDBVS.openNewColumnEditor(sheet, columnIndex + 1) },
       { separator: true },
-      { label: "Move column left", action: () => CDBVS.moveColumn(sheet, columnIndex, -1), disabled: columnIndex <= 0 },
-      { label: "Move column right", action: () => CDBVS.moveColumn(sheet, columnIndex, 1), disabled: columnIndex >= columnCount - 1 },
+      { label: "Move column left", action: () => columnActions.moveColumn(sheet, columnIndex, -1), disabled: columnIndex <= 0 },
+      { label: "Move column right", action: () => columnActions.moveColumn(sheet, columnIndex, 1), disabled: columnIndex >= columnCount - 1 },
       { separator: true },
-      { label: "Delete column", action: () => CDBVS.deleteColumn(sheet, columnIndex) }
+      { label: "Delete column", action: () => columnActions.deleteColumn(sheet, columnIndex) }
     ]);
   }
 
   function showSeparatorContextMenu(event, sheet, index) {
-    showContextMenu(event, [{ label: "Remove Separator", action: () => CDBVS.removeSeparator(sheet, index) }]);
+    showContextMenu(event, [{ label: "Remove Separator", action: () => documentActions.removeSeparator(sheet, index) }]);
   }
 
   function showSheetContextMenu(event, sheet) {
     event.preventDefault();
     showContextMenu(event, [
-      { label: "New sheet", action: CDBVS.addSheet },
+      { label: "New sheet", action: documentActions.addSheet },
       { separator: true },
       { label: "Edit sheet", action: () => CDBVS.openSheetEditor(sheet) },
       { separator: true },
@@ -111,7 +115,7 @@
 
   function showSheetsBarContextMenu(event) {
     event.preventDefault();
-    showContextMenu(event, [{ label: "New sheet", action: CDBVS.addSheet }]);
+    showContextMenu(event, [{ label: "New sheet", action: documentActions.addSheet }]);
   }
 
   Object.assign(CDBVS, {
