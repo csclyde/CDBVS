@@ -24,16 +24,29 @@
     }, "button primary raw-apply"));
   }
 
-  function renderTable(container, sheet) {
+  function renderTable(container, sheet, options) {
     if (!sheet) {
       container.appendChild(makeElement("p", "No visible sheets. Create one to begin.", "empty"));
       return;
     }
+    const config = options || {};
     const tableWrap = makeElement("div", null, "table-wrap");
+    tableWrap.setAttribute("aria-busy", "true");
+    const loading = makeElement("div", "Loading sheet...", "sheet-loading");
+    loading.setAttribute("role", "status");
+    loading.setAttribute("aria-live", "polite");
     const table = document.createElement("table");
     table.appendChild(tableCapabilities.renderHeader(sheet));
-    table.appendChild(tableCapabilities.renderBody(sheet));
+    const body = document.createElement("tbody");
+    table.appendChild(body);
+    const finish = () => {
+      tableWrap.setAttribute("aria-busy", "false");
+      if (loading.parentNode) loading.parentNode.removeChild(loading);
+      updateHorizontalScrollSize();
+      if (typeof config.onComplete === "function") config.onComplete();
+    };
     tableWrap.appendChild(table);
+    tableWrap.appendChild(loading);
     container.appendChild(tableWrap);
     const horizontalScroll = makeElement("div", null, "horizontal-scroll-dock");
     horizontalScroll.setAttribute("aria-label", "Horizontal sheet scroll");
@@ -50,6 +63,12 @@
     if (typeof ResizeObserver === "function") new ResizeObserver(updateHorizontalScrollSize).observe(table);
     requestAnimationFrame(updateHorizontalScrollSize);
     container.appendChild(horizontalScroll);
+    if (typeof tableCapabilities.renderBodyProgressive === "function") {
+      const cancel = tableCapabilities.renderBodyProgressive(body, sheet, { onComplete: finish });
+      return typeof cancel === "function" ? cancel : undefined;
+    }
+    body.replaceChildren(tableCapabilities.renderBody(sheet));
+    finish();
   }
 
   CDBVS.capabilities.views.renderRaw = renderRaw;

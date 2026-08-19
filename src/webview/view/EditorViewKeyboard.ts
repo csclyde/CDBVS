@@ -7,21 +7,6 @@
   const sheetViewModel = CDBVS.services.sheetView;
   let installed = false;
 
-  function selectOpenListAbove(sheet, selection) {
-    if (!sheet || !selection || typeof CDBVS.findRenderedCell !== "function"
-      || typeof sheetViewModel.rowsForView !== "function") return false;
-    const currentCell = CDBVS.findRenderedCell(selection.rowIndex, selection.columnIndex);
-    if (!currentCell || !currentCell.classList || !currentCell.classList.contains("list-cell")) return false;
-    const rows = sheetViewModel.rowsForView(sheet);
-    const visibleIndex = rows.findIndex((entry) => entry.rowIndex === selection.rowIndex);
-    if (visibleIndex <= 0) return false;
-    const previousCell = CDBVS.findRenderedCell(rows[visibleIndex - 1].rowIndex, selection.columnIndex);
-    if (!previousCell || !previousCell.classList || !previousCell.classList.contains("list-cell")
-      || !previousCell.querySelector(".list-editor")
-      || typeof previousCell._cdbvsSelectListBoundary !== "function") return false;
-    return previousCell._cdbvsSelectListBoundary(-1);
-  }
-
   function moveToTabCell(sheet, selection, direction) {
     if (!sheet || !selection || typeof sheetViewModel.rowsForView !== "function"
       || typeof documentActions.moveSelectedCell !== "function") return false;
@@ -84,29 +69,14 @@
     }
     const editorCell = editorTarget && editorTarget.closest && editorTarget.closest("td");
     const cellEditorTarget = editorCell && editorCell.closest && editorCell.closest("td") ? editorTarget : null;
-    const nestedTable = editorCell && editorCell.closest && editorCell.closest("table");
-    const nestedGridTarget = nestedTable && nestedTable.classList && nestedTable.classList.contains("nested-table");
-    const listCell = nestedGridTarget && nestedTable.closest
-      ? nestedTable.closest(".list-cell")
-      : (cellSelection && CDBVS.typeOf(cellSelection.column).code === 8 && typeof CDBVS.findRenderedCell === "function"
-        ? CDBVS.findRenderedCell(cellSelection.rowIndex, cellSelection.columnIndex)
-        : null);
-    const nestedListCellSelected = listCell && typeof listCell._cdbvsHasSelectedListCell === "function"
-      && listCell._cdbvsHasSelectedListCell();
-    const nestedListItemSelected = listCell && typeof listCell._cdbvsHasSelectedListItem === "function"
-      && listCell._cdbvsHasSelectedListItem();
     const directListToggle = event.target && event.target.closest && event.target.closest(".list-toggle");
-    // A nested list toggle is its own control. Resolve the nearest list cell
-    // from the actual toggle before falling back to the selected outer cell;
-    // otherwise Enter on a nested toggle can reopen/close the wrong level.
     const directToggleCell = directListToggle && directListToggle.closest
       ? directListToggle.closest(".list-cell")
       : null;
     if (!modified && !event.altKey && key === "enter" && directListToggle
-      && (directToggleCell || listCell)
-      && typeof (directToggleCell || listCell)._cdbvsToggleList === "function") {
+      && directToggleCell && typeof directToggleCell._cdbvsToggleList === "function") {
       event.preventDefault();
-      (directToggleCell || listCell)._cdbvsToggleList(event);
+      directToggleCell._cdbvsToggleList(event);
       return;
     }
     // Once a cell is active, its editor owns arrow keys so text cursors, number
@@ -114,29 +84,6 @@
     // moving the grid selection.
     if (typeof CDBVS.handleSelectKeydown === "function"
       && CDBVS.handleSelectKeydown(event.target, event)) return;
-    if (modified && !event.altKey && (key === "arrowup" || key === "arrowdown")
-      && nestedListItemSelected && typeof listCell._cdbvsMoveSelectedListItem === "function") {
-      event.preventDefault();
-      CDBVS.commitEditorTarget(editorTarget);
-      listCell._cdbvsMoveSelectedListItem(key === "arrowup" ? -1 : 1);
-      return;
-    }
-    if (!modified && !event.altKey && key === "insert" && !editorTarget
-      && listCell && typeof listCell._cdbvsInsertSelectedListItem === "function") {
-      event.preventDefault();
-      listCell._cdbvsInsertSelectedListItem();
-      return;
-    }
-    if ((!editorTarget || !activeSelection) && !modified && !event.altKey && arrowKey) {
-      if (listCell && typeof listCell._cdbvsNavigateListGrid === "function") {
-        const rowDelta = key === "arrowup" ? -1 : (key === "arrowdown" ? 1 : 0);
-        const columnDelta = key === "arrowleft" ? -1 : (key === "arrowright" ? 1 : 0);
-        if (listCell._cdbvsNavigateListGrid(rowDelta, columnDelta)) {
-          event.preventDefault();
-          return;
-        }
-      }
-    }
     if (activeSelection && cellEditorTarget && arrowKey) return;
     if (!modified && !event.altKey && arrowKey && (!editorTarget || cellEditorTarget || cellSelection)) {
       if (!cellSelection) {
@@ -151,18 +98,11 @@
         return;
       }
       event.preventDefault();
-      if (key === "arrowup" && !nestedListCellSelected && selectOpenListAbove(sheet, cellSelection)) return;
       CDBVS.commitEditorTarget(editorTarget);
       documentActions.moveSelectedCell(sheet, key === "arrowup" ? -1 : (key === "arrowdown" ? 1 : 0), key === "arrowleft" ? -1 : (key === "arrowright" ? 1 : 0));
       return;
     }
     if (!modified && !event.altKey && cellSelection && key === "enter") {
-      if (nestedListCellSelected && listCell && typeof listCell._cdbvsActivateSelectedListCell === "function") {
-        if (activeSelection && typeof listCell._cdbvsExitSelectedListCell === "function") listCell._cdbvsExitSelectedListCell();
-        else listCell._cdbvsActivateSelectedListCell(event);
-        event.preventDefault();
-        return;
-      }
       if (activeSelection) {
         event.preventDefault();
         CDBVS.exitRenderedCell(sheet);
@@ -179,14 +119,7 @@
     }
     if (!modified && !event.altKey && activeSelection && key === "escape") {
       event.preventDefault();
-      if (nestedListCellSelected && listCell && typeof listCell._cdbvsExitSelectedListCell === "function") listCell._cdbvsExitSelectedListCell();
-      else CDBVS.exitRenderedCell(sheet);
-      return;
-    }
-    if (!modified && !event.altKey && deleteKey && nestedListCellSelected && listCell
-      && typeof listCell._cdbvsDeleteSelectedListCell === "function" && !editorTarget) {
-      event.preventDefault();
-      listCell._cdbvsDeleteSelectedListCell();
+      CDBVS.exitRenderedCell(sheet);
       return;
     }
     if (!modified && !event.altKey && activeSelection && editorTarget && deleteKey) return;
@@ -211,18 +144,14 @@
       if (CDBVS.selectedRowIndex(sheet) === null) return;
       event.preventDefault();
       CDBVS.commitEditorTarget(editorTarget);
-      if (nestedListCellSelected && listCell && typeof listCell._cdbvsCopySelectedListCell === "function") {
-        listCell._cdbvsCopySelectedListCell(key === "x");
-      } else clipboardActions.copySelectedRow(sheet, key === "x");
+      clipboardActions.copySelectedRow(sheet, key === "x");
       return;
     }
     if (key === "v") {
       if (!sheet) return;
       event.preventDefault();
       CDBVS.commitEditorTarget(editorTarget);
-      if (nestedListCellSelected && listCell && typeof listCell._cdbvsPasteSelectedListCell === "function") {
-        listCell._cdbvsPasteSelectedListCell();
-      } else clipboardActions.pasteSelectedRow(sheet);
+      clipboardActions.pasteSelectedRow(sheet);
       return;
     }
     if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;

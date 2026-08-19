@@ -79,8 +79,7 @@
     });
   }
 
-  function renderTableBody(sheet) {
-    const body = document.createElement("tbody");
+  function prepareTableBody(sheet) {
     const rows = sheetView.rowsForView(sheet);
     const separatorRows = new Map();
     const separatorIndexes = [];
@@ -93,59 +92,134 @@
       separatorIndexes.push(index);
     });
     separatorIndexes.sort((left, right) => left - right);
-    const collapsedSectionForRow = (rowIndex) => {
-      let low = 0;
-      let high = separatorIndexes.length - 1;
-      let last = null;
-      while (low <= high) {
-        const middle = Math.floor((low + high) / 2);
-        if (separatorIndexes[middle] <= rowIndex) { last = separatorIndexes[middle]; low = middle + 1; }
-        else high = middle - 1;
-      }
-      return last !== null && sheetViewState.isSeparatorCollapsed(sheet.name, last);
+    return {
+      rows,
+      separatorRows,
+      separatorIndexes,
+      selected: CDBVS.selectedRowIndices(sheet),
+      selectedCellValue: CDBVS.selectedCell(sheet),
+      cellErrors: CDBVS.cellErrorsForSheet(sheet)
     };
-    const selected = CDBVS.selectedRowIndices(sheet);
-    const selectedCellValue = CDBVS.selectedCell(sheet);
-    const cellErrors = CDBVS.cellErrorsForSheet(sheet);
-    rows.forEach(({ row, rowIndex }) => {
-      const separators = separatorRows.get(rowIndex);
-      if (separators) renderSeparatorRows(body, sheet, rowIndex, separators);
-      if (collapsedSectionForRow(rowIndex)) return;
-      const tr = document.createElement("tr");
-      tr.dataset.rowIndex = String(rowIndex);
-      if (selected.includes(rowIndex)) tr.className = "row-selected";
-      const rowCell = makeElement("td", null, "row-number");
-      rowCell.title = "Double-click to edit this row";
-      rowCell.addEventListener("click", (event) => CDBVS.selectRenderedRow(sheet, rowIndex, tr, event));
-      rowCell.addEventListener("dblclick", (event) => { event.preventDefault(); CDBVS.openRowEditor(sheet, rowIndex); });
-      rowCell.addEventListener("contextmenu", (event) => {
-        event.preventDefault();
-        if (!CDBVS.isRowSelected(sheet, rowIndex)) CDBVS.selectRenderedRow(sheet, rowIndex, tr);
-        CDBVS.showRowContextMenu(event, sheet, rowIndex);
-      });
-      const rowSelect = makeButton(String(rowIndex + 1), (event) => {
-        event.stopPropagation();
-        CDBVS.selectRenderedRow(sheet, rowIndex, tr, event);
-      }, "row-select");
-      rowSelect.title = `Select row ${rowIndex + 1}`;
-      rowSelect.setAttribute("aria-label", rowSelect.title);
-      rowCell.appendChild(rowSelect);
-      tr.appendChild(rowCell);
-      (sheet.columns || []).forEach((column, columnIndex) => {
-        tr.appendChild(tableCapabilities.renderCell(sheet, row, rowIndex, column, columnIndex, tr, cellErrors, selectedCellValue));
-      });
-      body.appendChild(tr);
-    });
-    if (!rows.length) {
-      const emptyRow = document.createElement("tr");
-      const emptyCell = makeElement("td", "No rows match the current search and filters.", "empty");
-      emptyCell.colSpan = Math.max(1, (sheet.columns || []).length + 1);
-      emptyRow.appendChild(emptyCell);
-      body.appendChild(emptyRow);
+  }
+
+  function collapsedSectionForRow(sheet, separatorIndexes, rowIndex) {
+    let low = 0;
+    let high = separatorIndexes.length - 1;
+    let last = null;
+    while (low <= high) {
+      const middle = Math.floor((low + high) / 2);
+      if (separatorIndexes[middle] <= rowIndex) { last = separatorIndexes[middle]; low = middle + 1; }
+      else high = middle - 1;
     }
+    return last !== null && sheetViewState.isSeparatorCollapsed(sheet.name, last);
+  }
+
+  function appendTableRow(body, sheet, entry, renderContext) {
+    const { row, rowIndex } = entry;
+    const { separatorRows, separatorIndexes, selected, selectedCellValue, cellErrors } = renderContext;
+    const separators = separatorRows.get(rowIndex);
+    if (separators) renderSeparatorRows(body, sheet, rowIndex, separators);
+    if (collapsedSectionForRow(sheet, separatorIndexes, rowIndex)) return;
+    const tr = document.createElement("tr");
+    tr.dataset.rowIndex = String(rowIndex);
+    if (selected.includes(rowIndex)) tr.className = "row-selected";
+    const rowCell = makeElement("td", null, "row-number");
+    rowCell.title = "Double-click to edit this row";
+    rowCell.addEventListener("click", (event) => CDBVS.selectRenderedRow(sheet, rowIndex, tr, event));
+    rowCell.addEventListener("dblclick", (event) => { event.preventDefault(); CDBVS.openRowEditor(sheet, rowIndex); });
+    rowCell.addEventListener("contextmenu", (event) => {
+      event.preventDefault();
+      if (!CDBVS.isRowSelected(sheet, rowIndex)) CDBVS.selectRenderedRow(sheet, rowIndex, tr);
+      CDBVS.showRowContextMenu(event, sheet, rowIndex);
+    });
+    const rowSelect = makeButton(String(rowIndex + 1), (event) => {
+      event.stopPropagation();
+      CDBVS.selectRenderedRow(sheet, rowIndex, tr, event);
+    }, "row-select");
+    rowSelect.title = `Select row ${rowIndex + 1}`;
+    rowSelect.setAttribute("aria-label", rowSelect.title);
+    rowCell.appendChild(rowSelect);
+    tr.appendChild(rowCell);
+    (sheet.columns || []).forEach((column, columnIndex) => {
+      tr.appendChild(tableCapabilities.renderCell(sheet, row, rowIndex, column, columnIndex, tr, cellErrors, selectedCellValue));
+    });
+    body.appendChild(tr);
+  }
+
+  function appendEmptyTableRow(body, sheet) {
+    const emptyRow = document.createElement("tr");
+    const emptyCell = makeElement("td", "No rows match the current search and filters.", "empty");
+    emptyCell.colSpan = Math.max(1, (sheet.columns || []).length + 1);
+    emptyRow.appendChild(emptyCell);
+    body.appendChild(emptyRow);
+  }
+
+  function renderTableBody(sheet) {
+    const body = document.createElement("tbody");
+    const renderContext = prepareTableBody(sheet);
+    renderContext.rows.forEach((entry) => appendTableRow(body, sheet, entry, renderContext));
+    if (!renderContext.rows.length) appendEmptyTableRow(body, sheet);
     return body;
   }
 
+  function timeNow() {
+    return global.performance && typeof global.performance.now === "function"
+      ? global.performance.now() : Date.now();
+  }
+
+  function renderTableBodyProgressive(body, sheet, options) {
+    const config = options || {};
+    const frameBudget = Number.isFinite(config.frameBudget) ? Math.max(1, config.frameBudget) : 6;
+    let cancelled = false;
+    let timer = null;
+    let frame = null;
+    let renderContext = null;
+    let cursor = 0;
+
+    const requestFrame = (callback) => {
+      if (typeof global.requestAnimationFrame === "function") return global.requestAnimationFrame(callback);
+      return global.setTimeout(callback, 0);
+    };
+    const schedule = (callback, initial) => {
+      if (cancelled) return;
+      if (initial && typeof global.setTimeout === "function") {
+        timer = global.setTimeout(() => {
+          timer = null;
+          if (!cancelled) frame = requestFrame(callback);
+        }, 0);
+      } else frame = requestFrame(callback);
+    };
+    const complete = () => {
+      if (cancelled) return;
+      if (!renderContext.rows.length) appendEmptyTableRow(body, sheet);
+      if (typeof config.onComplete === "function") config.onComplete();
+    };
+    const renderChunk = () => {
+      if (cancelled) return;
+      if (!renderContext) renderContext = prepareTableBody(sheet);
+      const deadline = timeNow() + frameBudget;
+      let rendered = 0;
+      while (cursor < renderContext.rows.length && (rendered === 0 || timeNow() < deadline)) {
+        appendTableRow(body, sheet, renderContext.rows[cursor], renderContext);
+        cursor += 1;
+        rendered += 1;
+      }
+      if (cursor < renderContext.rows.length) schedule(renderChunk, false);
+      else complete();
+    };
+
+    schedule(renderChunk, true);
+    return () => {
+      cancelled = true;
+      if (timer !== null && typeof global.clearTimeout === "function") global.clearTimeout(timer);
+      if (frame !== null && typeof global.cancelAnimationFrame === "function") global.cancelAnimationFrame(frame);
+      timer = null;
+      frame = null;
+    };
+  }
+
   CDBVS.capabilities.table.renderBody = renderTableBody;
+  CDBVS.capabilities.table.renderBodyProgressive = renderTableBodyProgressive;
   CDBVS.renderTableBody = renderTableBody;
+  CDBVS.renderTableBodyProgressive = renderTableBodyProgressive;
 })(window);

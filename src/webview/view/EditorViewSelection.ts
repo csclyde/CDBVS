@@ -86,8 +86,12 @@
     if (!cell) return true;
     const controls = Array.from(cell.querySelectorAll("input, select, textarea, button"));
     const control = controls.find((item) => item.classList && item.classList.contains("list-toggle"))
-      || controls.find((item) => item.tagName === "INPUT" || item.tagName === "SELECT" || item.tagName === "TEXTAREA");
+      || controls.find((item) => item.tagName === "INPUT" || item.tagName === "SELECT" || item.tagName === "TEXTAREA" || item.tagName === "BUTTON");
     if (!control) return true;
+    if (typeof control._cdbvsActivateLazyEditor === "function") {
+      control._cdbvsActivateLazyEditor();
+      return activateEditorInCell(cell, sheet, event, onClose);
+    }
     const directControlClick = CDBVS.isControlTarget(event && event.target, control);
     const directListToggleClick = !!(event && event.target && event.target.closest
       && event.target.closest(".list-toggle"));

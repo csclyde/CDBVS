@@ -33,7 +33,7 @@
     "check-types": "tsc --noEmit",
     "build": "npm run check-types && node esbuild.js",
     "package": "npm run check-types && node esbuild.js --production",
-    "test": "npm run build && node --test test/parser.test.js test/protocol.test.js test/domain.test.js test/host.test.js test/bootstrap.test.js test/model.test.js test/ui-branches.test.js test/webview.test.js test/extension.test.js",
+    "test": "npm run build && node --test test/parser.test.js test/protocol.test.js test/domain.test.js test/host.test.js test/bootstrap.test.js test/model.test.js test/ui-branches.test.js test/webview.test.js test/list-modal.test.js test/extension.test.js",
     "vscode:prepublish": "npm run package"
   },
   "devDependencies": {

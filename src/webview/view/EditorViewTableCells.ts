@@ -105,7 +105,7 @@
       shouldIgnore: (target) => !!(target && target.closest && target.closest(".list-editor")),
       showContextMenu: (event) => CDBVS.showCellContextMenu(event, sheet)
     });
-    CDBVS.makeCellEditor(td, row, column, { sheet, rowIndex, path: `${sheet.name}/${rowIndex}` });
+    CDBVS.makeCellEditor(td, row, column, { sheet, rowIndex, path: `${sheet.name}/${rowIndex}`, lazy: true });
     return td;
   }
 

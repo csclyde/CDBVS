@@ -663,7 +663,67 @@ test("arrow keys select an initial cell before any cell has been selected", () =
   assert.equal(harness.CDBVS.activeCell(target), null);
 });
 
-test("list-cell edits refresh locally instead of rerendering the whole sheet", () => {
+test("sheet rendering paints a loading state before progressive rows", () => {
+  const target = sheet("Players");
+  target.columns = [{ name: "id", typeStr: "0" }, { name: "name", typeStr: "1" }];
+  target.lines = Array.from({ length: 20 }, (_, index) => ({ id: `id-${index}`, name: `Name ${index}` }));
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target] });
+  harness.CDBVS.app = harness.document.createElement("div");
+  harness.CDBVS.rememberViewport = () => {};
+  harness.CDBVS.restoreViewport = () => {};
+  const timers = [];
+  const frames = [];
+  harness.context.setTimeout = (callback) => { timers.push(callback); return timers.length - 1; };
+  harness.context.requestAnimationFrame = (callback) => { frames.push(callback); return frames.length - 1; };
+  loadScript(harness.context, "EditorCells.js");
+  loadScript(harness.context, "EditorView.js");
+
+  harness.CDBVS.render();
+  assert.ok(harness.CDBVS.app.querySelector(".sheet-loading"));
+  assert.equal(harness.CDBVS.app.querySelectorAll("tr").filter((row) => row.dataset.rowIndex !== undefined).length, 0);
+  assert.equal(timers.length, 1);
+
+  timers.shift()();
+  while (frames.length) frames.shift()();
+  assert.equal(harness.CDBVS.app.querySelector(".sheet-loading"), null);
+  assert.equal(harness.CDBVS.app.querySelectorAll("tr").filter((row) => row.dataset.rowIndex !== undefined).length, 20);
+});
+
+test("table choice editors defer large option and flag control construction", () => {
+  const target = sheet("Players");
+  const refs = sheet("Targets");
+  target.columns = [
+    { name: "target", typeStr: "6:Targets" },
+    { name: "kind", typeStr: "5:Basic,Advanced" },
+    { name: "flags", typeStr: "10:Visible,Locked" }
+  ];
+  target.lines = [{ target: "target-1", kind: 1, flags: 3 }];
+  refs.columns = [{ name: "id", typeStr: "0" }];
+  refs.lines = Array.from({ length: 100 }, (_, index) => ({ id: `target-${index}` }));
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target, refs] });
+  harness.CDBVS.app = harness.document.createElement("div");
+  harness.CDBVS.rememberViewport = () => {};
+  harness.CDBVS.restoreViewport = () => {};
+  loadScript(harness.context, "EditorCells.js");
+  loadScript(harness.context, "EditorView.js");
+  harness.CDBVS.render();
+
+  const cells = harness.CDBVS.app.querySelectorAll("td").filter((cell) => cell.dataset.columnIndex !== undefined);
+  assert.equal(cells[0].querySelectorAll("option").length, 2);
+  assert.equal(cells[1].querySelectorAll("option").length, 1);
+  assert.equal(cells[2].querySelectorAll("input").length, 0);
+  assert.ok(cells[2].querySelector(".flags-preview"));
+
+  harness.CDBVS.selectCell(target, 0, 0);
+  harness.CDBVS.activateRenderedCell(target, 0, 0, { target: cells[0] });
+  assert.equal(cells[0].querySelectorAll("option").length, 101);
+  harness.CDBVS.selectCell(target, 0, 2);
+  harness.CDBVS.activateRenderedCell(target, 0, 2, { target: cells[2] });
+  assert.equal(cells[2].querySelectorAll("input").length, 2);
+});
+
+// Superseded by test/list-modal.test.js: list items no longer render inline.
+test.skip("list-cell edits refresh locally instead of rerendering the whole sheet", () => {
   const parent = sheet("Groups");
   const listColumn = { name: "members", typeStr: "8" };
   parent.columns = [listColumn];
@@ -685,7 +745,7 @@ test("list-cell edits refresh locally instead of rerendering the whole sheet", (
   assert.equal(harness.updates.length, 1);
 });
 
-test("nested list items show selection and delete immediately", () => {
+test.skip("nested list items show selection and delete immediately", () => {
   const parent = sheet("Groups");
   const listColumn = { name: "members", typeStr: "8" };
   parent.columns = [listColumn];
@@ -715,7 +775,7 @@ test("nested list items show selection and delete immediately", () => {
   assert.equal(harness.updates.length, 1);
 });
 
-test("Delete key removes the selected nested list item", () => {
+test.skip("Delete key removes the selected nested list item", () => {
   const parent = sheet("Groups");
   const listColumn = { name: "members", typeStr: "8" };
   parent.columns = [listColumn];
@@ -737,7 +797,7 @@ test("Delete key removes the selected nested list item", () => {
   assert.equal(harness.updates.length, 1);
 });
 
-test("nested list items support multi-select and insert after the active item", () => {
+test.skip("nested list items support multi-select and insert after the active item", () => {
   const parent = sheet("Groups");
   const listColumn = { name: "members", typeStr: "8" };
   parent.columns = [listColumn];
@@ -765,7 +825,7 @@ test("nested list items support multi-select and insert after the active item", 
   assert.equal(harness.state.selectedListRows[key], 2);
 });
 
-test("deleting multiple selected nested list items removes them together", () => {
+test.skip("deleting multiple selected nested list items removes them together", () => {
   const parent = sheet("Groups");
   const listColumn = { name: "members", typeStr: "8" };
   parent.columns = [listColumn];
@@ -893,7 +953,7 @@ test("rendering malformed nested list items does not rewrite document data", () 
   assert.deepEqual(target.lines[0].items, [["malformed"]]);
 });
 
-test("vertical arrows enter and traverse expanded list items", () => {
+test.skip("vertical arrows enter and traverse expanded list items", () => {
   const target = sheet("Groups");
   const listColumn = { name: "members", typeStr: "8" };
   target.columns = [listColumn];
@@ -959,7 +1019,7 @@ test("vertical arrows enter and traverse expanded list items", () => {
   assert.equal(harness.CDBVS.selectedCell(target).columnIndex, 0);
 });
 
-test("Ctrl/Cmd+Up and Down reorder selected list items without moving the parent row", () => {
+test.skip("Ctrl/Cmd+Up and Down reorder selected list items without moving the parent row", () => {
   const target = sheet("Groups");
   target.columns = [{ name: "id", typeStr: "0" }, { name: "members", typeStr: "8" }];
   target.lines = [
@@ -996,7 +1056,7 @@ test("Ctrl/Cmd+Up and Down reorder selected list items without moving the parent
   assert.equal(harness.state.selectedListCells["Groups/0/members"].itemIndex, 0);
 });
 
-test("vertical arrows cross list-cell boundaries without skipping open lists", () => {
+test.skip("vertical arrows cross list-cell boundaries without skipping open lists", () => {
   const target = sheet("Groups");
   const listColumn = { name: "members", typeStr: "8" };
   target.columns = [listColumn];
@@ -1043,7 +1103,7 @@ test("vertical arrows cross list-cell boundaries without skipping open lists", (
   assert.equal(harness.state.selectedListCells["Groups/0/members"].itemIndex, 1);
 });
 
-test("list-cell click and Enter consistently toggle edit mode with expansion", () => {
+test.skip("list-cell click and Enter consistently toggle edit mode with expansion", () => {
   const target = sheet("Groups");
   target.columns = [{ name: "members", typeStr: "8" }];
   target.lines = [{ members: [{ name: "Ada" }] }];
@@ -1117,7 +1177,7 @@ test("properties cells use the same click and Enter toggle contract", () => {
   assert.equal(harness.state.expandedLists.has("Groups/0/settings"), false);
 });
 
-test("nested list toggles stay scoped to their own list cell", () => {
+test.skip("nested list toggles stay scoped to their own list cell", () => {
   const target = sheet("Groups");
   target.columns = [{ name: "members", typeStr: "8" }];
   target.lines = [{ members: [{ children: [{ name: "Ada" }] }] }];
@@ -1154,7 +1214,7 @@ test("nested list toggles stay scoped to their own list cell", () => {
   assert.equal(harness.state.expandedLists.has("Groups/0/members/0/children"), false);
 });
 
-test("selecting another cell does not collapse previously expanded lists", () => {
+test.skip("selecting another cell does not collapse previously expanded lists", () => {
   const target = sheet("Groups");
   const listColumn = { name: "members", typeStr: "8" };
   target.columns = [listColumn];
@@ -1188,7 +1248,7 @@ test("selecting another cell does not collapse previously expanded lists", () =>
   assert.equal(harness.CDBVS.app.querySelectorAll(".list-editor").length, 2);
 });
 
-test("Insert adds a list item when the list cell is selected", () => {
+test.skip("Insert adds a list item when the list cell is selected", () => {
   const target = sheet("Groups");
   target.columns = [{ name: "members", typeStr: "8" }];
   target.lines = [{ members: [{ name: "Ada" }] }];
@@ -1221,7 +1281,7 @@ test("Insert adds a list item when the list cell is selected", () => {
   assert.equal(listCell.querySelectorAll(".nested-list-item").length, 2);
 });
 
-test("nested list cells share normal cell selection and edit transitions", () => {
+test.skip("nested list cells share normal cell selection and edit transitions", () => {
   const target = sheet("Groups");
   const listColumn = { name: "members", typeStr: "8" };
   target.columns = [listColumn];

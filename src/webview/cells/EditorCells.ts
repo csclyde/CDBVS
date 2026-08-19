@@ -25,10 +25,63 @@
     return false;
   }
 
+  function materializeCellEditor(cell, row, column, context) {
+    const existingInput = context && context.existingInput;
+    if (!existingInput) cell.replaceChildren();
+    makeCellEditor(cell, row, column, Object.assign({}, context || {}, { lazy: false, existingInput }));
+  }
+
+  function lazyChoiceEditor(cell, row, column, context, type) {
+    const input = document.createElement("select");
+    input.className = "lazy-cell-editor";
+    input.title = `${column.name} (${type.name})`;
+    const value = row[column.name];
+    if (type.code === 5) {
+      const index = Number.isInteger(Number(value)) ? Number(value) : 0;
+      input.add(new Option(type.values[index] || String(value ?? ""), String(value ?? 0)));
+      input.value = String(value ?? 0);
+    } else {
+      input.add(new Option("", ""));
+      if (value !== undefined && value !== null && value !== "") input.add(new Option(String(value), String(value)));
+      input.value = String(value ?? "");
+    }
+    input._cdbvsActivateLazyEditor = () => materializeCellEditor(cell, row, column, Object.assign({}, context, { existingInput: input }));
+    cell.appendChild(input);
+  }
+
+  function flagsPreview(type, value) {
+    const current = Number(value) || 0;
+    const labels = type.values.filter((label, index) => (current & (1 << index)) !== 0);
+    return labels.length ? labels.join(", ") : "none";
+  }
+
+  function lazyFlagsEditor(cell, row, column, context, type) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "lazy-cell-editor flags-preview";
+    button.textContent = flagsPreview(type, row[column.name]);
+    button.title = `${column.name} (${type.name})`;
+    button._cdbvsActivateLazyEditor = () => materializeCellEditor(cell, row, column, context);
+    cell.appendChild(button);
+  }
+
   function makeCellEditor(cell, row, column, context) {
     const type = typeOf(column);
     const value = row[column.name];
     const cellContext = context || { sheet: currentSheet(), rowIndex: 0, path: "root" };
+    const existingInput = cellContext.existingInput;
+    if (cellContext.lazy && type.code === 5) {
+      lazyChoiceEditor(cell, row, column, cellContext, type);
+      return;
+    }
+    if (cellContext.lazy && type.code === 6) {
+      lazyChoiceEditor(cell, row, column, cellContext, type);
+      return;
+    }
+    if (cellContext.lazy && type.code === 10 && type.values.length) {
+      lazyFlagsEditor(cell, row, column, cellContext, type);
+      return;
+    }
     const references = type.code === 6 ? referenceOptions(column) : null;
     if (type.code === 8) {
       const schema = listSheet(cellContext.sheet, column);
@@ -119,12 +172,14 @@
       input.checked = value === true;
       input.className = "bool-input";
     } else if (type.code === 5) {
-      input = document.createElement("select");
+      input = existingInput && existingInput.tagName === "SELECT" ? existingInput : document.createElement("select");
+      input.replaceChildren();
       const values = type.values.length ? type.values : ["0"];
       values.forEach((label, index) => input.add(new Option(label, String(index))));
       input.value = String(value ?? 0);
     } else if (type.code === 6 && references) {
-      input = document.createElement("select");
+      input = existingInput && existingInput.tagName === "SELECT" ? existingInput : document.createElement("select");
+      input.replaceChildren();
       input.add(new Option("", ""));
       references.forEach((item) => input.add(new Option(String(item), String(item))));
       input.value = String(value ?? "");
@@ -136,6 +191,8 @@
       if (type.code === 11) input.classList.add("color-input");
       if ([8, 9, 14, 15, 16, 17, 18, 19].includes(type.code)) input.classList.add("json-input");
     }
+    if (input && typeof input._cdbvsActivateLazyEditor === "function") delete input._cdbvsActivateLazyEditor;
+    if (input && input.classList && input.classList.contains("lazy-cell-editor")) input.classList.remove("lazy-cell-editor");
     input.title = `${column.name} (${type.name})`;
     input._cdbvsCommit = () => {
       const next = readValue(input, column);

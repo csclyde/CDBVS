@@ -36,6 +36,7 @@
 
   function createModal(options) {
     const config = options || {};
+    const previous = config.restorePrevious ? modalState.active : null;
     closeActiveModal();
     const overlay = makeElement("div", null, "text-modal-overlay");
     const dialog = makeElement("section", null, `text-modal${config.className ? ` ${config.className}` : ""}`);
@@ -44,7 +45,18 @@
     const heading = makeElement("div", null, "text-modal-heading");
     heading.appendChild(makeElement("strong", config.title || ""));
     const footer = makeElement("div", null, "text-modal-footer");
-    const close = () => closeModal(overlay);
+    const restorePrevious = () => {
+      if (!previous) return;
+      if (!previous.parentNode && document.body) document.body.appendChild(previous);
+      if (!previous.parentNode) return;
+      setActiveModal(previous);
+      if (typeof config.onRestore === "function") config.onRestore();
+    };
+    const close = () => {
+      closeModal(overlay);
+      restorePrevious();
+      if (typeof config.onClose === "function") config.onClose();
+    };
     heading.appendChild(makeButton("x", close, "text-modal-close"));
     dialog.appendChild(heading);
     overlay.appendChild(dialog);

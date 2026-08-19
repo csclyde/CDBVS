@@ -4,6 +4,28 @@
 
 The first working editor baseline is in place. The repository now contains a desktop VS Code extension with a custom `.cdb` editor, a spreadsheet-style webview, schema-aware primitive/reference controls, row/column/sheet editing, quick search, per-column filtering and sorting, and a raw JSON fallback. The reusable CastleDB Haxe `cdb` sources from `Cursemark\.haxelib\castle\git` are vendored under `vendor/castledb/cdb`, while the legacy level-editor sources are intentionally excluded. Marketplace release metadata and packaging exclusions are also prepared; publisher registration, authentication, and final VSIX validation remain external steps.
 
+## Webview rendering performance diagnosis (2026-08-19)
+
+- Sheet-tab clicks synchronously call the global `render()` path. That path clears and rebuilds the entire webview DOM, including every visible row and cell in the destination sheet, before the browser can paint the selected tab; the VS Code host, document update queue, and disk are not on the sheet-switch critical path.
+- The dominant data-dependent multiplier is choice-control rendering: each `TRef` cell creates a new `<select>` and appends every ID from the referenced sheet, while each `TEnum` cell appends every enum case. The reference-value array is cached, but the option DOM is recreated per cell. On the current fixture, the 48-row `worldmap` sheet creates 161,424 option nodes in one render (16 references to a 209-row target, plus its enum control). `TFlags` cells likewise create one checkbox/label pair for every declared flag per cell.
+- The same full-render cost is shared by direct table/raw-mode toggles, search input (on every keystroke), filter/sort/separator actions, structural row/column/sheet mutations, and document messages echoed after host-applied edits. Search adds a per-row `JSON.stringify`; sorting adds an `O(n log n)` pass; duplicate-ID validation rescans all rows; and expanded properties can recursively add nested editors.
+- The general issue is an eager, unvirtualized spreadsheet render with per-cell control construction and no render coalescing or destination-sheet cache. The responsive pass below removes the largest choice-control multiplier and makes row work interruptible, while very large sheets still remain candidates for future viewport virtualization. Real Extension Development Host timing remains outstanding.
+
+## Responsive sheet rendering pass (2026-08-19)
+
+- Added a centered loading state and cancellable, time-budgeted row rendering. The table shell and active sheet feedback can paint before row construction begins, while subsequent batches yield through animation frames; switching again cancels stale work.
+- Deferred table reference and enum option construction until a cell is activated, and reduced flags cells to a compact preview until editing. Modal and direct schema editors remain eager so their existing behavior is unchanged.
+- Added regression coverage for the loading-before-rows behavior and for deferred choice/flag controls. Headless rendering of the fixture's large reference-heavy `worldmap` view dropped from 143 ms / 161,424 option nodes to 6 ms / 1,584 initial option nodes; real Extension Development Host timing remains outstanding.
+
+## List item modal editor rebuild (2026-08-19)
+
+- Replaced inline list-cell expansion with one compact edit control that opens a modal consistently from a click, cell activation, or Enter.
+- Added a draft-backed list grid with schema-aware editors, row/cell selection, arrow and Tab navigation, Enter/Escape editing transitions, Insert/Delete, clipboard shortcuts, row movement, and Ctrl/Cmd+S behavior.
+- Added Add row and Delete selected buttons plus row/cell context menus for insertion, deletion, movement, and clipboard actions. Nested list modals restore their parent modal after Save or Cancel.
+- Preserved unknown item fields and kept list changes transactional: root list saves persist through the normal document mutation boundary, while nested modal edits remain drafts until the containing modal is saved.
+- Added modal interaction coverage for activation, draft/save behavior, row context actions, keyboard movement, and nested-modal restoration. The pre-rebuild inline-list interaction tests are retained as 13 explicitly skipped historical cases because their asserted UI no longer exists.
+- Verification: `npm.cmd test` passes with 97 tests and 13 superseded skips; `npm.cmd run check-types`, `npm.cmd run build`, `npm.cmd run package`, and `git diff --check` pass.
+
 ## Test expansion and hidden-sheet regression fix (2026-08-18)
 
 - Expanded the automated suite from 68 to 106 tests across CastleDB parsing/validation, host document and command boundaries, update queues, CSP HTML generation, the production webview bootstrap, type conversion, schema defaults, validation decorations, row/separator operations, filtering/sorting, raw JSON recovery, modals, context menus, clipboard behavior, viewport restoration, table rendering, and the existing interaction regressions.

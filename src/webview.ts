@@ -34,6 +34,7 @@ import "./webview/actions/EditorActions";
 import "./webview/modals/EditorModalShared";
 import "./webview/modals/EditorModalsConfirm";
 import "./webview/modals/EditorModalsRows";
+import "./webview/modals/EditorModalsLists";
 import "./webview/modals/EditorModalsColumns";
 import "./webview/modals/EditorModalsSheetCreate";
 import "./webview/modals/EditorModalsSheetDelete";

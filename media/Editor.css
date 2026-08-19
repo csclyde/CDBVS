@@ -125,8 +125,11 @@ button:disabled { cursor: default; opacity: .45; }
 .status { min-height: 22px; padding: 4px 9px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .status.error { color: var(--vscode-errorForeground); }
 .content { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; overflow: hidden; padding: 0 8px 4px; }
-.table-wrap { flex: 1 1 auto; min-height: 0; overflow-x: auto; overflow-y: auto; scrollbar-width: none; border: 1px solid var(--border); }
+.table-wrap { position: relative; flex: 1 1 auto; min-height: 0; overflow-x: auto; overflow-y: auto; scrollbar-width: none; border: 1px solid var(--border); }
 .table-wrap::-webkit-scrollbar:horizontal { height: 0; }
+.sheet-loading { position: absolute; inset: 0; z-index: 6; display: flex; align-items: center; justify-content: center; gap: 9px; background: color-mix(in srgb, var(--vscode-editor-background) 82%, transparent); color: var(--muted); pointer-events: none; }
+.sheet-loading::before { content: ""; width: 18px; height: 18px; border: 2px solid var(--input-border); border-top-color: var(--accent); border-radius: 50%; animation: cdbvs-spin .75s linear infinite; }
+@keyframes cdbvs-spin { to { transform: rotate(360deg); } }
 .horizontal-scroll-dock { display: block; flex: 0 0 16px; height: 16px; min-height: 16px; overflow-x: scroll; overflow-y: hidden; scrollbar-color: var(--input-border) var(--input-bg); border: 1px solid var(--border); border-top: 0; background: var(--vscode-editorGroupHeader-tabsBackground); }
 .horizontal-scroll-dock::-webkit-scrollbar { height: 12px; }
 .horizontal-scroll-dock::-webkit-scrollbar-track { background: var(--input-bg); }
@@ -174,6 +177,8 @@ td input[type="text"] { min-width: 14ch; }
 td input[type="number"] { min-width: 7ch; max-width: 120px; }
 td input[type="color"] { width: 34px; }
 td select { min-width: 10ch; max-width: 180px; }
+td .lazy-cell-editor { width: 100%; min-width: 0; max-width: 220px; border: 0; border-radius: 0; padding: 6px; background: transparent; }
+td button.lazy-cell-editor { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: inherit; text-align: left; }
 td input:focus, td select:focus { outline: 1px solid var(--cell-outline); outline-offset: -1px; }
 .bool-input { width: auto; margin: 8px 10px; }
 .flags-input { display: flex; flex-wrap: wrap; gap: 4px 8px; padding: 5px 6px; }
@@ -184,7 +189,7 @@ td input:focus, td select:focus { outline: 1px solid var(--cell-outline); outlin
 .list-cell { min-width: 92px; padding: 3px; }
 .list-toggle { display: flex; align-items: center; gap: 6px; width: 100%; border: 1px solid var(--input-border); background: var(--input-bg); padding: 3px 6px; border-radius: 2px; text-align: left; }
 .list-toggle:hover { background: var(--active); }
-.list-toggle.expanded { border-color: var(--accent); background: var(--selection-bg); box-shadow: inset 0 0 0 1px var(--accent); }
+.list-toggle:focus-visible { outline: 1px solid var(--cell-outline); outline-offset: -1px; }
 .list-preview { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--vscode-editor-font-family); font-size: .9em; }
 .list-arrow { flex: 0 0 auto; color: var(--muted); font-size: .85em; }
 .list-editor { margin-top: 5px; border: 1px solid var(--border); overflow: auto; max-width: min(720px, 70vw); }
@@ -199,6 +204,19 @@ td input:focus, td select:focus { outline: 1px solid var(--cell-outline); outlin
 .nested-table tr.list-item-selected .row-number { background: var(--selection-bg); color: var(--selection-fg); font-weight: 700; }
 .nested-heading { white-space: nowrap; }
 .nested-heading small { display: block; color: var(--muted); font-weight: normal; font-size: .8em; }
+.list-modal { width: min(1100px, 94vw); height: min(760px, calc(100vh - 48px)); }
+.list-modal-toolbar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border); background: var(--vscode-editorGroupHeader-tabsBackground); }
+.list-modal-count { margin-right: auto; color: var(--muted); font-size: .9em; }
+.list-modal-grid { flex: 1 1 auto; min-height: 0; overflow: auto; }
+.list-modal-table { min-width: 520px; width: 100%; }
+.list-modal-table th { position: sticky; top: 0; z-index: 3; padding: 6px 8px; }
+.list-modal-table td { min-width: 110px; }
+.list-modal-table .row-number { z-index: 4; }
+.list-modal-table tr.row-selected td { background: var(--selection-bg); color: var(--selection-fg); }
+.list-modal-table td.cell-selected { background: var(--active) !important; color: var(--vscode-foreground); box-shadow: inset 0 0 0 2px var(--cell-outline); }
+.list-modal-table td.cell-active { outline: 1px solid var(--cell-outline); outline-offset: -2px; }
+.list-modal-table tr.row-selected .row-number { background: var(--selection-bg); color: var(--selection-fg); font-weight: 700; }
+.list-modal-table td > input, .list-modal-table td > select, .list-modal-table td > textarea { width: 100%; min-width: 0; }
 .properties-table { min-width: 260px; }
 .properties-table th:first-child { width: 110px; }
 .text-modal-overlay { position: fixed; inset: 0; z-index: 20; display: flex; align-items: flex-start; justify-content: center; overflow-y: auto; padding: 24px; background: rgba(0, 0, 0, .45); }

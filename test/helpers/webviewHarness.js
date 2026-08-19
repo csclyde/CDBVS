@@ -39,6 +39,7 @@ const WEBVIEW_SCRIPTS = [
   ["EditorModalShared.js", "modals"],
   ["EditorModalsConfirm.js", "modals"],
   ["EditorModalsRows.js", "modals"],
+  ["EditorModalsLists.js", "modals"],
   ["EditorModalsColumns.js", "modals"],
   ["EditorModalsSheetCreate.js", "modals"],
   ["EditorModalsSheetDelete.js", "modals"],
@@ -223,6 +224,7 @@ function createWebviewHarness(data) {
   loadScript(context, "EditorModalShared.js");
   loadScript(context, "EditorModalsConfirm.js");
   loadScript(context, "EditorModalsRows.js");
+  loadScript(context, "EditorModalsLists.js");
   loadScript(context, "EditorModalsColumns.js");
   loadScript(context, "EditorModalsSheetCreate.js");
   loadScript(context, "EditorModalsSheetDelete.js");

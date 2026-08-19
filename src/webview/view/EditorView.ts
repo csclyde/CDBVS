@@ -20,8 +20,11 @@
   const restoreViewport = CDBVS.restoreViewport;
   const documentIssues = CDBVS.documentIssues;
   const hasDocument = CDBVS.hasDocument;
+  let cancelActiveTableRender = null;
 
   function render() {
+    if (typeof cancelActiveTableRender === "function") cancelActiveTableRender();
+    cancelActiveTableRender = null;
     CDBVS.clearReferenceOptionsCache();
     sheetState.clearMap("activeCells");
     CDBVS.closeContextMenu();
@@ -102,7 +105,9 @@
     app.appendChild(status);
     const content = makeElement("main", null, "content");
     if (isRawMode() || !hasDocument()) viewCapabilities.renderRaw(content);
-    else viewCapabilities.renderTable(content, sheetViewModel.currentSheet());
+    else cancelActiveTableRender = viewCapabilities.renderTable(content, sheetViewModel.currentSheet(), {
+      onComplete: () => { cancelActiveTableRender = null; }
+    });
     app.appendChild(content);
     app.appendChild(sheetsBar);
     requestAnimationFrame(restoreViewport);
