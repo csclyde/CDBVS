@@ -74,7 +74,7 @@
       };
       if (typeof requestAnimationFrame === "function") requestAnimationFrame(focusNestedSelection);
       else focusNestedSelection();
-      if (!deferChanges) CDBVS.sendUpdate();
+      if (!deferChanges) CDBVS.persistMutation();
       return true;
     };
     const listItemRows = () => {
@@ -217,7 +217,7 @@
       if (cut) {
         item[childColumn.name] = null;
         rerender();
-        if (!deferChanges) CDBVS.sendUpdate();
+        if (!deferChanges) CDBVS.persistMutation();
       }
       return true;
     };
@@ -230,7 +230,7 @@
       const childColumn = schema.columns[selected.columnIndex];
       item[childColumn.name] = clipboard.hasValue ? CDBVS.cloneValue(clipboard.value) : null;
       rerender();
-      if (!deferChanges) CDBVS.sendUpdate();
+      if (!deferChanges) CDBVS.persistMutation();
       return true;
     };
     const deleteSelectedListCell = () => {
@@ -240,7 +240,7 @@
       if (!item) return false;
       item[schema.columns[selected.columnIndex].name] = null;
       rerender();
-      if (!deferChanges) CDBVS.sendUpdate();
+      if (!deferChanges) CDBVS.persistMutation();
       return true;
     };
     const showNestedCellContextMenu = (event) => {
@@ -269,7 +269,7 @@
       storeSelectedItems([insertAt], insertAt, insertAt);
       state.expandedLists.add(key);
       rerender();
-      if (!deferChanges) CDBVS.sendUpdate();
+      if (!deferChanges) CDBVS.persistMutation();
       return true;
     };
     cell._cdbvsInsertSelectedListItem = insertSelectedListItem;
@@ -376,7 +376,7 @@
         storeSelectedItems([nextIndex], nextIndex, nextIndex);
       }
       rerender();
-      if (!deferChanges) CDBVS.sendUpdate();
+      if (!deferChanges) CDBVS.persistMutation();
       return true;
     };
     const toggleList = () => {

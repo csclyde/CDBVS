@@ -181,3 +181,45 @@ test("custom editor rejects malformed webview updates without changing the docum
   assert.equal(text, originalText);
   assert.equal(messages.at(-1).type, "error");
 });
+
+test("a failed document update does not poison later saves", async () => {
+  const originalText = validDocumentText("initial");
+  let text = originalText;
+  let saveCalls = 0;
+  const document = {
+    uri: { toString: () => "file:///players.cdb" },
+    getText: () => text,
+    positionAt: (offset) => offset,
+    save: async () => { saveCalls += 1; return true; }
+  };
+  let applyCount = 0;
+  const vscode = makeVscode(document, async (edit) => {
+    applyCount += 1;
+    if (applyCount === 1) throw new Error("transient edit failure");
+    text = edit.text;
+    return true;
+  });
+  const CdbEditorProvider = loadProvider(vscode);
+  const messages = [];
+  let receiveMessage;
+  const panel = {
+    active: true,
+    webview: {
+      options: null,
+      html: "",
+      asWebviewUri: (uri) => uri,
+      postMessage: (message) => messages.push(message),
+      onDidReceiveMessage: (handler) => { receiveMessage = handler; return { dispose() {} }; }
+    },
+    onDidChangeViewState: () => ({ dispose() {} }),
+    onDidDispose: () => {}
+  };
+  await new CdbEditorProvider({ extensionUri: "extension" }).resolveCustomTextEditor(document, panel);
+
+  await receiveMessage({ type: "update", text: validDocumentText("failed") });
+  await receiveMessage({ type: "save" });
+
+  assert.equal(saveCalls, 1);
+  assert.equal(text, originalText);
+  assert.equal(messages.some((message) => message.type === "error"), true);
+});

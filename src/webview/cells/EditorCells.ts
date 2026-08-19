@@ -9,7 +9,9 @@
   const valueText = CDBVS.valueText;
   const colorText = CDBVS.colorText;
   const referenceOptions = CDBVS.referenceOptions;
-  const renderNow = CDBVS.renderNow;
+  const renderMutation = CDBVS.renderMutation;
+  const commitCellMutation = CDBVS.commitCellMutation;
+  const scheduleCellMutation = CDBVS.scheduleCellMutation;
 
   function canSyncInputValue(type, input) {
     const value = String(input.value || "").trim();
@@ -71,7 +73,7 @@
           ? cellContext.sheet.columns.indexOf(column)
           : -1;
         CDBVS.refreshRenderedCell(cellContext.sheet, cellContext.rowIndex, columnIndex);
-      } else renderNow();
+      } else renderMutation();
     };
     if (type.code === 10 && type.values.length) {
       const flags = makeElement("div", null, "flags-input");
@@ -99,8 +101,7 @@
           }
           flagsNeedCommit = false;
           if (!cellContext.deferChanges) {
-            CDBVS.sendUpdate();
-            refreshAfterCommit();
+            commitCellMutation(undefined, refreshAfterCommit);
           }
         });
         flagLabel.appendChild(checkbox);
@@ -149,8 +150,7 @@
       needsCommit = true;
       row[column.name] = next;
       if (isEditingCell()) return;
-      if (typeof CDBVS.scheduleUpdate === "function") CDBVS.scheduleUpdate();
-      else CDBVS.sendUpdate();
+      scheduleCellMutation();
     });
     input.addEventListener("change", () => {
       const next = readValue(input, column);
@@ -170,8 +170,7 @@
       }
       needsCommit = false;
       if (!cellContext.deferChanges) {
-        CDBVS.sendUpdate();
-        refreshAfterCommit();
+        commitCellMutation(undefined, refreshAfterCommit);
       }
     });
     if (type.code === 1 && !cellContext.deferChanges) {
@@ -189,8 +188,7 @@
         row[column.name] = row[column.name] !== true;
         input.checked = row[column.name] === true;
         if (!cellContext.deferChanges) {
-          CDBVS.sendUpdate();
-          refreshAfterCommit();
+          commitCellMutation(undefined, refreshAfterCommit);
         }
         return true;
       };

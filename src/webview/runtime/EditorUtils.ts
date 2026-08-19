@@ -63,63 +63,8 @@
     column[property] = typeString;
   }
 
-  function renderAfterUpdate() {
-    CDBVS.sendUpdate();
-    renderNow();
-  }
-
   function renderNow() {
     if (typeof CDBVS.render === "function") CDBVS.render();
-  }
-
-  function matchesStateKey(key, prefix, separator) {
-    return key === prefix || key.startsWith(`${prefix}${separator}`);
-  }
-
-  function renameStateKeys(map, oldPrefix, newPrefix, separator = "@") {
-    if (!map) return;
-    Object.keys(map).forEach((key) => {
-      if (!matchesStateKey(key, oldPrefix, separator)) return;
-      map[`${newPrefix}${key.slice(oldPrefix.length)}`] = map[key];
-      delete map[key];
-    });
-  }
-
-  function removeStateKeys(map, prefix, separator = "@") {
-    if (!map) return;
-    Object.keys(map).forEach((key) => {
-      if (matchesStateKey(key, prefix, separator)) delete map[key];
-    });
-  }
-
-  function renameSheetState(oldName, newName) {
-    const state = CDBVS.state;
-    ["selectedRows", "activeRows", "rowSelectionAnchors", "selectedCells", "activeCells"].forEach((key) => {
-      renameStateKeys(state[key], oldName, newName);
-    });
-    renameStateKeys(state.selectedListRows, oldName, newName, "/");
-    renameStateKeys(state.selectedListCells, oldName, newName, "/");
-    renameStateKeys(state.listSelectionAnchors, oldName, newName, "/");
-    state.expandedLists.clear();
-  }
-
-  function removeSheetState(sheetName) {
-    const state = CDBVS.state;
-    ["selectedRows", "activeRows", "rowSelectionAnchors", "selectedCells", "activeCells"].forEach((key) => {
-      removeStateKeys(state[key], sheetName);
-    });
-    removeStateKeys(state.selectedListRows, sheetName, "/");
-    removeStateKeys(state.selectedListCells, sheetName, "/");
-    removeStateKeys(state.listSelectionAnchors, sheetName, "/");
-    state.expandedLists.clear();
-  }
-
-  function clearListState() {
-    const state = CDBVS.state;
-    state.selectedListRows = {};
-    state.selectedListCells = {};
-    state.listSelectionAnchors = {};
-    state.expandedLists.clear();
   }
 
   function commitEditorTarget(editorTarget) {
@@ -142,12 +87,6 @@
     idColumn,
     setColumnTypeString,
     renderNow,
-    renderAfterUpdate,
-    renameStateKeys,
-    removeStateKeys,
-    renameSheetState,
-    removeSheetState,
-    clearListState,
     commitEditorTarget
   });
 })(window);

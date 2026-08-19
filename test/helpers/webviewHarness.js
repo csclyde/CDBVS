@@ -7,12 +7,15 @@ const { FakeDocument, FakeOption } = require("./fakeDom");
 // without starting VS Code. Production uses the bundled media/editor.js.
 const WEBVIEW_SCRIPTS = [
   ["EditorRuntime.js", "runtime"],
+  ["EditorStateMaps.js", "runtime"],
   ["EditorDom.js", "runtime"],
   ["EditorUtils.js", "runtime"],
+  ["EditorMutation.js", "runtime"],
   ["EditorModelSchema.js", "model"],
   ["EditorModel.js", "model"],
   ["EditorModelErrors.js", "model"],
   ["EditorModelStructure.js", "model"],
+  ["EditorModelRows.js", "model"],
   ["EditorModelSheets.js", "model"],
   ["EditorSelection.js", "model"],
   ["EditorActionsClipboard.js", "actions"],
@@ -32,6 +35,7 @@ const WEBVIEW_SCRIPTS = [
   ["EditorCells.js", "cells"],
   ["EditorViewControls.js", "view"],
   ["EditorViewContextMenus.js", "view"],
+  ["EditorViewSelect.js", "view"],
   ["EditorViewSelection.js", "view"],
   ["EditorViewTableHeader.js", "view"],
   ["EditorViewTableCells.js", "view"],
@@ -156,11 +160,14 @@ function createWebviewHarness(data) {
   context.prompt = () => { throw new Error("Native prompt must not be called."); };
   context.confirm = () => { throw new Error("Native confirm must not be called."); };
 
+  loadScript(context, "EditorStateMaps.js");
   loadScript(context, "EditorUtils.js");
+  loadScript(context, "EditorMutation.js");
   loadScript(context, "EditorModelSchema.js");
   loadScript(context, "EditorModel.js");
   loadScript(context, "EditorModelErrors.js");
   loadScript(context, "EditorModelStructure.js");
+  loadScript(context, "EditorModelRows.js");
   loadScript(context, "EditorModelSheets.js");
   loadScript(context, "EditorSelection.js");
   loadScript(context, "EditorCellsLists.js");
@@ -179,6 +186,7 @@ function createWebviewHarness(data) {
   loadScript(context, "EditorModals.js");
   loadScript(context, "EditorViewControls.js");
   loadScript(context, "EditorViewContextMenus.js");
+  loadScript(context, "EditorViewSelect.js");
   loadScript(context, "EditorViewSelection.js");
   loadScript(context, "EditorViewTableHeader.js");
   loadScript(context, "EditorViewTableCells.js");

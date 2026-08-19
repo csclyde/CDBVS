@@ -20,7 +20,6 @@
     state.data.sheets.forEach((item) => {
       if (item.name === oldName || item.name.startsWith(`${oldName}@`)) item.name = `${newName}${item.name.slice(oldName.length)}`;
     });
-    CDBVS.renameViewSheet(oldName, newName);
     renameSheetState(oldName, newName);
     return true;
   }
@@ -41,7 +40,6 @@
       return (code === "6" || code === "12") && (target === oldName || target.startsWith(`${oldName}@`)) ? "1" : raw;
     });
     state.data.sheets = state.data.sheets.filter((item) => !deletedSheets.has(item));
-    CDBVS.removeViewSheet(oldName);
     removeSheetState(oldName);
     const sheetsAfter = CDBVS.visibleSheets();
     if (currentBefore && !deletedSheets.has(currentBefore)) {

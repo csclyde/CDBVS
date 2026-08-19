@@ -5,7 +5,7 @@
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
   const typeOf = CDBVS.typeOf;
-  const renderAfterUpdate = CDBVS.renderAfterUpdate;
+  const commitMutation = CDBVS.commitMutation;
   const createModal = CDBVS.createModal;
 
   function openTypesEditor() {
@@ -47,7 +47,7 @@
       }
       state.data.customTypes = customTypes;
       close();
-      renderAfterUpdate();
+      commitMutation();
     };
     footer.appendChild(makeButton("Cancel", close));
     footer.appendChild(makeButton("Save", save, "button primary"));

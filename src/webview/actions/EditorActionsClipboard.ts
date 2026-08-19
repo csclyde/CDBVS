@@ -2,7 +2,7 @@
 (function (global) {
   const CDBVS = global.CDBVS;
   const state = CDBVS.state;
-  const renderAfterUpdate = CDBVS.renderAfterUpdate;
+  const commitMutation = CDBVS.commitMutation;
   const selectedRowIndex = CDBVS.selectedRowIndex;
   const selectedRowIndices = CDBVS.selectedRowIndices;
   const selectedCell = CDBVS.selectedCell;
@@ -51,8 +51,7 @@
     state.rowClipboard = null;
     writeCellClipboard(cell);
     if (!cut) return true;
-    clearCellValue(row, selection.column);
-    renderAfterUpdate();
+    commitMutation(() => clearCellValue(row, selection.column));
     return true;
   }
 
@@ -67,18 +66,18 @@
     state.cellClipboard = null;
     writeRowClipboard(rows);
     if (!cut) return true;
-    selected.slice().sort((left, right) => right - left).forEach((index) => deleteRowAt(sheet, index));
-    const remaining = Array.isArray(sheet.lines) ? sheet.lines.length : 0;
-    selectRow(sheet, remaining ? Math.min(selected[0], remaining - 1) : null);
-    renderAfterUpdate();
+    commitMutation(() => {
+      selected.slice().sort((left, right) => right - left).forEach((index) => deleteRowAt(sheet, index));
+      const remaining = Array.isArray(sheet.lines) ? sheet.lines.length : 0;
+      selectRow(sheet, remaining ? Math.min(selected[0], remaining - 1) : null);
+    });
     return true;
   }
 
   function deleteSelectedCell(sheet) {
     const selection = selectedCell(sheet);
     if (!selection || !sheet.lines[selection.rowIndex]) return false;
-    clearCellValue(sheet.lines[selection.rowIndex], selection.column);
-    renderAfterUpdate();
+    commitMutation(() => clearCellValue(sheet.lines[selection.rowIndex], selection.column));
     return true;
   }
 
@@ -86,9 +85,10 @@
     if (!sheet || !Array.isArray(rows) || !rows.length || rows.some((row) => !row || typeof row !== "object" || Array.isArray(row))) return false;
     const selected = selectedRowIndex(sheet);
     const index = selected === null ? (Array.isArray(sheet.lines) ? sheet.lines.length : 0) : selected + 1;
-    rows.forEach((row, offset) => insertRowAt(sheet, index + offset, cloneRow(row), false));
-    selectRows(sheet, rows.map((_, offset) => index + offset), index + rows.length - 1);
-    renderAfterUpdate();
+    commitMutation(() => {
+      rows.forEach((row, offset) => insertRowAt(sheet, index + offset, cloneRow(row), false));
+      selectRows(sheet, rows.map((_, offset) => index + offset), index + rows.length - 1);
+    });
     return true;
   }
 
@@ -123,9 +123,10 @@
     if (!selection || !cell || typeof cell !== "object") return false;
     const row = sheet.lines[selection.rowIndex];
     if (!row) return false;
-    if (cell.hasValue) row[selection.column.name] = cloneValue(cell.value);
-    else clearCellValue(row, selection.column);
-    renderAfterUpdate();
+    commitMutation(() => {
+      if (cell.hasValue) row[selection.column.name] = cloneValue(cell.value);
+      else clearCellValue(row, selection.column);
+    });
     return true;
   }
 

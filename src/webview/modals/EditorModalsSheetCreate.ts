@@ -4,9 +4,10 @@
   const state = CDBVS.state;
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
-  const renderAfterUpdate = CDBVS.renderAfterUpdate;
+  const commitMutation = CDBVS.commitMutation;
   const visibleSheets = CDBVS.visibleSheets;
   const modalField = CDBVS.modalField;
+  const appendModalActions = CDBVS.appendModalActions;
   const createModal = CDBVS.createModal;
 
   function openNewSheetEditor() {
@@ -43,10 +44,9 @@
       if (index >= 0) state.sheetIndex = index;
       state.rawMode = false;
       close();
-      renderAfterUpdate();
+      commitMutation();
     };
-    footer.appendChild(makeButton("Cancel", close, "modal-cancel"));
-    footer.appendChild(makeButton("Create sheet", save, "button primary"));
+    appendModalActions(footer, close, save, { saveLabel: "Create sheet" });
     dialog.appendChild(form);
     dialog.appendChild(footer);
     overlay.addEventListener("keydown", (event) => {

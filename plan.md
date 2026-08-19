@@ -15,6 +15,24 @@ The first working editor baseline is in place. The repository now contains a des
 - Verification completed: `npm run check-types`, `npm test` (63 tests), `npm run package`, and a VSIX packaging check with `vsce`.
 - Limitation recorded: the existing DOM modules retain their global/IIFE composition and are marked as a staged TypeScript migration boundary; the new runtime/bootstrap contract and all extension-host/domain code are type-checked strictly. Converting every DOM function to fully strict typed modules is an independent follow-up and was deliberately kept out of this behavior-preserving migration.
 
+## Refactor pass (2026-08-18)
+
+- Split CastleDB type-string/default logic into `cdb/TypeSystem.ts` and structural/custom-type validation into `cdb/Validation.ts`; `cdb/Parser.ts` now owns JSON parsing/serialization and remains the compatibility façade.
+- Split the extension host into `host/CdbEditorProvider.ts`, `host/Commands.ts`, `host/WebviewHtml.ts`, and the reusable `host/DocumentUpdateQueue.ts`; the root extension module now only activates the provider and registers commands.
+- Extracted webview state construction into `webview/runtime/EditorState.ts`, custom select-menu behavior into `view/EditorViewSelect.ts`, and row/separator mutations into `model/EditorModelRows.ts`.
+- Kept the webview's global runtime contract intact while reducing large mixed-responsibility modules and preserving the existing load order through explicit bundle/test entries.
+- Added regression coverage for failed queued updates followed by Save. All 64 tests pass after the refactor.
+
+## Centralized concern hierarchy pass (2026-08-18)
+
+- Added `webview/runtime/EditorStateMaps.ts` as the single registry for per-sheet view state, row/cell selection, nested-list selection, and sheet rename/delete cleanup. Sheet lifecycle code now updates those groups through one boundary.
+- Added `webview/runtime/EditorMutation.ts` as the application mutation boundary. It centralizes persist-only, render-only, persist-and-render, debounced cell updates, and no-op/failed mutation handling.
+- Migrated structural actions, clipboard edits, row/separator mutations, raw JSON application, modal saves, primitive cells, nested list cells, and view controls to the shared mutation lifecycle.
+- Added shared modal action construction and reused the common field primitive across column, row, sheet, filter, confirmation, and custom editors.
+- Updated selection and view models to obtain state maps through shared initialization helpers rather than creating or repairing maps independently.
+- The resulting webview hierarchy is: runtime services/state registry → domain models and mutation services → feature actions/modals/cell editors → leaf DOM renderers and controls. The global `CDBVS` surface remains the compatibility seam while responsibility is centralized behind these layers.
+- Verification completed after this pass: `npm.cmd test` (64 tests), `npm.cmd run check-types`, `npm.cmd run package`, and `git diff --check`.
+
 ## Completed
 
 - Created the VS Code extension manifest and `.cdb` language registration.

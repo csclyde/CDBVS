@@ -4,7 +4,7 @@
   const state = CDBVS.state;
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
-  const renderAfterUpdate = CDBVS.renderAfterUpdate;
+  const commitMutation = CDBVS.commitMutation;
 
   function renderRaw(container) {
     const raw = document.createElement("textarea");
@@ -16,8 +16,7 @@
       try {
         const parsed = JSON.parse(raw.value);
         if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("The root must be an object.");
-        state.data = parsed;
-        renderAfterUpdate();
+        commitMutation(() => { state.data = parsed; });
       } catch (error) {
         CDBVS.setStatus(`Invalid JSON: ${error.message}`, true);
       }

@@ -2,12 +2,15 @@
 // editor is a browser application, while the extension host owns the document
 // boundary. esbuild combines them into one deterministic runtime bundle.
 import "./webview/runtime/EditorRuntime";
+import "./webview/runtime/EditorStateMaps";
 import "./webview/runtime/EditorDom";
 import "./webview/runtime/EditorUtils";
+import "./webview/runtime/EditorMutation";
 import "./webview/model/EditorModelSchema";
 import "./webview/model/EditorModel";
 import "./webview/model/EditorModelErrors";
 import "./webview/model/EditorModelStructure";
+import "./webview/model/EditorModelRows";
 import "./webview/model/EditorModelSheets";
 import "./webview/model/EditorSelection";
 import "./webview/actions/EditorActionsClipboard";
@@ -27,6 +30,7 @@ import "./webview/cells/EditorCellsProperties";
 import "./webview/cells/EditorCells";
 import "./webview/view/EditorViewControls";
 import "./webview/view/EditorViewContextMenus";
+import "./webview/view/EditorViewSelect";
 import "./webview/view/EditorViewSelection";
 import "./webview/view/EditorViewTableHeader";
 import "./webview/view/EditorViewTableCells";

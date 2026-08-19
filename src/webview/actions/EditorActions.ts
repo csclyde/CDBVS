@@ -2,8 +2,8 @@
 (function (global) {
   const CDBVS = global.CDBVS;
   const state = CDBVS.state;
-  const renderAfterUpdate = CDBVS.renderAfterUpdate;
-  const renderNow = CDBVS.renderNow;
+  const commitMutation = CDBVS.commitMutation;
+  const renderMutation = CDBVS.renderMutation;
   const selectedRowIndex = CDBVS.selectedRowIndex;
   const selectedRowIndices = CDBVS.selectedRowIndices;
   const selectedCell = CDBVS.selectedCell;
@@ -39,22 +39,19 @@
   }
 
   function deleteColumn(sheet, index) {
-    if (!deleteColumnAt(sheet, index)) return false;
-    renderAfterUpdate();
-    return true;
+    return commitMutation(() => deleteColumnAt(sheet, index)) === true;
   }
 
   function deleteSheet(sheet) {
-    if (!deleteSheetAt(sheet)) return false;
-    renderAfterUpdate();
-    return true;
+    return commitMutation(() => deleteSheetAt(sheet)) === true;
   }
 
   function addRow(sheet) {
     if (!sheet) return;
-    if (!Array.isArray(sheet.lines)) sheet.lines = [];
-    sheet.lines.push(CDBVS.createRowForSchema(sheet, sheet.lines));
-    renderAfterUpdate();
+    commitMutation(() => {
+      if (!Array.isArray(sheet.lines)) sheet.lines = [];
+      sheet.lines.push(CDBVS.createRowForSchema(sheet, sheet.lines));
+    });
   }
 
   function deleteRow(sheet, index) {
@@ -68,8 +65,7 @@
       message: "This row will be removed from the sheet.",
       confirmLabel: "Delete row",
       onConfirm: () => {
-        CDBVS.deleteRowAt(sheet, index);
-        renderAfterUpdate();
+        commitMutation(() => CDBVS.deleteRowAt(sheet, index));
       }
     });
     return true;
@@ -82,9 +78,10 @@
     }
     const selected = selectedRowIndex(sheet);
     const index = selected === null ? (Array.isArray(sheet.lines) ? sheet.lines.length : 0) : selected + 1;
-    insertRowAt(sheet, index);
-    selectRow(sheet, index);
-    renderNow();
+    commitMutation(() => {
+      insertRowAt(sheet, index, undefined, false);
+      selectRow(sheet, index);
+    });
     return true;
   }
 
@@ -98,10 +95,11 @@
       CDBVS.setStatus("Select a row before deleting it.", true);
       return false;
     }
-    selected.slice().sort((left, right) => right - left).forEach((index) => deleteRowAt(sheet, index));
-    const remaining = Array.isArray(sheet.lines) ? sheet.lines.length : 0;
-    selectRow(sheet, remaining ? Math.min(selected[0], remaining - 1) : null);
-    renderAfterUpdate();
+    commitMutation(() => {
+      selected.slice().sort((left, right) => right - left).forEach((index) => deleteRowAt(sheet, index));
+      const remaining = Array.isArray(sheet.lines) ? sheet.lines.length : 0;
+      selectRow(sheet, remaining ? Math.min(selected[0], remaining - 1) : null);
+    });
     return true;
   }
 
@@ -112,10 +110,11 @@
     const target = selected + delta;
     if (target < 0 || target >= (sheet.lines || []).length) return;
     const cell = selectedCell(sheet);
-    moveRowAt(sheet, selected, delta);
-    if (cell) selectCell(sheet, target, cell.columnIndex);
-    else selectRow(sheet, target);
-    renderNow();
+    commitMutation(() => {
+      moveRowAt(sheet, selected, delta, false);
+      if (cell) selectCell(sheet, target, cell.columnIndex);
+      else selectRow(sheet, target);
+    });
   }
 
   function moveSelectedCell(sheet, rowDelta, columnDelta) {
@@ -137,7 +136,7 @@
     selectCell(sheet, rowIndex, columnIndex);
     const next = CDBVS.selectedCell(sheet);
     if (typeof CDBVS.updateRenderedSelection === "function") CDBVS.updateRenderedSelection(sheet, previous, next);
-    else renderNow();
+    else renderMutation();
     return true;
   }
 

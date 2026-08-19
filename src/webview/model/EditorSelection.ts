@@ -2,10 +2,11 @@
 (function (global) {
   const CDBVS = global.CDBVS;
   const state = CDBVS.state;
+  const ensureStateMap = CDBVS.ensureStateMap;
 
   function selectedRowIndices(sheet) {
     if (!sheet || !state.selectedRows) return [];
-    const raw = state.selectedRows[sheet.name];
+    const raw = (ensureStateMap("selectedRows"))[sheet.name];
     const values = Array.isArray(raw) ? raw : [raw];
     const indexes = values.filter((index) => Number.isInteger(index) && index >= 0 && index < (sheet.lines || []).length);
     return [...new Set(indexes)].sort((left, right) => left - right);
@@ -13,7 +14,7 @@
 
   function selectedRowIndex(sheet) {
     const indexes = selectedRowIndices(sheet);
-    const active = state.activeRows && state.activeRows[sheet && sheet.name];
+    const active = (ensureStateMap("activeRows"))[sheet && sheet.name];
     return indexes.length ? (Number.isInteger(active) && indexes.includes(active) ? active : indexes[indexes.length - 1]) : null;
   }
 
@@ -23,19 +24,19 @@
 
   function selectRows(sheet, indexes, activeIndex, anchorIndex) {
     if (!sheet) return;
-    if (!state.selectedRows) state.selectedRows = {};
+    const selectedRows = ensureStateMap("selectedRows");
     const valid = [...new Set((Array.isArray(indexes) ? indexes : [indexes]).filter((index) => Number.isInteger(index) && index >= 0 && index < (sheet.lines || []).length))].sort((left, right) => left - right);
     if (valid.length) {
       const active = Number.isInteger(activeIndex) && valid.includes(activeIndex) ? activeIndex : valid[valid.length - 1];
-      state.selectedRows[sheet.name] = valid.filter((index) => index !== active).concat(active);
-      if (!state.activeRows) state.activeRows = {};
-      state.activeRows[sheet.name] = active;
-      if (!state.rowSelectionAnchors) state.rowSelectionAnchors = {};
-      state.rowSelectionAnchors[sheet.name] = Number.isInteger(anchorIndex) && valid.includes(anchorIndex) ? anchorIndex : active;
+      selectedRows[sheet.name] = valid.filter((index) => index !== active).concat(active);
+      const activeRows = ensureStateMap("activeRows");
+      activeRows[sheet.name] = active;
+      const anchors = ensureStateMap("rowSelectionAnchors");
+      anchors[sheet.name] = Number.isInteger(anchorIndex) && valid.includes(anchorIndex) ? anchorIndex : active;
     } else {
-      delete state.selectedRows[sheet.name];
-      if (state.activeRows) delete state.activeRows[sheet.name];
-      if (state.rowSelectionAnchors) delete state.rowSelectionAnchors[sheet.name];
+      delete selectedRows[sheet.name];
+      delete ensureStateMap("activeRows")[sheet.name];
+      delete ensureStateMap("rowSelectionAnchors")[sheet.name];
     }
     if (state.selectedCells) delete state.selectedCells[sheet.name];
     if (state.activeCells) delete state.activeCells[sheet.name];
@@ -50,7 +51,7 @@
     const current = selectedRowIndices(sheet);
     const modified = event && (event.ctrlKey || event.metaKey);
     if (event && event.shiftKey) {
-      const savedAnchor = state.rowSelectionAnchors && state.rowSelectionAnchors[sheet.name];
+      const savedAnchor = ensureStateMap("rowSelectionAnchors")[sheet.name];
       const anchor = Number.isInteger(savedAnchor) && savedAnchor >= 0 && savedAnchor < (sheet.lines || []).length
         ? savedAnchor
         : (current.length ? current[current.length - 1] : index);
@@ -65,8 +66,8 @@
   }
 
   function selectedCell(sheet) {
-    if (!sheet || !state.selectedCells) return null;
-    const selection = state.selectedCells[sheet.name];
+    if (!sheet) return null;
+    const selection = ensureStateMap("selectedCells")[sheet.name];
     if (!selection || !Number.isInteger(selection.rowIndex) || !Number.isInteger(selection.columnIndex)) return null;
     if (selection.rowIndex < 0 || selection.rowIndex >= (sheet.lines || []).length) return null;
     if (selection.columnIndex < 0 || selection.columnIndex >= (sheet.columns || []).length) return null;
@@ -78,8 +79,8 @@
   }
 
   function activeCell(sheet) {
-    if (!sheet || !state.activeCells) return null;
-    const active = state.activeCells[sheet.name];
+    if (!sheet) return null;
+    const active = ensureStateMap("activeCells")[sheet.name];
     const selected = selectedCell(sheet);
     if (!active || !selected || active.rowIndex !== selected.rowIndex || active.columnIndex !== selected.columnIndex) return null;
     return selected;
@@ -87,29 +88,28 @@
 
   function selectCell(sheet, rowIndex, columnIndex) {
     if (!sheet) return;
-    if (!state.selectedCells) state.selectedCells = {};
-    if (!state.selectedRows) state.selectedRows = {};
+    const selectedCells = ensureStateMap("selectedCells");
+    ensureStateMap("selectedRows");
     if (Number.isInteger(rowIndex) && rowIndex >= 0 && rowIndex < (sheet.lines || []).length && Number.isInteger(columnIndex) && columnIndex >= 0 && columnIndex < (sheet.columns || []).length) {
       selectRow(sheet, rowIndex);
-      state.selectedCells[sheet.name] = { rowIndex, columnIndex };
+      selectedCells[sheet.name] = { rowIndex, columnIndex };
     } else {
-      delete state.selectedCells[sheet.name];
+      delete selectedCells[sheet.name];
     }
-    if (state.activeCells) delete state.activeCells[sheet.name];
+    delete ensureStateMap("activeCells")[sheet.name];
   }
 
   function activateCell(sheet, rowIndex, columnIndex) {
     if (!sheet || !Number.isInteger(rowIndex) || !Number.isInteger(columnIndex)) return false;
     const selected = selectedCell(sheet);
     if (!selected || selected.rowIndex !== rowIndex || selected.columnIndex !== columnIndex) return false;
-    if (!state.activeCells) state.activeCells = {};
-    state.activeCells[sheet.name] = { rowIndex, columnIndex };
+    ensureStateMap("activeCells")[sheet.name] = { rowIndex, columnIndex };
     return true;
   }
 
   function deactivateCell(sheet) {
-    if (!sheet || !state.activeCells) return;
-    delete state.activeCells[sheet.name];
+    if (!sheet) return;
+    delete ensureStateMap("activeCells")[sheet.name];
   }
 
   Object.assign(CDBVS, {

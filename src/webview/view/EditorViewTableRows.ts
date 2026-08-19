@@ -3,8 +3,8 @@
   const CDBVS = global.CDBVS;
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
-  const renderNow = CDBVS.renderNow;
-  const renderAfterUpdate = CDBVS.renderAfterUpdate;
+  const renderMutation = CDBVS.renderMutation;
+  const commitMutation = CDBVS.commitMutation;
 
   function editSeparatorTitle(sheet, separator, separatorPosition, titleSpan, label) {
     const input = document.createElement("input");
@@ -20,13 +20,15 @@
         return;
       }
       const title = input.value.trim() || "Section";
-      if (separator && typeof separator === "object") separator.title = title;
-      else {
-        if (!sheet.props || typeof sheet.props !== "object") sheet.props = {};
-        if (!Array.isArray(sheet.props.separatorTitles)) sheet.props.separatorTitles = [];
-        sheet.props.separatorTitles[separatorPosition] = title;
-      }
-      renderAfterUpdate();
+      commitMutation(() => {
+        if (separator && typeof separator === "object") separator.title = title;
+        else {
+          if (!sheet.props || typeof sheet.props !== "object") sheet.props = {};
+          if (!Array.isArray(sheet.props.separatorTitles)) sheet.props.separatorTitles = [];
+          sheet.props.separatorTitles[separatorPosition] = title;
+        }
+        return true;
+      });
     };
     label.replaceChild(input, titleSpan);
     input.addEventListener("keydown", (event) => {
@@ -59,7 +61,7 @@
       const label = makeElement("span", null, "separator-label");
       const toggle = makeButton(collapsed ? "\u25B6" : "\u25BC", () => {
         CDBVS.toggleSeparatorCollapsed(sheet, index);
-        renderNow();
+        renderMutation();
       }, "separator-toggle");
       toggle.title = collapsed ? "Expand section" : "Collapse section";
       toggle.setAttribute("aria-label", toggle.title);

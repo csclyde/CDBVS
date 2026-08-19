@@ -4,6 +4,7 @@
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
   const createModal = CDBVS.createModal;
+  const appendModalActions = CDBVS.appendModalActions;
 
   function openConfirmDialog(options) {
     const config = options && typeof options === "object" ? options : {};
@@ -17,8 +18,11 @@
       close();
       if (typeof config.onConfirm === "function") config.onConfirm();
     };
-    footer.appendChild(makeButton(config.cancelLabel || "Cancel", close, "modal-cancel"));
-    footer.appendChild(makeButton(config.confirmLabel || "Confirm", confirm, config.danger === false ? "button primary" : "danger-button"));
+    appendModalActions(footer, close, confirm, {
+      cancelLabel: config.cancelLabel || "Cancel",
+      saveLabel: config.confirmLabel || "Confirm",
+      saveClass: config.danger === false ? "button primary" : "danger-button"
+    });
     dialog.appendChild(message);
     dialog.appendChild(footer);
     dialog.querySelector(".modal-cancel").focus();

@@ -1,11 +1,11 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
-  const state = CDBVS.state;
   const makeElement = CDBVS.makeElement;
-  const makeButton = CDBVS.makeButton;
-  const renderAfterUpdate = CDBVS.renderAfterUpdate;
+  const commitMutation = CDBVS.commitMutation;
+  const appendModalActions = CDBVS.appendModalActions;
   const createModal = CDBVS.createModal;
+  const setActiveModal = CDBVS.setActiveModal;
   const typeLabel = CDBVS.typeLabel;
   const idColumn = CDBVS.idColumn;
 
@@ -23,10 +23,11 @@
     const form = makeElement("div", null, "row-form");
     const save = () => {
       form.querySelectorAll("input, select, textarea").forEach((input) => input.dispatchEvent(new Event("change", { bubbles: false })));
-      Object.keys(row).forEach((key) => delete row[key]);
-      Object.assign(row, draft);
       close();
-      renderAfterUpdate();
+      commitMutation(() => {
+        Object.keys(row).forEach((key) => delete row[key]);
+        Object.assign(row, draft);
+      });
     };
     (sheet.columns || []).forEach((column) => {
       const field = makeElement("div", null, "row-field");
@@ -38,8 +39,7 @@
       field.appendChild(editor);
       form.appendChild(field);
     });
-    footer.appendChild(makeButton("Cancel", close, "modal-cancel"));
-    footer.appendChild(makeButton("Save", save, "button primary"));
+    appendModalActions(footer, close, save);
     dialog.appendChild(form);
     dialog.appendChild(footer);
     overlay.addEventListener("keydown", (event) => {
@@ -55,13 +55,13 @@
     textarea.value = input.value;
     textarea.spellcheck = false;
     const save = () => {
-      row[column.name] = textarea.value;
-      input.value = textarea.value;
       close();
-      renderAfterUpdate();
+      commitMutation(() => {
+        row[column.name] = textarea.value;
+        input.value = textarea.value;
+      });
     };
-    footer.appendChild(makeButton("Cancel", close));
-    footer.appendChild(makeButton("Save", save, "button primary"));
+    appendModalActions(footer, close, save, { cancelClass: "button" });
     dialog.appendChild(textarea);
     dialog.appendChild(footer);
     textarea.addEventListener("keydown", (event) => {

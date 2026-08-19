@@ -8,7 +8,7 @@
   const typeLabel = CDBVS.typeLabel;
   const viewForSheet = CDBVS.viewForSheet;
   const referenceOptions = CDBVS.referenceOptions;
-  const renderNow = CDBVS.renderNow;
+  const renderMutation = CDBVS.renderMutation;
   const createModal = CDBVS.createModal;
 
   function openFilterModal(sheet) {
@@ -126,12 +126,10 @@
     });
     form.appendChild(controls);
     const apply = () => {
-      state.columnFilters[sheet.name] = draftFilters;
+      renderMutation(() => { state.columnFilters[sheet.name] = draftFilters; });
       close();
-      renderNow();
     };
-    footer.appendChild(makeButton("Cancel", close, "modal-cancel"));
-    footer.appendChild(makeButton("Apply", apply, "button primary"));
+    CDBVS.appendModalActions(footer, close, apply, { saveLabel: "Apply" });
     dialog.appendChild(form);
     dialog.appendChild(footer);
     const firstControl = controls.querySelector("input, select");

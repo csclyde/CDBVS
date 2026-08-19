@@ -4,7 +4,7 @@
   const state = CDBVS.state;
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
-  const renderAfterUpdate = CDBVS.renderAfterUpdate;
+  const commitMutation = CDBVS.commitMutation;
   const visibleSheets = CDBVS.visibleSheets;
   const renameSheet = CDBVS.renameSheet;
   const moveSheet = CDBVS.moveSheet;
@@ -13,6 +13,7 @@
   const sheetExtraProperties = CDBVS.sheetExtraProperties;
   const modalField = CDBVS.modalField;
   const createModal = CDBVS.createModal;
+  const appendModalActions = CDBVS.appendModalActions;
 
   function openSheetEditor(sheet) {
     const { dialog, footer, close } = createModal({ className: "column-modal", title: `Edit sheet: ${sheet.name}` });
@@ -130,7 +131,7 @@
       Object.assign(props, extra);
       sheet.props = props;
       close();
-      renderAfterUpdate();
+      commitMutation();
     };
     const moveLeft = makeButton("Move left", () => { close(); moveSheet(sheet, -1); });
     const moveRight = makeButton("Move right", () => { close(); moveSheet(sheet, 1); });
@@ -141,8 +142,7 @@
     footer.appendChild(moveLeft);
     footer.appendChild(moveRight);
     footer.appendChild(makeButton("Delete sheet", removeSheet, "danger-button"));
-    footer.appendChild(makeButton("Cancel", close, "modal-cancel"));
-    footer.appendChild(makeButton("Save", save, "button primary"));
+    appendModalActions(footer, close, save);
     dialog.appendChild(form);
     dialog.appendChild(footer);
     nameInput.focus();

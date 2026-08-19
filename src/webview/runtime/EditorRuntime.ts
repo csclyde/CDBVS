@@ -1,41 +1,13 @@
 import type { CdbvsWebviewApi } from "../contract";
+import { createEditorState, TYPE_NAMES } from "./EditorState";
 
 (function (global: Window) {
   const CDBVS = (global.CDBVS || {}) as CdbvsWebviewApi;
   global.CDBVS = CDBVS;
   CDBVS.vscode = global.acquireVsCodeApi();
   CDBVS.app = document.getElementById("app");
-  CDBVS.TYPE_NAMES = [
-    "id", "string", "bool", "int", "float", "enum", "ref", "image",
-    "list", "custom", "flags", "color", "layer", "file", "tilepos",
-    "tilelayer", "dynamic", "properties", "gradient", "curve", "guid"
-  ];
-  CDBVS.state = {
-    text: "",
-    data: null,
-    issues: [],
-    sheetIndex: 0,
-    rawMode: false,
-    filter: "",
-    columnFilters: {},
-    sorts: {},
-    selectedRows: {},
-    activeRows: {},
-    rowSelectionAnchors: {},
-    selectedCells: {},
-    activeCells: {},
-    selectedListRows: {},
-    selectedListCells: {},
-    listSelectionAnchors: {},
-    rowClipboard: null,
-    cellClipboard: null,
-    cellErrors: {},
-    collapsedSeparators: {},
-    showHiddenSheets: false,
-    expandedLists: new Set(),
-    scrollLeft: 0,
-    scrollTop: 0
-  };
+  CDBVS.TYPE_NAMES = TYPE_NAMES;
+  CDBVS.state = createEditorState();
 
   let scheduledUpdateTimer: ReturnType<typeof setTimeout> | null = null;
   const clearScheduledUpdate = () => {

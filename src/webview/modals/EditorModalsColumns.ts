@@ -4,7 +4,7 @@
   const state = CDBVS.state;
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
-  const renderAfterUpdate = CDBVS.renderAfterUpdate;
+  const commitMutation = CDBVS.commitMutation;
   const typeOf = CDBVS.typeOf;
   const renameViewColumn = CDBVS.renameViewColumn;
   const moveColumn = CDBVS.moveColumn;
@@ -13,6 +13,8 @@
   const setPrimaryColumn = CDBVS.setPrimaryColumn;
   const clearListState = CDBVS.clearListState;
   const createModal = CDBVS.createModal;
+  const modalField = CDBVS.modalField;
+  const appendModalActions = CDBVS.appendModalActions;
   const isNestedType = CDBVS.isNestedType;
   const prepareColumnTypeChange = CDBVS.prepareColumnTypeChange;
   const ensureNestedSheet = CDBVS.ensureNestedSheet;
@@ -27,12 +29,7 @@
   ];
   const typeArgumentCodes = new Set([5, 6, 9, 10, 12]);
 
-  function columnField(label, control, className) {
-    const field = makeElement("label", null, `column-field${className ? ` ${className}` : ""}`);
-    field.appendChild(makeElement("span", label));
-    field.appendChild(control);
-    return field;
-  }
+  const columnField = modalField;
 
   function openColumnEditor(sheet, column, columnIndex, isNew = false) {
     const { dialog, heading, footer, close } = createModal({
@@ -93,7 +90,7 @@
       if (isNew) { close(); return; }
       deleteColumnAt(sheet, columnIndex);
       close();
-      renderAfterUpdate();
+      commitMutation();
     };
     const save = () => {
       const newName = nameInput.value.trim();
@@ -148,7 +145,7 @@
       if (oldNested && !newNested) removeNestedSheet(sheet, newName);
       else if (newNested) ensureNestedSheet(sheet, column);
       close();
-      renderAfterUpdate();
+      commitMutation();
     };
     const moveLeft = makeButton("Move left", () => { close(); moveColumn(sheet, columnIndex, -1); });
     moveLeft.disabled = isNew || columnIndex <= 0;
@@ -157,8 +154,7 @@
     footer.appendChild(moveLeft);
     footer.appendChild(moveRight);
     footer.appendChild(makeButton(isNew ? "Discard column" : "Delete column", removeColumn, "danger-button"));
-    footer.appendChild(makeButton("Cancel", close, "modal-cancel"));
-    footer.appendChild(makeButton("Save", save, "button primary"));
+    appendModalActions(footer, close, save);
     dialog.appendChild(form);
     dialog.appendChild(footer);
     nameInput.focus();

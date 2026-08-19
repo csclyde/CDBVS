@@ -59,5 +59,17 @@
     return { overlay, dialog, heading, footer, close };
   }
 
-  Object.assign(CDBVS, { modalState, closeActiveModal, closeModal, closeAllModals, setActiveModal, modalField, createModal });
+  function appendModalActions(footer, close, save, options) {
+    const config = options || {};
+    const cancel = makeButton(config.cancelLabel || "Cancel", close, config.cancelClass || "modal-cancel");
+    const primary = makeButton(config.saveLabel || "Save", save, config.saveClass || "button primary");
+    footer.appendChild(cancel);
+    footer.appendChild(primary);
+    return { cancel, primary };
+  }
+
+  Object.assign(CDBVS, {
+    modalState, closeActiveModal, closeModal, closeAllModals, setActiveModal,
+    modalField, createModal, appendModalActions
+  });
 })(window);

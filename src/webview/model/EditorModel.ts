@@ -5,9 +5,8 @@
   const typeOf = CDBVS.typeOf;
   const valueText = CDBVS.valueText;
   const colorText = CDBVS.colorText;
-  const renameStateKeys = CDBVS.renameStateKeys;
-  const removeStateKeys = CDBVS.removeStateKeys;
   const renderNow = CDBVS.renderNow;
+  const ensureSheetState = CDBVS.ensureSheetState;
 
   function visibleSheets() {
     if (!state.data || !Array.isArray(state.data.sheets)) return [];
@@ -22,46 +21,9 @@
 
   function viewForSheet(sheet) {
     if (!sheet || typeof sheet.name !== "string") return { filters: {}, sort: { column: "", direction: "asc" } };
-    if (!state.columnFilters[sheet.name]) state.columnFilters[sheet.name] = {};
-    if (!state.sorts[sheet.name]) state.sorts[sheet.name] = { column: "", direction: "asc" };
-    return { filters: state.columnFilters[sheet.name], sort: state.sorts[sheet.name] };
-  }
-
-  function renameViewSheet(oldName, newName) {
-    if (oldName === newName) return;
-    renameStateKeys(state.columnFilters, oldName, newName);
-    renameStateKeys(state.sorts, oldName, newName);
-    renameStateKeys(state.collapsedSeparators, oldName, newName);
-  }
-
-  function removeViewSheet(sheetName) {
-    removeStateKeys(state.columnFilters, sheetName);
-    removeStateKeys(state.sorts, sheetName);
-    removeStateKeys(state.collapsedSeparators, sheetName);
-  }
-
-  function renameViewColumn(sheetName, oldName, newName) {
-    const filters = state.columnFilters[sheetName];
-    if (filters && filters[oldName]) {
-      filters[newName] = filters[oldName];
-      delete filters[oldName];
-    }
-    const sort = state.sorts[sheetName];
-    if (sort && sort.column === oldName) sort.column = newName;
-  }
-
-  function removeViewColumn(sheetName, columnName) {
-    const filters = state.columnFilters[sheetName];
-    if (filters) delete filters[columnName];
-    const sort = state.sorts[sheetName];
-    if (sort && sort.column === columnName) sort.column = "";
-  }
-
-  function clearViewState() {
-    state.filter = "";
-    state.columnFilters = {};
-    state.sorts = {};
-    renderNow();
+    const filters = ensureSheetState("columnFilters", sheet.name, () => ({}));
+    const sort = ensureSheetState("sorts", sheet.name, () => ({ column: "", direction: "asc" }));
+    return { filters, sort };
   }
 
   function filterMatches(column, value, rule) {
@@ -132,7 +94,6 @@
   }
 
   Object.assign(CDBVS, {
-    visibleSheets, currentSheet, viewForSheet, renameViewSheet, removeViewSheet, renameViewColumn, removeViewColumn,
-    clearViewState, filterMatches, rowsForView, setPrimaryColumn
+    visibleSheets, currentSheet, viewForSheet, filterMatches, rowsForView, setPrimaryColumn
   });
 })(window);
