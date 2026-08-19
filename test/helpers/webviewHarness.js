@@ -7,7 +7,6 @@ const { FakeDocument, FakeOption } = require("./fakeDom");
 // without starting VS Code. Production uses the bundled media/editor.js.
 const WEBVIEW_SCRIPTS = [
   ["EditorRuntime.js", "runtime"],
-  ["EditorStateMaps.js", "runtime"],
   ["EditorSheetState.js", "runtime"],
   ["EditorViewState.js", "runtime"],
   ["EditorClipboardState.js", "runtime"],
@@ -30,6 +29,7 @@ const WEBVIEW_SCRIPTS = [
   ["EditorModelColumns.js", "model"],
   ["EditorModelRows.js", "model"],
   ["EditorModelSheets.js", "model"],
+  ["EditorModelOperations.js", "model"],
   ["EditorSelection.js", "model"],
   ["EditorSheetActions.js", "application"],
   ["EditorColumnActions.js", "application"],
@@ -186,7 +186,6 @@ function createWebviewHarness(data) {
   context.prompt = () => { throw new Error("Native prompt must not be called."); };
   context.confirm = () => { throw new Error("Native confirm must not be called."); };
 
-  loadScript(context, "EditorStateMaps.js");
   loadScript(context, "EditorSheetState.js");
   loadScript(context, "EditorViewState.js");
   loadScript(context, "EditorClipboardState.js");
@@ -208,6 +207,7 @@ function createWebviewHarness(data) {
   loadScript(context, "EditorModelColumns.js");
   loadScript(context, "EditorModelRows.js");
   loadScript(context, "EditorModelSheets.js");
+  loadScript(context, "EditorModelOperations.js");
   loadScript(context, "EditorSelection.js");
   loadScript(context, "EditorSheetActions.js");
   loadScript(context, "EditorColumnActions.js");

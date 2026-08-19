@@ -1,6 +1,7 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
+  const documentModel = CDBVS.services.document;
   const typeOf = CDBVS.typeOf;
   const mapTypeStrings = CDBVS.mapTypeStrings;
   const setPrimaryColumn = CDBVS.setPrimaryColumn;
@@ -41,7 +42,7 @@
       });
       const oldPrefix = `${sheet.name}@${oldName}`;
       const newPrefix = `${sheet.name}@${newName}`;
-      const sheets = CDBVS.allSheets();
+      const sheets = documentModel.sheets();
       sheets.forEach((subSheet) => {
         if (subSheet.name === oldPrefix || subSheet.name.startsWith(`${oldPrefix}@`)) {
           subSheet.name = `${newPrefix}${subSheet.name.slice(oldPrefix.length)}`;

@@ -35,8 +35,7 @@
     },
     clear() {
       this.setFilter("");
-      CDBVS.sheetState.clearMap("columnFilters");
-      CDBVS.sheetState.clearMap("sorts");
+      CDBVS.sheetState.view.clear();
     }
   };
 

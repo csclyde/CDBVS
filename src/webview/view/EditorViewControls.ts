@@ -7,13 +7,14 @@
   const typeOf = CDBVS.typeOf;
   const renderMutation = services.application.renderMutation;
   const sheetState = services.sheetState;
+  const sheetViewState = sheetState.view;
   const viewState = services.viewState;
   const getFilter = viewState.getFilter;
   const setFilter = viewState.setFilter;
 
   function activeViewItems(sheet) {
     if (!sheet) return [];
-    const view = { filters: sheetState.readFilters(sheet.name), sort: sheetState.readSort(sheet.name) };
+    const view = { filters: sheetViewState.readFilters(sheet.name), sort: sheetViewState.readSort(sheet.name) };
     const items = [];
     if (getFilter().trim()) {
       items.push({
@@ -78,7 +79,7 @@
   }
 
   function cycleColumnSort(sheet, columnName) {
-    sheetState.cycleSort(sheet.name, columnName);
+    sheetViewState.cycleSort(sheet.name, columnName);
     renderMutation();
   }
 

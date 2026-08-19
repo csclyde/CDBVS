@@ -3,10 +3,12 @@
   const CDBVS = global.CDBVS;
   const services = CDBVS.services;
   const sheetState = services.sheetState;
-  const insertRowModel = CDBVS.insertRow;
-  const appendRowModel = CDBVS.appendRow;
-  const deleteRowModel = CDBVS.deleteRowAt;
-  const removeSeparatorModel = CDBVS.removeSeparatorAt;
+  const sheetViewState = sheetState.view;
+  const model = services.document.operations.rows;
+  const insertRowModel = model.insert;
+  const appendRowModel = model.append;
+  const deleteRowModel = model.delete;
+  const removeSeparatorModel = model.remove;
 
   function insertRow(sheet, index, row) {
     if (!sheet) return false;
@@ -14,7 +16,7 @@
     const insertionIndex = Number.isInteger(index) ? Math.max(0, Math.min(index, lineCount)) : lineCount;
     const result = insertRowModel(sheet, index, row);
     if (result !== false) {
-      sheetState.shiftCollapsedSeparators(sheet.name, (separatorIndex) => (
+      sheetViewState.shiftCollapsedSeparators(sheet.name, (separatorIndex) => (
         separatorIndex >= insertionIndex ? separatorIndex + 1 : separatorIndex
       ));
     }
@@ -26,7 +28,7 @@
     const index = Array.isArray(sheet.lines) ? sheet.lines.length : 0;
     const result = appendRowModel(sheet);
     if (result !== false) {
-      sheetState.shiftCollapsedSeparators(sheet.name, (separatorIndex) => (
+      sheetViewState.shiftCollapsedSeparators(sheet.name, (separatorIndex) => (
         separatorIndex >= index ? separatorIndex + 1 : separatorIndex
       ));
     }
@@ -36,7 +38,7 @@
   function deleteRowAt(sheet, index) {
     const result = deleteRowModel(sheet, index);
     if (result) {
-      sheetState.shiftCollapsedSeparators(sheet.name, (separatorIndex) => {
+      sheetViewState.shiftCollapsedSeparators(sheet.name, (separatorIndex) => {
         if (separatorIndex === index) return null;
         return separatorIndex > index ? separatorIndex - 1 : separatorIndex;
       });
@@ -46,7 +48,7 @@
 
   function removeSeparatorAt(sheet, index) {
     const result = removeSeparatorModel(sheet, index);
-    if (result) sheetState.removeCollapsedSeparator(sheet.name, index);
+    if (result) sheetViewState.removeCollapsedSeparator(sheet.name, index);
     return result;
   }
 

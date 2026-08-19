@@ -2,6 +2,7 @@
 (function (global) {
   const CDBVS = global.CDBVS;
   const services = CDBVS.services;
+  const model = services.document.operations;
   const tableCapabilities = CDBVS.capabilities.table;
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
@@ -10,8 +11,9 @@
   const createRowForSchema = CDBVS.createRowForSchema;
   const refreshCell = CDBVS.refreshCell;
   const commitCellMutation = services.application.commitCellMutation;
-  const setCellValue = CDBVS.setCellValue;
+  const setCellValue = model.values.setCell;
   const sheetState = services.sheetState;
+  const listState = sheetState.lists;
   const clipboardState = services.clipboard;
 
   function renderListCell(cell, row, column, context, schema) {
@@ -23,10 +25,10 @@
       : (editSheet && Array.isArray(editSheet.columns) ? editSheet.columns.indexOf(column) : -1));
     const values = Array.isArray(row[column.name]) ? row[column.name] : [];
     const key = listKey(context, column);
-    const expanded = sheetState.isListExpanded(key);
-    const selectedListItems = () => sheetState.selectedListItems(key, values.length);
+    const expanded = listState.isExpanded(key);
+    const selectedListItems = () => listState.selectedItems(key, values.length);
     const initialSelectedItems = selectedListItems();
-    const selectedListCell = () => sheetState.selectedListCell(key, values.length, (schema.columns || []).length);
+    const selectedListCell = () => listState.selectedCell(key, values.length, (schema.columns || []).length);
     const currentSelectedItem = () => {
       const selected = selectedListItems();
       return selected.length ? selected[selected.length - 1] : null;
@@ -54,7 +56,7 @@
           Number.isInteger(anchor) ? anchor + direction : undefined);
         const nestedSelection = selectedListCell();
         if (nestedSelection && selectedSet.has(nestedSelection.itemIndex)) {
-          sheetState.setSelectedListCell(key, nestedSelection.itemIndex + direction, nestedSelection.columnIndex);
+          listState.setSelectedCell(key, nestedSelection.itemIndex + direction, nestedSelection.columnIndex);
         }
         return true;
       });
@@ -98,7 +100,7 @@
         });
       });
     };
-    const storeSelectedItems = (indexes, activeIndex, anchorIndex) => sheetState.setSelectedListItems(
+    const storeSelectedItems = (indexes, activeIndex, anchorIndex) => listState.setSelectedItems(
       key, indexes, activeIndex, anchorIndex, values.length
     );
     const selectListItem = (itemIndex, itemRow, event) => {
@@ -119,7 +121,7 @@
       const rowElement = rows[itemIndex];
       if (!rowElement || !(schema.columns || [])[columnIndex]) return false;
       selectListItem(itemIndex, rowElement, {});
-      sheetState.setSelectedListCell(key, itemIndex, columnIndex);
+      listState.setSelectedCell(key, itemIndex, columnIndex);
       updateListCellSelection();
       if (focus) focusListCell(itemIndex, columnIndex);
       return true;
@@ -236,7 +238,7 @@
         if (!Array.isArray(row[column.name])) setCellValue(row, column, values);
         values.splice(insertAt, 0, createRowForSchema(schema, values));
         storeSelectedItems([insertAt], insertAt, insertAt);
-      sheetState.setListExpanded(key, true);
+      listState.setExpanded(key, true);
         return true;
       }) === true;
     };
@@ -346,17 +348,17 @@
       // Stop this control event after handling the list toggle so a real DOM
       // bubble cannot immediately re-enter cell activation after rerendering.
       if (event && typeof event.stopPropagation === "function") event.stopPropagation();
-      const wasExpanded = sheetState.isListExpanded(key);
+      const wasExpanded = listState.isExpanded(key);
       if (wasExpanded) {
         const active = editSheet && typeof CDBVS.activeCell === "function" ? CDBVS.activeCell(editSheet) : null;
         if (active && active.rowIndex === editRowIndex && active.columnIndex === editColumnIndex
           && typeof CDBVS.deactivateCell === "function") CDBVS.deactivateCell(editSheet);
-        sheetState.setListExpanded(key, false);
+        listState.setExpanded(key, false);
       } else {
         ensureParentCellSelected();
         if (editSheet && typeof CDBVS.activeCell === "function" && !CDBVS.activeCell(editSheet)
           && typeof CDBVS.activateCell === "function") CDBVS.activateCell(editSheet, editRowIndex, editColumnIndex);
-        sheetState.setListExpanded(key, true);
+        listState.setExpanded(key, true);
       }
       rerender();
     };

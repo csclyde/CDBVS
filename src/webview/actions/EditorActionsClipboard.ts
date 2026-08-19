@@ -2,16 +2,17 @@
 (function (global) {
   const CDBVS = global.CDBVS;
   const services = CDBVS.services;
+  const model = services.document.operations;
   const commitMutation = services.application.commitMutation;
   const selectedRowIndex = CDBVS.selectedRowIndex;
   const selectedRowIndices = CDBVS.selectedRowIndices;
   const selectedCell = CDBVS.selectedCell;
   const selectRow = CDBVS.selectRow;
   const selectRows = CDBVS.selectRows;
-  const insertRowAt = CDBVS.insertRow;
-  const deleteRowAt = CDBVS.deleteRowAt;
-  const clearCellValue = CDBVS.clearCellValue;
-  const setCellValue = CDBVS.setCellValue;
+  const insertRowAt = model.rows.insert;
+  const deleteRowAt = model.rows.delete;
+  const clearCellValue = model.values.clearCell;
+  const setCellValue = model.values.setCell;
   const clipboardState = services.clipboard;
 
   function cloneRow(row) {

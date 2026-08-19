@@ -4,6 +4,7 @@
   const services = CDBVS.services;
   const documentModel = services.document;
   const sheetState = services.sheetState;
+  const sheetViewState = sheetState.view;
   const viewState = services.viewState;
   const typeOf = CDBVS.typeOf;
   const valueText = CDBVS.valueText;
@@ -23,7 +24,7 @@
 
   function viewForSheet(sheet) {
     if (!sheet || typeof sheet.name !== "string") return { filters: {}, sort: { column: "", direction: "asc" } };
-    return { filters: sheetState.readFilters(sheet.name), sort: sheetState.readSort(sheet.name) };
+    return { filters: sheetViewState.readFilters(sheet.name), sort: sheetViewState.readSort(sheet.name) };
   }
 
   function filterMatches(column, value, rule) {

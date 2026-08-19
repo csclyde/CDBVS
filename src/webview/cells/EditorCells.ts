@@ -2,6 +2,7 @@
 (function (global) {
   const CDBVS = global.CDBVS;
   const cellCapabilities = CDBVS.capabilities.cells;
+  const model = CDBVS.services.document.operations;
   const application = CDBVS.services.application;
   const makeElement = CDBVS.makeElement;
   const typeOf = CDBVS.typeOf;
@@ -14,7 +15,7 @@
   const renderMutation = application.renderMutation;
   const commitCellMutation = application.commitCellMutation;
   const scheduleCellMutation = application.scheduleCellMutation;
-  const setCellValue = CDBVS.setCellValue;
+  const setCellValue = model.values.setCell;
 
   function canSyncInputValue(type, input) {
     const value = String(input.value || "").trim();

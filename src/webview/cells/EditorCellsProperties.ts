@@ -2,14 +2,16 @@
 (function (global) {
   const CDBVS = global.CDBVS;
   const services = CDBVS.services;
+  const model = services.document.operations;
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
   const listKey = CDBVS.listKey;
   const listPreview = CDBVS.listPreview;
   const sheetState = services.sheetState;
+  const listState = sheetState.lists;
   const commitCellMutation = services.application.commitCellMutation;
   const refreshCell = CDBVS.refreshCell;
-  const setCellValue = CDBVS.setCellValue;
+  const setCellValue = model.values.setCell;
 
   function renderPropertiesCell(cell, row, column, context, schema) {
     const deferChanges = context && context.deferChanges === true;
@@ -20,7 +22,7 @@
       : (editSheet && Array.isArray(editSheet.columns) ? editSheet.columns.indexOf(column) : -1));
     const properties = row[column.name] && typeof row[column.name] === "object" && !Array.isArray(row[column.name]) ? row[column.name] : {};
     const key = listKey(context, column);
-    const expanded = sheetState.isListExpanded(key);
+    const expanded = listState.isExpanded(key);
     const refresh = () => refreshCell(cell, () => renderPropertiesCell(cell, row, column, context, schema));
     const applyPropertyMutation = (mutator, persist) => {
       if (deferChanges || !persist) {
@@ -31,12 +33,12 @@
     const preview = Object.keys(properties).length ? listPreview([properties], schema) : "empty properties";
     const toggleProperties = (event) => {
       if (event && typeof event.stopPropagation === "function") event.stopPropagation();
-      const wasExpanded = sheetState.isListExpanded(key);
+      const wasExpanded = listState.isExpanded(key);
       const rawValue = row[column.name];
       const needsObject = !rawValue || typeof rawValue !== "object" || Array.isArray(rawValue);
       const documentChanged = wasExpanded ? column.opt && Object.keys(properties).length === 0 : needsObject;
       applyPropertyMutation(() => {
-        sheetState.setListExpanded(key, !wasExpanded);
+        listState.setExpanded(key, !wasExpanded);
         if (wasExpanded) {
           if (column.opt && Object.keys(properties).length === 0) setCellValue(row, column, null);
         } else {

@@ -25,7 +25,7 @@ The first working editor baseline is in place. The repository now contains a des
 
 ## Centralized concern hierarchy pass (2026-08-18)
 
-- Added `webview/runtime/EditorStateMaps.ts` as the single registry for per-sheet view state, row/cell selection, nested-list selection, and sheet rename/delete cleanup. Sheet lifecycle code now updates those groups through one boundary.
+- Consolidated the former `EditorStateMaps.ts` registry into `webview/runtime/EditorSheetState.ts`, making that service the sole owner of per-sheet view state, row/cell selection, nested-list selection, validation decorations, and sheet lifecycle cleanup.
 - Added `webview/runtime/EditorMutation.ts` as the application mutation boundary. It centralizes persist-only, render-only, persist-and-render, debounced cell updates, and no-op/failed mutation handling.
 - Migrated structural actions, clipboard edits, row/separator mutations, raw JSON application, modal saves, primitive cells, nested list cells, and view controls to the shared mutation lifecycle.
 - Added shared modal action construction and reused the common field primitive across column, row, sheet, filter, confirmation, and custom editors.
@@ -61,6 +61,14 @@ The first working editor baseline is in place. The repository now contains a des
 - Reduced document models to structural operations: sheet, column, and row models no longer decide persistence/rendering or directly clean up unrelated runtime state. Views consume the named sheet projection service rather than the ambient sheet-view global.
 - Added composition-boundary regression coverage. Verification completed: `npm.cmd test` (66 tests), `npm.cmd run package`, and `git diff --check` pass. A real packaged VS Code Extension Development Host smoke test remains outstanding.
 - Hardened list-cell click and Enter toggles against real DOM bubbling and native button activation, including nested list scope; the regression suite now exercises bubbling clicks and direct toggle-control Enter events. Verification remains at 68 passing tests with development and production builds succeeding.
+
+## Deep document and sheet hierarchy pass (2026-08-18)
+
+- Consolidated document-facing model APIs under `services.document.operations`, grouped by document, sheets, columns, rows, nested schemas, schema/value helpers, and cell-value writes.
+- Redirected application coordinators, clipboard actions, modals, cell editors, and view projections through those grouped model operations instead of reaching into individual `CDBVS` mutation globals.
+- Added explicit `sheetState.view`, `sheetState.selection`, `sheetState.lists`, `sheetState.lifecycle`, and `sheetState.validation` sub-boundaries while retaining flat compatibility aliases at the outer runtime seam.
+- Redirected selection, list editors, filtering/sorting, separator rendering, validation, and structural cleanup through the appropriate sheet-state sub-boundary.
+- Removed the obsolete `EditorStateMaps.ts` module and its duplicate state registry implementation. Verification completed: `npm.cmd test` (68 tests), `npm.cmd run package`, and `git diff --check` pass. A real packaged VS Code Extension Development Host smoke test remains outstanding.
 
 ## Completed
 

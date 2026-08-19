@@ -3,7 +3,6 @@
   const CDBVS = global.CDBVS;
   const services = CDBVS.services;
   const documentModel = services.document;
-  const allSheets = CDBVS.allSheets;
 
   function renameSheet(sheet, newName) {
     if (!sheet || !documentModel.has() || !newName || sheet.name === newName) return false;
@@ -40,7 +39,7 @@
     const config = options || {};
     const newName = typeof config.name === "string" ? config.name.trim() : "";
     if (!sheet || !newName) return { ok: false, message: "Sheet name cannot be empty." };
-    if (allSheets().some((item) => item !== sheet && item && item.name === newName)) {
+    if (documentModel.sheets().some((item) => item !== sheet && item && item.name === newName)) {
       return { ok: false, message: `Sheet '${newName}' already exists.` };
     }
     if (sheet.name !== newName) renameSheet(sheet, newName);

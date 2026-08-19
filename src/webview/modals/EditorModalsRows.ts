@@ -1,6 +1,7 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
+  const model = CDBVS.services.document.operations;
   const commitMutation = CDBVS.services.application.commitMutation;
   const makeElement = CDBVS.makeElement;
   const appendModalActions = CDBVS.appendModalActions;
@@ -8,8 +9,8 @@
   const setActiveModal = CDBVS.setActiveModal;
   const typeLabel = CDBVS.typeLabel;
   const idColumn = CDBVS.idColumn;
-  const updateRow = CDBVS.updateRow;
-  const setCellValue = CDBVS.setCellValue;
+  const updateRow = model.rows.update;
+  const setCellValue = model.values.setCell;
 
   function cloneRowForEditor(row) {
     return CDBVS.cloneValue(row && typeof row === "object" && !Array.isArray(row) ? row : {}) || {};

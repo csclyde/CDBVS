@@ -2,11 +2,12 @@
 (function (global) {
   const CDBVS = global.CDBVS;
   const application = CDBVS.services.application;
+  const documentModel = CDBVS.services.document;
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
   const commitMutation = application.commitMutation;
-  const allSheets = CDBVS.allSheets;
-  const createSheet = CDBVS.createSheet;
+  const allSheets = documentModel.operations.document.allSheets;
+  const createSheet = application.sheetActions.createSheet;
   const setRawMode = CDBVS.viewState.setRawMode;
   const modalField = CDBVS.modalField;
   const appendModalActions = CDBVS.appendModalActions;

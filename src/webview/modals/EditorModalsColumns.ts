@@ -8,7 +8,7 @@
   const typeOf = CDBVS.typeOf;
   const moveColumn = CDBVS.moveColumn;
   const deleteColumnAt = CDBVS.services.application.columnActions.deleteColumn;
-  const applyColumnEdit = CDBVS.applyColumnEdit;
+  const applyColumnEdit = application.columnActions.applyColumnEdit;
   const createModal = CDBVS.createModal;
   const modalField = CDBVS.modalField;
   const appendModalActions = CDBVS.appendModalActions;

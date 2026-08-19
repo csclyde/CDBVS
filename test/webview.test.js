@@ -57,6 +57,12 @@ test("internal composition uses explicit services and capabilities", () => {
 
   assert.strictEqual(harness.CDBVS.services.document, harness.CDBVS.documentModel);
   assert.strictEqual(harness.CDBVS.services.sheetView, harness.CDBVS.sheetViewModel);
+  assert.strictEqual(typeof harness.CDBVS.services.document.operations.sheets.create, "function");
+  assert.strictEqual(typeof harness.CDBVS.services.document.operations.columns.applyEdit, "function");
+  assert.strictEqual(typeof harness.CDBVS.services.document.operations.rows.insert, "function");
+  assert.strictEqual(harness.CDBVS.services.sheetState.view, harness.CDBVS.sheetState.view);
+  assert.strictEqual(harness.CDBVS.services.sheetState.selection, harness.CDBVS.sheetState.selection);
+  assert.strictEqual(harness.CDBVS.services.sheetState.lists, harness.CDBVS.sheetState.lists);
   assert.equal(typeof harness.CDBVS.services.application.sheetActions.moveSheet, "function");
   assert.equal(typeof harness.CDBVS.services.application.columnActions.applyColumnEdit, "function");
   assert.equal(typeof harness.CDBVS.services.application.rowActions.insertRow, "function");

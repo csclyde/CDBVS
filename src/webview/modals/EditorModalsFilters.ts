@@ -8,7 +8,8 @@
   const typeLabel = CDBVS.typeLabel;
   const referenceOptions = CDBVS.referenceOptions;
   const renderMutation = services.application.renderMutation;
-  const setColumnFilters = services.sheetState.setFilters;
+  const sheetViewState = services.sheetState.view;
+  const setColumnFilters = sheetViewState.setFilters;
   const createModal = CDBVS.createModal;
 
   function openFilterModal(sheet) {
@@ -19,7 +20,7 @@
     const { dialog, footer, close } = createModal({ className: "filter-modal", title: `Filter: ${sheet.name}` });
     const view = {
       filters: services.sheetState.filters(sheet.name),
-      sort: services.sheetState.readSort(sheet.name)
+      sort: sheetViewState.readSort(sheet.name)
     };
     const draftFilters = CDBVS.cloneValue(view.filters) || {};
     const form = makeElement("div", null, "filter-form");

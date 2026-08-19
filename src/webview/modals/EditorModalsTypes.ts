@@ -2,9 +2,10 @@
 (function (global) {
   const CDBVS = global.CDBVS;
   const commitMutation = CDBVS.services.application.commitMutation;
+  const documentModel = CDBVS.services.document;
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
-  const updateCustomTypes = CDBVS.updateCustomTypes;
+  const updateCustomTypes = documentModel.operations.schema.updateCustomTypes;
   const hasDocument = CDBVS.hasDocument;
   const currentCustomTypes = CDBVS.currentCustomTypes;
   const createModal = CDBVS.createModal;

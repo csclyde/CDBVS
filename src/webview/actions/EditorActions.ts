@@ -2,6 +2,7 @@
 (function (global) {
   const CDBVS = global.CDBVS;
   const services = CDBVS.services;
+  const model = services.document.operations;
   const commitMutation = services.application.commitMutation;
   const renderMutation = services.application.renderMutation;
   const selectedRowIndex = CDBVS.selectedRowIndex;
@@ -9,16 +10,16 @@
   const selectedCell = CDBVS.selectedCell;
   const selectRow = CDBVS.selectRow;
   const selectCell = CDBVS.selectCell;
-  const insertRowAt = CDBVS.insertRow;
-  const deleteRowAt = CDBVS.deleteRowAt;
-  const moveRowAt = CDBVS.moveRow;
-  const appendRow = CDBVS.appendRow;
-  const addSeparatorAt = CDBVS.addSeparatorAt;
-  const removeSeparatorAt = CDBVS.removeSeparatorAt;
+  const insertRowAt = model.rows.insert;
+  const deleteRowAt = model.rows.delete;
+  const moveRowAt = model.rows.move;
+  const appendRow = model.rows.append;
+  const addSeparatorAt = model.rows.addSeparator;
+  const removeSeparatorAt = model.rows.remove;
   const rowsForView = services.sheetView.rowsForView;
   const deleteColumnAt = services.application.columnActions.deleteColumn;
   const deleteSheetAction = CDBVS.services.application.sheetActions.deleteSheet;
-  const ensureSheetColumns = CDBVS.ensureSheetColumns;
+  const ensureSheetColumns = model.columns.ensure;
 
   function addSheet() {
     if (typeof CDBVS.openNewSheetEditor === "function") {
@@ -66,7 +67,7 @@
       message: "This row will be removed from the sheet.",
       confirmLabel: "Delete row",
       onConfirm: () => {
-        commitMutation(() => CDBVS.deleteRowAt(sheet, index));
+        commitMutation(() => deleteRowAt(sheet, index));
       }
     });
     return true;

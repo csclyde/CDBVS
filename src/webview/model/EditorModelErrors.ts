@@ -2,6 +2,7 @@
 (function (global) {
   const CDBVS = global.CDBVS;
   const sheetState = CDBVS.services.sheetState;
+  const validationState = sheetState.validation;
 
   function cellErrorKey(rowIndex, columnName) {
     return `${rowIndex}\u0000${columnName}`;
@@ -19,7 +20,7 @@
     if (!sheet || !Number.isInteger(rowIndex) || !columnName) return false;
     const normalized = normalizeCellError(error, code);
     if (!normalized) return false;
-    const sheetErrors = sheetState.errors(sheet.name);
+    const sheetErrors = validationState.errors(sheet.name);
     const key = cellErrorKey(rowIndex, columnName);
     const errors = sheetErrors[key] || (sheetErrors[key] = []);
     if (!errors.some((item) => item.code === normalized.code && item.message === normalized.message)) errors.push(normalized);
@@ -28,10 +29,10 @@
 
   function clearCellErrors(sheet, rowIndex, columnName) {
     if (!sheet) return;
-    const sheetErrors = sheetState.readErrors(sheet.name);
+    const sheetErrors = validationState.read(sheet.name);
     if (!sheetErrors) return;
     if (!Number.isInteger(rowIndex)) {
-      sheetState.clearErrors(sheet.name);
+      validationState.clear(sheet.name);
       return;
     }
     if (columnName) delete sheetErrors[cellErrorKey(rowIndex, columnName)];
@@ -51,7 +52,7 @@
       if (!result[key]) result[key] = [];
       if (!result[key].some((item) => item.code === normalized.code && item.message === normalized.message)) result[key].push(normalized);
     };
-    const custom = sheetState.readErrors(sheet.name);
+    const custom = validationState.read(sheet.name);
     Object.keys(custom || {}).forEach((key) => {
       (Array.isArray(custom[key]) ? custom[key] : [custom[key]]).forEach((error) => {
         const separator = key.indexOf("\u0000");
