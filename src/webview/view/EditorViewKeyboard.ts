@@ -1,14 +1,15 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
+  const sheetViewModel = CDBVS.sheetViewModel;
   let installed = false;
 
   function selectOpenListAbove(sheet, selection) {
     if (!sheet || !selection || typeof CDBVS.findRenderedCell !== "function"
-      || typeof CDBVS.rowsForView !== "function") return false;
+      || typeof sheetViewModel.rowsForView !== "function") return false;
     const currentCell = CDBVS.findRenderedCell(selection.rowIndex, selection.columnIndex);
     if (!currentCell || !currentCell.classList || !currentCell.classList.contains("list-cell")) return false;
-    const rows = CDBVS.rowsForView(sheet);
+    const rows = sheetViewModel.rowsForView(sheet);
     const visibleIndex = rows.findIndex((entry) => entry.rowIndex === selection.rowIndex);
     if (visibleIndex <= 0) return false;
     const previousCell = CDBVS.findRenderedCell(rows[visibleIndex - 1].rowIndex, selection.columnIndex);
@@ -19,9 +20,9 @@
   }
 
   function moveToTabCell(sheet, selection, direction) {
-    if (!sheet || !selection || typeof CDBVS.rowsForView !== "function"
+    if (!sheet || !selection || typeof sheetViewModel.rowsForView !== "function"
       || typeof CDBVS.moveSelectedCell !== "function") return false;
-    const rows = CDBVS.rowsForView(sheet);
+    const rows = sheetViewModel.rowsForView(sheet);
     const columns = Array.isArray(sheet.columns) ? sheet.columns : [];
     const rowPosition = rows.findIndex((entry) => entry.rowIndex === selection.rowIndex);
     if (rowPosition < 0 || !columns.length) return false;
@@ -48,7 +49,7 @@
     if (event.__cdbvsKeyboardHandled) return;
     event.__cdbvsKeyboardHandled = true;
     if (document.querySelector(".text-modal-overlay")) return;
-    const sheet = CDBVS.currentSheet();
+    const sheet = sheetViewModel.currentSheet();
     const key = String(event.key || "").toLowerCase();
     if (key === "escape" && typeof CDBVS.hasContextMenu === "function" && CDBVS.hasContextMenu()) {
       event.preventDefault();
@@ -122,7 +123,7 @@
     if (activeSelection && cellEditorTarget && arrowKey) return;
     if (!modified && !event.altKey && arrowKey && (!editorTarget || cellEditorTarget || cellSelection)) {
       if (!cellSelection) {
-        const rows = sheet ? CDBVS.rowsForView(sheet) : [];
+        const rows = sheet ? sheetViewModel.rowsForView(sheet) : [];
         const columns = sheet && Array.isArray(sheet.columns) ? sheet.columns : [];
         if (!rows.length || !columns.length) return;
         const rowIndex = key === "arrowup" ? rows[rows.length - 1].rowIndex : rows[0].rowIndex;

@@ -5,10 +5,9 @@
   const makeButton = CDBVS.makeButton;
   const typeOf = CDBVS.typeOf;
   const typeLabel = CDBVS.typeLabel;
-  const viewForSheet = CDBVS.viewForSheet;
   const referenceOptions = CDBVS.referenceOptions;
   const renderMutation = CDBVS.renderMutation;
-  const setColumnFilters = CDBVS.setColumnFilters;
+  const setColumnFilters = CDBVS.sheetState.setFilters;
   const createModal = CDBVS.createModal;
 
   function openFilterModal(sheet) {
@@ -17,7 +16,10 @@
       return;
     }
     const { dialog, footer, close } = createModal({ className: "filter-modal", title: `Filter: ${sheet.name}` });
-    const view = viewForSheet(sheet);
+    const view = {
+      filters: CDBVS.sheetState.filters(sheet.name),
+      sort: CDBVS.sheetState.readSort(sheet.name)
+    };
     const draftFilters = CDBVS.cloneValue(view.filters) || {};
     const form = makeElement("div", null, "filter-form");
     form.appendChild(makeElement("h3", "Column filters", "filter-section-heading"));

@@ -11,6 +11,7 @@
   const deleteRowAt = CDBVS.deleteRowAt;
   const clearCellValue = CDBVS.clearCellValue;
   const setCellValue = CDBVS.setCellValue;
+  const clipboardState = CDBVS.clipboardState;
 
   function cloneRow(row) {
     return CDBVS.cloneValue(row);
@@ -44,7 +45,7 @@
       hasValue,
       value: hasValue ? cloneValue(row[selection.column.name]) : null
     };
-    CDBVS.setCellClipboard(cell);
+    clipboardState.setCell(cell);
     writeCellClipboard(cell);
     if (!cut) return true;
     commitMutation(() => clearCellValue(row, selection.column));
@@ -58,7 +59,7 @@
     if (!selected.length) return false;
     const rows = selected.map((index) => sheet.lines[index]).filter(Boolean).map(cloneRow);
     if (!rows.length) return false;
-    CDBVS.setRowClipboard({ sheetName: sheet.name, rows });
+    clipboardState.setRow({ sheetName: sheet.name, rows });
     writeRowClipboard(rows);
     if (!cut) return true;
     commitMutation(() => {
@@ -127,7 +128,7 @@
 
   function pasteSelectedCell(sheet) {
     if (!sheet || !selectedCell(sheet)) return false;
-    const clipboard = CDBVS.getCellClipboard();
+    const clipboard = clipboardState.getCell();
     if (clipboard) return pasteCellData(sheet, clipboard);
     if (typeof navigator === "undefined" || !navigator.clipboard || typeof navigator.clipboard.readText !== "function") return false;
     try {
@@ -137,7 +138,7 @@
           CDBVS.setStatus("Clipboard does not contain a CDBVS cell.", true);
           return;
         }
-        CDBVS.setCellClipboard(cell);
+        clipboardState.setCell(cell);
         pasteCellData(sheet, cell);
       }).catch(() => CDBVS.setStatus("Unable to read the clipboard.", true));
       return true;
@@ -149,7 +150,7 @@
   function pasteSelectedRow(sheet, rowOnly = false) {
     if (!sheet) return false;
     if (!rowOnly && selectedCell(sheet)) return pasteSelectedCell(sheet);
-    const clipboard = CDBVS.getRowClipboard();
+    const clipboard = clipboardState.getRow();
     if (clipboard && (clipboard.rows || clipboard.row)) return insertPastedRows(sheet, clipboard.rows || [clipboard.row]);
     if (typeof navigator === "undefined" || !navigator.clipboard || typeof navigator.clipboard.readText !== "function") return false;
     try {
@@ -159,7 +160,7 @@
           CDBVS.setStatus("Clipboard does not contain a CDBVS row.", true);
           return;
         }
-        CDBVS.setRowClipboard({ sheetName: sheet.name, rows: row });
+        clipboardState.setRow({ sheetName: sheet.name, rows: row });
         insertPastedRows(sheet, row);
       }).catch(() => CDBVS.setStatus("Unable to read the clipboard.", true));
       return true;

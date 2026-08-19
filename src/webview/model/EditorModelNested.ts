@@ -1,7 +1,7 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
-  const state = CDBVS.state;
+  const documentModel = CDBVS.documentModel;
 
   function isNestedType(type) {
     const code = typeof type === "number" ? type : (type && type.code);
@@ -13,27 +13,28 @@
   }
 
   function nestedSheetBlock(sheet, columnName) {
-    if (!state.data || !Array.isArray(state.data.sheets) || !sheet) return [];
+    if (!sheet) return [];
     const prefix = nestedSheetPrefix(sheet, columnName);
-    return state.data.sheets.filter((item) => item && (item.name === prefix || item.name.startsWith(`${prefix}@`)));
+    return documentModel.sheets().filter((item) => item && (item.name === prefix || item.name.startsWith(`${prefix}@`)));
   }
 
   function ensureNestedSheet(sheet, column) {
-    if (!sheet || !column || !state.data || !Array.isArray(state.data.sheets) || !isNestedType(CDBVS.typeOf(column))) return null;
+    if (!sheet || !column || !documentModel.has() || !isNestedType(CDBVS.typeOf(column))) return null;
+    const sheets = documentModel.sheets();
     const prefix = nestedSheetPrefix(sheet, column.name);
-    let child = state.data.sheets.find((item) => item && item.name === prefix);
+    let child = sheets.find((item) => item && item.name === prefix);
     if (!child) {
       child = { name: prefix, props: { hide: true }, separators: [], lines: [], columns: [] };
-      const parentIndex = state.data.sheets.indexOf(sheet);
-      let insertAt = parentIndex < 0 ? state.data.sheets.length : parentIndex + 1;
+      const parentIndex = sheets.indexOf(sheet);
+      let insertAt = parentIndex < 0 ? sheets.length : parentIndex + 1;
       (sheet.columns || []).some((candidate) => {
         if (candidate === column) return true;
         if (!isNestedType(CDBVS.typeOf(candidate))) return false;
         const block = nestedSheetBlock(sheet, candidate.name);
-        if (block.length) insertAt = Math.max(insertAt, state.data.sheets.indexOf(block[block.length - 1]) + 1);
+        if (block.length) insertAt = Math.max(insertAt, sheets.indexOf(block[block.length - 1]) + 1);
         return false;
       });
-      state.data.sheets.splice(insertAt, 0, child);
+      sheets.splice(insertAt, 0, child);
     }
     if (!child.props || typeof child.props !== "object" || Array.isArray(child.props)) child.props = {};
     child.props.hide = true;
@@ -46,7 +47,7 @@
   }
 
   function removeNestedSheet(sheet, columnName) {
-    if (!sheet || !state.data || !Array.isArray(state.data.sheets)) return false;
+    if (!sheet || !documentModel.has()) return false;
     const prefix = nestedSheetPrefix(sheet, columnName);
     const block = nestedSheetBlock(sheet, columnName);
     if (!block.length) return false;
@@ -59,8 +60,10 @@
         return (code === "6" || code === "12") && (target === prefix || target.startsWith(`${prefix}@`)) ? "1" : raw;
       });
     }
-    state.data.sheets = state.data.sheets.filter((item) => !block.includes(item));
-    if (typeof CDBVS.removeSheetState === "function") CDBVS.removeSheetState(prefix);
+    const sheets = documentModel.sheets();
+    const remaining = sheets.filter((item) => !block.includes(item));
+    documentModel.mutate((document) => { document.sheets = remaining; });
+    if (CDBVS.sheetState && typeof CDBVS.sheetState.removeSheet === "function") CDBVS.sheetState.removeSheet(prefix);
     return true;
   }
 

@@ -8,7 +8,7 @@
   // forgetting another one.
   const SHEET_STATE_MAPS = [
     "selectedRows", "activeRows", "rowSelectionAnchors", "selectedCells", "activeCells",
-    "columnFilters", "sorts", "collapsedSeparators"
+    "columnFilters", "sorts", "collapsedSeparators", "cellErrors"
   ];
   const NESTED_SHEET_STATE_MAPS = ["selectedListRows", "selectedListCells", "listSelectionAnchors"];
 
@@ -212,58 +212,6 @@
     clearSelectedListCell(key);
   }
 
-  function setCellClipboard(value) {
-    state.cellClipboard = value;
-    state.rowClipboard = null;
-  }
-
-  function setRowClipboard(value) {
-    state.rowClipboard = value;
-    state.cellClipboard = null;
-  }
-
-  function getCellClipboard() {
-    return state.cellClipboard;
-  }
-
-  function getRowClipboard() {
-    return state.rowClipboard;
-  }
-
-  function clearViewState() {
-    setFilter("");
-    state.columnFilters = {};
-    state.sorts = {};
-    if (typeof CDBVS.renderNow === "function") CDBVS.renderNow();
-  }
-
-  function getFilter() {
-    return typeof state.filter === "string" ? state.filter : "";
-  }
-
-  function setFilter(value) {
-    state.filter = value === undefined || value === null ? "" : String(value);
-    return state.filter;
-  }
-
-  function setRawMode(enabled) {
-    state.rawMode = enabled === true;
-    return state.rawMode;
-  }
-
-  function setSheetIndex(index) {
-    state.sheetIndex = Number.isInteger(index) ? index : 0;
-    return state.sheetIndex;
-  }
-
-  function getSheetIndex() {
-    return Number.isInteger(state.sheetIndex) ? state.sheetIndex : 0;
-  }
-
-  function isRawMode() {
-    return state.rawMode === true;
-  }
-
   Object.assign(CDBVS, {
     ensureStateMap,
     ensureSheetState,
@@ -281,13 +229,6 @@
     renameSheetState,
     removeSheetState,
     clearListState,
-    clearViewState,
-    getFilter,
-    setFilter,
-    setRawMode,
-    setSheetIndex,
-    getSheetIndex,
-    isRawMode,
     isListExpanded,
     setListExpanded,
     selectedListItems,
@@ -298,10 +239,6 @@
     setSelectedListCell,
     clearSelectedListCell,
     clearSelectedListItems,
-    clearSelectedListSelection,
-    setCellClipboard,
-    setRowClipboard,
-    getCellClipboard,
-    getRowClipboard
+    clearSelectedListSelection
   });
 })(window);

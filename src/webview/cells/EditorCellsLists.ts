@@ -9,6 +9,8 @@
   const refreshCell = CDBVS.refreshCell;
   const commitCellMutation = CDBVS.commitCellMutation;
   const setCellValue = CDBVS.setCellValue;
+  const sheetState = CDBVS.sheetState;
+  const clipboardState = CDBVS.clipboardState;
 
   function renderListCell(cell, row, column, context, schema) {
     const deferChanges = context && context.deferChanges === true;
@@ -19,10 +21,10 @@
       : (editSheet && Array.isArray(editSheet.columns) ? editSheet.columns.indexOf(column) : -1));
     const values = Array.isArray(row[column.name]) ? row[column.name] : [];
     const key = listKey(context, column);
-    const expanded = CDBVS.isListExpanded(key);
-    const selectedListItems = () => CDBVS.selectedListItems(key, values.length);
+    const expanded = sheetState.isListExpanded(key);
+    const selectedListItems = () => sheetState.selectedListItems(key, values.length);
     const initialSelectedItems = selectedListItems();
-    const selectedListCell = () => CDBVS.selectedListCell(key, values.length, (schema.columns || []).length);
+    const selectedListCell = () => sheetState.selectedListCell(key, values.length, (schema.columns || []).length);
     const currentSelectedItem = () => {
       const selected = selectedListItems();
       return selected.length ? selected[selected.length - 1] : null;
@@ -35,7 +37,7 @@
       const selectedSet = new Set(selected);
       const selectedNext = selected.map((index) => index + direction);
       const active = currentSelectedItem();
-      const anchor = CDBVS.listSelectionAnchor(key);
+      const anchor = sheetState.listSelectionAnchor(key);
       applyListMutation(() => {
         if (direction < 0) {
           selected.forEach((index) => {
@@ -50,7 +52,7 @@
           Number.isInteger(anchor) ? anchor + direction : undefined);
         const nestedSelection = selectedListCell();
         if (nestedSelection && selectedSet.has(nestedSelection.itemIndex)) {
-          CDBVS.setSelectedListCell(key, nestedSelection.itemIndex + direction, nestedSelection.columnIndex);
+          sheetState.setSelectedListCell(key, nestedSelection.itemIndex + direction, nestedSelection.columnIndex);
         }
         return true;
       });
@@ -94,11 +96,11 @@
         });
       });
     };
-    const storeSelectedItems = (indexes, activeIndex, anchorIndex) => CDBVS.setSelectedListItems(
+    const storeSelectedItems = (indexes, activeIndex, anchorIndex) => sheetState.setSelectedListItems(
       key, indexes, activeIndex, anchorIndex, values.length
     );
     const selectListItem = (itemIndex, itemRow, event) => {
-      CDBVS.selectListItems(key, itemIndex, values.length, event);
+      sheetState.selectListItems(key, itemIndex, values.length, event);
       updateListItemSelection(new Set(selectedListItems()));
       updateListCellSelection();
     };
@@ -115,7 +117,7 @@
       const rowElement = rows[itemIndex];
       if (!rowElement || !(schema.columns || [])[columnIndex]) return false;
       selectListItem(itemIndex, rowElement, {});
-      CDBVS.setSelectedListCell(key, itemIndex, columnIndex);
+      sheetState.setSelectedListCell(key, itemIndex, columnIndex);
       updateListCellSelection();
       if (focus) focusListCell(itemIndex, columnIndex);
       return true;
@@ -169,7 +171,7 @@
       if (!selected || !schema.columns[selected.columnIndex]) return false;
       const item = values[selected.itemIndex];
       const childColumn = schema.columns[selected.columnIndex];
-      CDBVS.setCellClipboard({
+      clipboardState.setCell({
         sheetName: schema.name,
         columnName: childColumn.name,
         hasValue: !!item && Object.prototype.hasOwnProperty.call(item, childColumn.name),
@@ -185,7 +187,7 @@
     };
     const pasteSelectedListCell = () => {
       const selected = selectedListCell();
-      const clipboard = CDBVS.getCellClipboard();
+      const clipboard = clipboardState.getCell();
       if (!selected || !clipboard || !schema.columns[selected.columnIndex]) return false;
       const item = values[selected.itemIndex];
       if (!item) return false;
@@ -232,7 +234,7 @@
         if (!Array.isArray(row[column.name])) setCellValue(row, column, values);
         values.splice(insertAt, 0, createRowForSchema(schema, values));
         storeSelectedItems([insertAt], insertAt, insertAt);
-        CDBVS.setListExpanded(key, true);
+      sheetState.setListExpanded(key, true);
         return true;
       }) === true;
     };
@@ -260,7 +262,7 @@
         if (currentRow === null && rowDelta < 0) return false;
         const nextRow = currentRow === null ? 0 : currentRow + rowDelta;
         if (nextRow < 0) {
-          CDBVS.clearSelectedListItems(key);
+          sheetState.clearSelectedListItems(key);
           updateListItemSelection(new Set());
           if (editSheet && typeof CDBVS.deactivateCell === "function") CDBVS.deactivateCell(editSheet);
           if (typeof cell.focus === "function") cell.focus({ preventScroll: true });
@@ -277,7 +279,7 @@
         if (rowDelta === 0 && currentRow === null) return false;
         const nextRow = currentRow === null ? 0 : currentRow + rowDelta;
         if (nextRow < 0) {
-          CDBVS.clearSelectedListItems(key);
+        sheetState.clearSelectedListItems(key);
           updateListItemSelection(new Set());
           if (editSheet && typeof CDBVS.deactivateCell === "function") CDBVS.deactivateCell(editSheet);
           if (typeof cell.focus === "function") cell.focus({ preventScroll: true });
@@ -289,7 +291,7 @@
       const nextRow = currentCell.itemIndex + rowDelta;
       const nextColumn = currentCell.columnIndex + columnDelta;
       if (nextRow < 0) {
-        CDBVS.clearSelectedListSelection(key);
+        sheetState.clearSelectedListSelection(key);
         updateListItemSelection(new Set());
         updateListCellSelection();
         if (editSheet && typeof CDBVS.deactivateCell === "function") CDBVS.deactivateCell(editSheet);
@@ -329,7 +331,7 @@
         selected.slice().sort((left, right) => right - left).forEach((index) => values.splice(index, 1));
         if (values.length === 0) {
           setCellValue(row, column, column.opt ? null : []);
-          CDBVS.clearSelectedListSelection(key);
+          sheetState.clearSelectedListSelection(key);
         } else {
           const nextIndex = Math.min(selected[selected.length - 1], values.length - 1);
           storeSelectedItems([nextIndex], nextIndex, nextIndex);
@@ -338,17 +340,17 @@
       }) === true;
     };
     const toggleList = () => {
-      const wasExpanded = CDBVS.isListExpanded(key);
+      const wasExpanded = sheetState.isListExpanded(key);
       if (wasExpanded) {
         const active = editSheet && typeof CDBVS.activeCell === "function" ? CDBVS.activeCell(editSheet) : null;
         if (active && active.rowIndex === editRowIndex && active.columnIndex === editColumnIndex
           && typeof CDBVS.deactivateCell === "function") CDBVS.deactivateCell(editSheet);
-        CDBVS.setListExpanded(key, false);
+        sheetState.setListExpanded(key, false);
       } else {
         ensureParentCellSelected();
         if (editSheet && typeof CDBVS.activeCell === "function" && !CDBVS.activeCell(editSheet)
           && typeof CDBVS.activateCell === "function") CDBVS.activateCell(editSheet, editRowIndex, editColumnIndex);
-        CDBVS.setListExpanded(key, true);
+        sheetState.setListExpanded(key, true);
       }
       rerender();
     };

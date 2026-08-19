@@ -8,6 +8,9 @@ const { FakeDocument, FakeOption } = require("./fakeDom");
 const WEBVIEW_SCRIPTS = [
   ["EditorRuntime.js", "runtime"],
   ["EditorStateMaps.js", "runtime"],
+  ["EditorSheetState.js", "runtime"],
+  ["EditorViewState.js", "runtime"],
+  ["EditorClipboardState.js", "runtime"],
   ["EditorDom.js", "runtime"],
   ["EditorUtils.js", "runtime"],
   ["EditorMutation.js", "runtime"],
@@ -17,6 +20,7 @@ const WEBVIEW_SCRIPTS = [
   ["EditorModelValues.js", "model"],
   ["EditorModelSchema.js", "model"],
   ["EditorModel.js", "model"],
+  ["EditorSheetViewModel.js", "model"],
   ["EditorModelErrors.js", "model"],
   ["EditorModelNested.js", "model"],
   ["EditorModelTypeConversion.js", "model"],
@@ -178,6 +182,9 @@ function createWebviewHarness(data) {
   context.confirm = () => { throw new Error("Native confirm must not be called."); };
 
   loadScript(context, "EditorStateMaps.js");
+  loadScript(context, "EditorSheetState.js");
+  loadScript(context, "EditorViewState.js");
+  loadScript(context, "EditorClipboardState.js");
   loadScript(context, "EditorUtils.js");
   loadScript(context, "EditorMutation.js");
   loadScript(context, "EditorStatus.js");
@@ -186,6 +193,7 @@ function createWebviewHarness(data) {
   loadScript(context, "EditorModelValues.js");
   loadScript(context, "EditorModelSchema.js");
   loadScript(context, "EditorModel.js");
+  loadScript(context, "EditorSheetViewModel.js");
   loadScript(context, "EditorModelErrors.js");
   loadScript(context, "EditorModelNested.js");
   loadScript(context, "EditorModelTypeConversion.js");

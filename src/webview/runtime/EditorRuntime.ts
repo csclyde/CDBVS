@@ -13,7 +13,8 @@ import { createEditorState, TYPE_NAMES } from "./EditorState";
   CDBVS.setDocument = function (message: Extract<HostToWebviewMessage, { type: "document" }>) {
     const state = CDBVS.state;
     state.text = message.text || "";
-    state.data = message.data;
+    if (CDBVS.documentModel) CDBVS.documentModel.load(message.data);
+    else state.data = message.data;
     state.issues = Array.isArray(message.issues) ? message.issues : [];
     if (typeof message.rawMode === "boolean") state.rawMode = message.rawMode;
     state.showHiddenSheets = message.showHiddenSheets === true;
@@ -37,8 +38,9 @@ import { createEditorState, TYPE_NAMES } from "./EditorState";
   CDBVS.sendUpdate = function () {
     clearScheduledUpdate();
     const state = CDBVS.state;
-    if (!state.data) return;
-    const text = `${JSON.stringify(state.data, null, "\t")}\n`;
+    const document = CDBVS.documentModel ? CDBVS.documentModel.get() : state.data;
+    if (!document) return;
+    const text = `${JSON.stringify(document, null, "\t")}\n`;
     state.text = text;
     CDBVS.vscode.postMessage({ type: "update", text });
   };

@@ -12,7 +12,7 @@
   const deleteRowAt = CDBVS.deleteRowAt;
   const moveRowAt = CDBVS.moveRow;
   const appendRow = CDBVS.appendRow;
-  const rowsForView = CDBVS.rowsForView;
+  const rowsForView = CDBVS.sheetViewModel.rowsForView;
   const deleteColumnAt = CDBVS.deleteColumnAt;
   const deleteSheetAt = CDBVS.deleteSheetAt;
   const ensureSheetColumns = CDBVS.ensureSheetColumns;

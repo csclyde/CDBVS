@@ -18,6 +18,24 @@ function buttonByText(root, text) {
   return root.querySelectorAll("button").find((button) => button.textContent === text);
 }
 
+test("document, sheet-state, and view-state models keep their boundaries", () => {
+  const target = sheet();
+  target.columns = [{ name: "name", typeStr: "1" }];
+  target.lines = [{ name: "Alice" }];
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target] });
+
+  assert.strictEqual(harness.CDBVS.documentModel.get(), harness.state.data);
+  assert.strictEqual(harness.CDBVS.documentModel.sheets()[0], target);
+  assert.equal(harness.CDBVS.sheetState.getActiveIndex(), 0);
+  assert.strictEqual(harness.CDBVS.sheetViewModel.currentSheet(), target);
+
+  harness.CDBVS.sheetState.setFilters(target.name, { name: { value: "Alice" } });
+  harness.CDBVS.viewState.setFilter("Alice");
+  assert.equal(harness.CDBVS.sheetViewModel.rowsForView(target).length, 1);
+  assert.equal(harness.CDBVS.documentModel.get().sheets[0].lines[0].name, "Alice");
+  assert.equal(harness.CDBVS.viewState.isRawMode(), false);
+});
+
 test("new sheet modal creates a sheet only after Save", () => {
   const harness = createWebviewHarness({ customTypes: [], sheets: [sheet()] });
   harness.CDBVS.openNewSheetEditor();

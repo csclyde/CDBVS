@@ -3,18 +3,17 @@
   const CDBVS = global.CDBVS;
   const commitMutation = CDBVS.commitMutation;
   const persistMutation = CDBVS.persistMutation;
-  const ensureSheetState = CDBVS.ensureSheetState;
-  const ensureStateMap = CDBVS.ensureStateMap;
+  const sheetState = CDBVS.sheetState;
 
   function isSeparatorCollapsed(sheet, index) {
     if (!sheet) return false;
-    const collapsed = ensureSheetState("collapsedSeparators", sheet.name, () => ({}));
+    const collapsed = sheetState.forSheet("collapsedSeparators", sheet.name, () => ({}));
     return collapsed[String(index)] === true;
   }
 
   function toggleSeparatorCollapsed(sheet, index) {
     if (!sheet) return false;
-    const collapsed = ensureSheetState("collapsedSeparators", sheet.name, () => ({}));
+    const collapsed = sheetState.forSheet("collapsedSeparators", sheet.name, () => ({}));
     const key = String(index);
     collapsed[key] = !isSeparatorCollapsed(sheet, index);
     return collapsed[key];
@@ -22,14 +21,14 @@
 
   function shiftCollapsedSeparators(sheet, change) {
     if (!sheet) return;
-    const collapsed = ensureStateMap("collapsedSeparators")[sheet.name];
+    const collapsed = sheetState.map("collapsedSeparators")[sheet.name];
     if (!collapsed) return;
     const shifted = {};
     Object.keys(collapsed).forEach((key) => {
       const next = change(Number.parseInt(key, 10));
       if (next !== null && next !== undefined) shifted[String(next)] = collapsed[key];
     });
-    ensureStateMap("collapsedSeparators")[sheet.name] = shifted;
+    sheetState.map("collapsedSeparators")[sheet.name] = shifted;
   }
 
   function separatorIndex(separator) {
@@ -141,7 +140,7 @@
     return commitMutation(() => {
       sheet.separators.splice(position, 1);
       if (sheet.props && Array.isArray(sheet.props.separatorTitles)) sheet.props.separatorTitles.splice(position, 1);
-      const collapsed = ensureStateMap("collapsedSeparators")[sheet.name];
+      const collapsed = sheetState.map("collapsedSeparators")[sheet.name];
       if (collapsed) delete collapsed[String(index)];
       return true;
     }) === true;

@@ -1,7 +1,7 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
-  const state = CDBVS.state;
+  const sheetState = CDBVS.sheetState;
 
   function cellErrorKey(rowIndex, columnName) {
     return `${rowIndex}\u0000${columnName}`;
@@ -19,24 +19,25 @@
     if (!sheet || !Number.isInteger(rowIndex) || !columnName) return false;
     const normalized = normalizeCellError(error, code);
     if (!normalized) return false;
-    if (!state.cellErrors) state.cellErrors = {};
-    if (!state.cellErrors[sheet.name]) state.cellErrors[sheet.name] = {};
+    const sheetErrors = sheetState.errors(sheet.name);
     const key = cellErrorKey(rowIndex, columnName);
-    const errors = state.cellErrors[sheet.name][key] || (state.cellErrors[sheet.name][key] = []);
+    const errors = sheetErrors[key] || (sheetErrors[key] = []);
     if (!errors.some((item) => item.code === normalized.code && item.message === normalized.message)) errors.push(normalized);
     return true;
   }
 
   function clearCellErrors(sheet, rowIndex, columnName) {
-    if (!sheet || !state.cellErrors || !state.cellErrors[sheet.name]) return;
+    if (!sheet) return;
+    const sheetErrors = sheetState.readErrors(sheet.name);
+    if (!sheetErrors) return;
     if (!Number.isInteger(rowIndex)) {
-      delete state.cellErrors[sheet.name];
+      sheetState.clearErrors(sheet.name);
       return;
     }
-    if (columnName) delete state.cellErrors[sheet.name][cellErrorKey(rowIndex, columnName)];
+    if (columnName) delete sheetErrors[cellErrorKey(rowIndex, columnName)];
     else {
       const prefix = `${rowIndex}\u0000`;
-      Object.keys(state.cellErrors[sheet.name]).forEach((key) => { if (key.startsWith(prefix)) delete state.cellErrors[sheet.name][key]; });
+      Object.keys(sheetErrors).forEach((key) => { if (key.startsWith(prefix)) delete sheetErrors[key]; });
     }
   }
 
@@ -50,7 +51,7 @@
       if (!result[key]) result[key] = [];
       if (!result[key].some((item) => item.code === normalized.code && item.message === normalized.message)) result[key].push(normalized);
     };
-    const custom = state.cellErrors && state.cellErrors[sheet.name];
+    const custom = sheetState.readErrors(sheet.name);
     Object.keys(custom || {}).forEach((key) => {
       (Array.isArray(custom[key]) ? custom[key] : [custom[key]]).forEach((error) => {
         const separator = key.indexOf("\u0000");

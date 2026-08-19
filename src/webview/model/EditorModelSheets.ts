@@ -1,14 +1,14 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
-  const state = CDBVS.state;
-  const renameSheetState = CDBVS.renameSheetState;
-  const removeSheetState = CDBVS.removeSheetState;
-  const setSheetIndex = CDBVS.setSheetIndex;
+  const documentModel = CDBVS.documentModel;
+  const renameSheetState = CDBVS.sheetState.renameSheet;
+  const removeSheetState = CDBVS.sheetState.removeSheet;
+  const setSheetIndex = CDBVS.sheetState.setActiveIndex;
   const allSheets = CDBVS.allSheets;
 
   function renameSheet(sheet, newName) {
-    if (!sheet || !state.data || !Array.isArray(state.data.sheets) || !newName || sheet.name === newName) return false;
+    if (!sheet || !documentModel.has() || !newName || sheet.name === newName) return false;
     const oldName = sheet.name;
     CDBVS.mapTypeStrings((raw) => {
       const separator = raw.indexOf(":");
@@ -19,7 +19,7 @@
         ? `${code}:${newName}${target.slice(oldName.length)}`
         : raw;
     });
-    state.data.sheets.forEach((item) => {
+    documentModel.sheets().forEach((item) => {
       if (item.name === oldName || item.name.startsWith(`${oldName}@`)) item.name = `${newName}${item.name.slice(oldName.length)}`;
     });
     renameSheetState(oldName, newName);
@@ -29,14 +29,14 @@
   function createSheet(name) {
     const nextName = typeof name === "string" ? name.trim() : "";
     if (!nextName) return { ok: false, message: "Sheet name cannot be empty." };
-    if (!state.data || typeof state.data !== "object" || Array.isArray(state.data)) state.data = { customTypes: [], sheets: [] };
-    if (!Array.isArray(state.data.sheets)) state.data.sheets = [];
-    if (state.data.sheets.some((sheet) => sheet && sheet.name === nextName)) {
+    if (!documentModel.has()) documentModel.load({ customTypes: [], sheets: [] });
+    const sheets = documentModel.sheets();
+    if (sheets.some((sheet) => sheet && sheet.name === nextName)) {
       return { ok: false, message: `Sheet '${nextName}' already exists.` };
     }
     const sheet = { name: nextName, columns: [], lines: [], separators: [], props: {} };
-    state.data.sheets.push(sheet);
-    const visible = CDBVS.visibleSheets();
+    sheets.push(sheet);
+    const visible = CDBVS.sheetViewModel.visibleSheets();
     const index = visible.indexOf(sheet);
     if (index >= 0) setSheetIndex(index);
     return { ok: true, sheet };
@@ -56,10 +56,10 @@
   }
 
   function deleteSheetAt(sheet) {
-    if (!sheet || !state.data || !Array.isArray(state.data.sheets)) return false;
+    if (!sheet || !documentModel.has()) return false;
     const oldName = sheet.name;
-    const sheetsBefore = CDBVS.visibleSheets();
-    const currentBefore = CDBVS.currentSheet();
+    const sheetsBefore = CDBVS.sheetViewModel.visibleSheets();
+    const currentBefore = CDBVS.sheetViewModel.currentSheet();
     const deletedSheets = new Set(CDBVS.sheetBlock(sheet));
     if (!deletedSheets.size) deletedSheets.add(sheet);
     const deletedIndex = sheetsBefore.indexOf(sheet);
@@ -70,9 +70,10 @@
       const target = raw.slice(separator + 1);
       return (code === "6" || code === "12") && (target === oldName || target.startsWith(`${oldName}@`)) ? "1" : raw;
     });
-    state.data.sheets = state.data.sheets.filter((item) => !deletedSheets.has(item));
+    const remaining = documentModel.sheets().filter((item) => !deletedSheets.has(item));
+    documentModel.mutate((document) => { document.sheets = remaining; });
     removeSheetState(oldName);
-    const sheetsAfter = CDBVS.visibleSheets();
+    const sheetsAfter = CDBVS.sheetViewModel.visibleSheets();
     if (currentBefore && !deletedSheets.has(currentBefore)) {
       setSheetIndex(Math.max(0, sheetsAfter.indexOf(currentBefore)));
     } else {

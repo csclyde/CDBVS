@@ -1,7 +1,7 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
-  const state = CDBVS.state;
+  const documentModel = CDBVS.documentModel;
   const typeOf = CDBVS.typeOf;
   const idColumn = CDBVS.idColumn;
   let referenceOptionsCache = new Map();
@@ -17,8 +17,8 @@
   }
 
   function listSheet(parentSheet, column) {
-    if (!state.data || !Array.isArray(state.data.sheets) || !parentSheet || !column) return null;
-    return state.data.sheets.find((sheet) => sheet.name === `${parentSheet.name}@${column.name}`) || null;
+    if (!parentSheet || !column) return null;
+    return documentModel.findSheet(`${parentSheet.name}@${column.name}`);
   }
 
   function listKey(context, column) {
@@ -28,7 +28,7 @@
   function referenceOptions(column) {
     const target = typeOf(column).argument;
     if (referenceOptionsCache.has(target)) return referenceOptionsCache.get(target);
-    const sheet = (state.data.sheets || []).find((item) => item.name === target);
+    const sheet = documentModel.findSheet(target);
     const id = idColumn(sheet);
     if (!sheet || !id || !Array.isArray(sheet.lines)) {
       referenceOptionsCache.set(target, null);
@@ -166,7 +166,7 @@
         const parsed = typeOf(column);
         if (parsed.code === 9 && !names.has(parsed.argument)) throw new Error(`Custom type '${parsed.argument}' is not defined.`);
       };
-      (state.data && state.data.sheets || []).forEach((sheet) => (sheet.columns || []).forEach(checkTypeReference));
+      documentModel.sheets().forEach((sheet) => (sheet.columns || []).forEach(checkTypeReference));
       customTypes.forEach((customType) => (customType.cases || []).forEach((typeCase) => (typeCase.args || []).forEach(checkTypeReference)));
     } catch (error) {
       return { ok: false, message: error.message };
@@ -177,10 +177,10 @@
   function updateCustomTypes(customTypes) {
     const result = validateCustomTypes(customTypes);
     if (!result.ok) return result;
-    if (!state.data || typeof state.data !== "object" || Array.isArray(state.data)) {
+    if (!documentModel.has()) {
       return { ok: false, message: "Load a valid CastleDB document before editing custom types." };
     }
-    state.data.customTypes = customTypes;
+    documentModel.mutate((document) => { document.customTypes = customTypes; });
     return { ok: true };
   }
 

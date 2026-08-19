@@ -6,7 +6,7 @@
   const commitMutation = CDBVS.commitMutation;
   const allSheets = CDBVS.allSheets;
   const createSheet = CDBVS.createSheet;
-  const setRawMode = CDBVS.setRawMode;
+  const setRawMode = CDBVS.viewState.setRawMode;
   const modalField = CDBVS.modalField;
   const appendModalActions = CDBVS.appendModalActions;
   const createModal = CDBVS.createModal;

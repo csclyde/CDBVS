@@ -43,6 +43,16 @@ The first working editor baseline is in place. The repository now contains a des
 - Audit result: direct state access and document/schema assignments are now limited to runtime and model modules; feature leaves only read domain objects and invoke model/mutation services.
 - Verification completed: `npm.cmd test` (64 tests), `npm.cmd run package`, and the dependency-direction audit plus `git diff --check`. A real packaged VS Code Extension Development Host smoke test remains outstanding.
 
+## Central document and sheet-state models (2026-08-18)
+
+- Added `webview/model/EditorModelDocument.ts` as the document ownership boundary. Document access, sheet lookup, custom-type access, host loading, raw replacement, and document mutation now flow through `documentModel`.
+- Split sheet projections from the general model into `webview/model/EditorSheetViewModel.ts`; visible/current sheets, filter matching, sorting, and rendered-row projections no longer live beside document mutation helpers.
+- Added `webview/runtime/EditorSheetState.ts` for active-sheet selection, row/cell/list selection, filters, sorts, separator collapse, cell errors, and sheet rename/delete cleanup.
+- Added `webview/runtime/EditorViewState.ts` for raw/table mode, global search, hidden-sheet visibility, and viewport coordinates; added `EditorClipboardState.ts` for clipboard state. These services contain no DOM rendering behavior.
+- Migrated views, actions, modals, selection, row/error models, nested editors, and sheet lifecycle code to consume the explicit services. Low-level map storage remains behind the sheet-state façade.
+- Added non-mutating sheet-state read accessors for render projections, so table rendering does not create empty filter, sort, or error entries; mutating accessors are reserved for explicit edit flows.
+- Added a regression test asserting document, sheet-state, and view-state ownership remain separate. Verification: `npm.cmd test` (65 tests), `npm.cmd run package`, and `git diff --check` pass. A real packaged VS Code Extension Development Host smoke test remains outstanding.
+
 ## Completed
 
 - Created the VS Code extension manifest and `.cdb` language registration.

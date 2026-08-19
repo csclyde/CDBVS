@@ -11,17 +11,42 @@
     return hasDocument() ? state.data : null;
   }
 
+  const documentModel = {
+    get: currentDocument,
+    has: hasDocument,
+    sheets() {
+      const document = currentDocument();
+      return document && Array.isArray(document.sheets) ? document.sheets : [];
+    },
+    findSheet(name) {
+      return this.sheets().find((sheet) => sheet && sheet.name === name) || null;
+    },
+    customTypes() {
+      const document = currentDocument();
+      return document && Array.isArray(document.customTypes) ? document.customTypes : [];
+    },
+    load(document) {
+      if (document !== null && (typeof document !== "object" || Array.isArray(document))) {
+        return { ok: false, message: "The document must be an object or null." };
+      }
+      state.data = document;
+      return { ok: true };
+    },
+    mutate(mutator) {
+      if (!hasDocument() || typeof mutator !== "function") return false;
+      return mutator(state.data);
+    }
+  };
+
   function currentCustomTypes() {
-    const document = currentDocument();
-    return document && Array.isArray(document.customTypes) ? document.customTypes : [];
+    return documentModel.customTypes();
   }
 
   function replaceDocument(document) {
     if (!document || typeof document !== "object" || Array.isArray(document)) {
       return { ok: false, message: "The root must be an object." };
     }
-    state.data = document;
-    return { ok: true };
+    return documentModel.load(document);
   }
 
   function replaceDocumentText(text) {
@@ -35,6 +60,7 @@
   }
 
   Object.assign(CDBVS, {
+    documentModel,
     hasDocument,
     currentDocument,
     currentCustomTypes,

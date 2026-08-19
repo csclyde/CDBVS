@@ -149,7 +149,7 @@
     }
     openSelectState = {
       control, menu, filter, optionItems, filterValue: "", selectedIndex: 0,
-      sheet: sheet || CDBVS.currentSheet(), onClose, reposition, cleanup
+      sheet: sheet || CDBVS.sheetViewModel.currentSheet(), onClose, reposition, cleanup
     };
     reposition();
     if (typeof control.setAttribute === "function") {

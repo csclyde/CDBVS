@@ -3,6 +3,9 @@
 // boundary. esbuild combines them into one deterministic runtime bundle.
 import "./webview/runtime/EditorRuntime";
 import "./webview/runtime/EditorStateMaps";
+import "./webview/runtime/EditorSheetState";
+import "./webview/runtime/EditorViewState";
+import "./webview/runtime/EditorClipboardState";
 import "./webview/runtime/EditorDom";
 import "./webview/runtime/EditorUtils";
 import "./webview/runtime/EditorMutation";
@@ -12,6 +15,7 @@ import "./webview/model/EditorModelDocument";
 import "./webview/model/EditorModelValues";
 import "./webview/model/EditorModelSchema";
 import "./webview/model/EditorModel";
+import "./webview/model/EditorSheetViewModel";
 import "./webview/model/EditorModelErrors";
 import "./webview/model/EditorModelNested";
 import "./webview/model/EditorModelTypeConversion";

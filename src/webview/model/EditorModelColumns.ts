@@ -2,10 +2,10 @@
 (function (global) {
   const CDBVS = global.CDBVS;
   const typeOf = CDBVS.typeOf;
-  const renameViewColumn = CDBVS.renameViewColumn;
+  const renameViewColumn = CDBVS.sheetState.renameColumn;
   const mapTypeStrings = CDBVS.mapTypeStrings;
   const setPrimaryColumn = CDBVS.setPrimaryColumn;
-  const clearListState = CDBVS.clearListState;
+  const clearListState = CDBVS.sheetState.clearList;
   const isNestedType = CDBVS.isNestedType;
   const prepareColumnTypeChange = CDBVS.prepareColumnTypeChange;
   const ensureNestedSheet = CDBVS.ensureNestedSheet;

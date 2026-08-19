@@ -4,7 +4,7 @@
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
   const commitMutation = CDBVS.commitMutation;
-  const visibleSheets = CDBVS.visibleSheets;
+  const visibleSheets = CDBVS.sheetViewModel.visibleSheets;
   const updateSheetMetadata = CDBVS.updateSheetMetadata;
   const moveSheet = CDBVS.moveSheet;
   const idColumn = CDBVS.idColumn;

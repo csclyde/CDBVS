@@ -7,7 +7,7 @@
   }
 
   function markRenderedRowSelected() {
-    const sheet = CDBVS.currentSheet();
+    const sheet = CDBVS.sheetViewModel.currentSheet();
     renderedRoot().querySelectorAll(".table-wrap tr").forEach((row) => {
       if (CDBVS.isRowSelected(sheet, Number.parseInt(row.dataset.rowIndex, 10))) row.classList.add("row-selected");
       else row.classList.remove("row-selected");

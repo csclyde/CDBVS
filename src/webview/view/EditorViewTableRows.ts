@@ -76,7 +76,7 @@
 
   function renderTableBody(sheet) {
     const body = document.createElement("tbody");
-    const rows = CDBVS.rowsForView(sheet);
+    const rows = CDBVS.sheetViewModel.rowsForView(sheet);
     const separatorRows = new Map();
     const separatorIndexes = [];
     (sheet.separators || []).forEach((separator, separatorPosition) => {

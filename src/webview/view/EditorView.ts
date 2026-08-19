@@ -1,13 +1,15 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
-  const getFilter = CDBVS.getFilter;
-  const setFilter = CDBVS.setFilter;
-  const setRawMode = CDBVS.setRawMode;
-  const setSheetIndex = CDBVS.setSheetIndex;
-  const getSheetIndex = CDBVS.getSheetIndex;
-  const isRawMode = CDBVS.isRawMode;
-  const clearStateMap = CDBVS.clearStateMap;
+  const sheetState = CDBVS.sheetState;
+  const sheetViewModel = CDBVS.sheetViewModel;
+  const viewState = CDBVS.viewState;
+  const getFilter = viewState.getFilter;
+  const setFilter = viewState.setFilter;
+  const setRawMode = viewState.setRawMode;
+  const getSheetIndex = sheetState.getActiveIndex;
+  const setSheetIndex = sheetState.setActiveIndex;
+  const isRawMode = viewState.isRawMode;
   const app = CDBVS.app;
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
@@ -18,14 +20,14 @@
 
   function render() {
     CDBVS.clearReferenceOptionsCache();
-    clearStateMap("activeCells");
+    sheetState.clearMap("activeCells");
     CDBVS.closeContextMenu();
     rememberViewport();
     app.replaceChildren();
     const toolbar = makeElement("div", null, "toolbar");
     toolbar.appendChild(makeElement("strong", "CDBVS", "brand"));
     toolbar.appendChild(makeButton("+ Sheet", CDBVS.addSheet));
-    toolbar.appendChild(makeButton("+ Column", () => CDBVS.addColumn(CDBVS.currentSheet())));
+    toolbar.appendChild(makeButton("+ Column", () => CDBVS.addColumn(sheetViewModel.currentSheet())));
     toolbar.appendChild(makeButton("Types", CDBVS.openTypesEditor));
     toolbar.appendChild(makeButton("Table", () => { setRawMode(false); render(); }, isRawMode() ? "button" : "button active"));
     toolbar.appendChild(makeButton("Raw JSON", () => { setRawMode(true); render(); }, isRawMode() ? "button active" : "button"));
@@ -36,7 +38,7 @@
       if (event.target.closest && event.target.closest(".sheet-tab")) return;
         CDBVS.showSheetsBarContextMenu(event);
     });
-    CDBVS.visibleSheets().forEach((sheet, index) => {
+    sheetViewModel.visibleSheets().forEach((sheet, index) => {
       const tab = makeElement("div", null, index === getSheetIndex() ? "sheet-tab active" : "sheet-tab");
       tab.addEventListener("contextmenu", (event) => {
         event.stopPropagation();
@@ -49,7 +51,7 @@
 
     const viewToolbar = makeElement("div", null, "sheet-view-toolbar");
     const viewControls = makeElement("div", null, "sheet-view-controls");
-    const selectedSheet = CDBVS.currentSheet();
+    const selectedSheet = sheetViewModel.currentSheet();
     const hasActiveView = CDBVS.activeViewItems(selectedSheet).length > 0;
     viewControls.appendChild(makeElement("strong", "Sheet view", "view-toolbar-label"));
     const filterButton = makeButton("", () => CDBVS.openFilterModal(selectedSheet), hasActiveView ? "button active filter-button" : "button filter-button");
@@ -97,7 +99,7 @@
     app.appendChild(status);
     const content = makeElement("main", null, "content");
     if (isRawMode() || !hasDocument()) CDBVS.renderRaw(content);
-    else CDBVS.renderTable(content, CDBVS.currentSheet());
+    else CDBVS.renderTable(content, sheetViewModel.currentSheet());
     app.appendChild(content);
     app.appendChild(sheetsBar);
     requestAnimationFrame(restoreViewport);

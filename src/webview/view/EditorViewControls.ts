@@ -4,14 +4,15 @@
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
   const typeOf = CDBVS.typeOf;
-  const viewForSheet = CDBVS.viewForSheet;
   const renderMutation = CDBVS.renderMutation;
-  const getFilter = CDBVS.getFilter;
-  const setFilter = CDBVS.setFilter;
+  const sheetState = CDBVS.sheetState;
+  const viewState = CDBVS.viewState;
+  const getFilter = viewState.getFilter;
+  const setFilter = viewState.setFilter;
 
   function activeViewItems(sheet) {
     if (!sheet) return [];
-    const view = viewForSheet(sheet);
+    const view = { filters: sheetState.readFilters(sheet.name), sort: sheetState.readSort(sheet.name) };
     const items = [];
     if (getFilter().trim()) {
       items.push({
@@ -42,7 +43,7 @@
       if (label) items.push({
         label,
         remove: () => {
-          delete view.filters[columnName];
+          sheetState.removeFilter(sheet.name, columnName);
           renderMutation();
         }
       });
@@ -50,8 +51,7 @@
     if (view.sort.column) items.push({
       label: `Sort: ${view.sort.column} (${view.sort.direction})`,
       remove: () => {
-        view.sort.column = "";
-        view.sort.direction = "asc";
+        sheetState.clearSort(sheet.name);
         renderMutation();
       }
     });
@@ -77,16 +77,7 @@
   }
 
   function cycleColumnSort(sheet, columnName) {
-    const sort = viewForSheet(sheet).sort;
-    if (sort.column !== columnName) {
-      sort.column = columnName;
-      sort.direction = "desc";
-    } else if (sort.direction === "desc") {
-      sort.direction = "asc";
-    } else {
-      sort.column = "";
-      sort.direction = "asc";
-    }
+    sheetState.cycleSort(sheet.name, columnName);
     renderMutation();
   }
 

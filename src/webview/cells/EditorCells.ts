@@ -3,7 +3,7 @@
   const CDBVS = global.CDBVS;
   const makeElement = CDBVS.makeElement;
   const typeOf = CDBVS.typeOf;
-  const currentSheet = CDBVS.currentSheet;
+  const currentSheet = CDBVS.sheetViewModel.currentSheet;
   const listSheet = CDBVS.listSheet;
   const readValue = CDBVS.readValue;
   const valueText = CDBVS.valueText;

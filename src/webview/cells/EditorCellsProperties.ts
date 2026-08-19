@@ -5,8 +5,7 @@
   const makeButton = CDBVS.makeButton;
   const listKey = CDBVS.listKey;
   const listPreview = CDBVS.listPreview;
-  const isListExpanded = CDBVS.isListExpanded;
-  const setListExpanded = CDBVS.setListExpanded;
+  const sheetState = CDBVS.sheetState;
   const commitCellMutation = CDBVS.commitCellMutation;
   const refreshCell = CDBVS.refreshCell;
   const setCellValue = CDBVS.setCellValue;
@@ -20,7 +19,7 @@
       : (editSheet && Array.isArray(editSheet.columns) ? editSheet.columns.indexOf(column) : -1));
     const properties = row[column.name] && typeof row[column.name] === "object" && !Array.isArray(row[column.name]) ? row[column.name] : {};
     const key = listKey(context, column);
-    const expanded = isListExpanded(key);
+    const expanded = sheetState.isListExpanded(key);
     const refresh = () => refreshCell(cell, () => renderPropertiesCell(cell, row, column, context, schema));
     const applyPropertyMutation = (mutator, persist) => {
       if (deferChanges || !persist) {
@@ -30,12 +29,12 @@
     };
     const preview = Object.keys(properties).length ? listPreview([properties], schema) : "empty properties";
     const toggle = makeButton("", () => {
-      const wasExpanded = isListExpanded(key);
+      const wasExpanded = sheetState.isListExpanded(key);
       const rawValue = row[column.name];
       const needsObject = !rawValue || typeof rawValue !== "object" || Array.isArray(rawValue);
       const documentChanged = wasExpanded ? column.opt && Object.keys(properties).length === 0 : needsObject;
       applyPropertyMutation(() => {
-        setListExpanded(key, !wasExpanded);
+        sheetState.setListExpanded(key, !wasExpanded);
         if (wasExpanded) {
           if (column.opt && Object.keys(properties).length === 0) setCellValue(row, column, null);
         } else {
