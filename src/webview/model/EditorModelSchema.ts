@@ -146,9 +146,47 @@
     return extra;
   }
 
+  function validateCustomTypes(customTypes) {
+    if (!Array.isArray(customTypes)) return { ok: false, message: "Custom types must be a JSON array." };
+    const names = new Set();
+    try {
+      customTypes.forEach((customType) => {
+        if (!customType || typeof customType !== "object" || !customType.name || names.has(customType.name)) {
+          throw new Error("Each custom type needs a unique name.");
+        }
+        names.add(customType.name);
+        if (!Array.isArray(customType.cases)) throw new Error(`Custom type '${customType.name}' needs a cases array.`);
+        customType.cases.forEach((typeCase) => {
+          if (!typeCase || typeof typeCase !== "object" || !typeCase.name || !Array.isArray(typeCase.args)) {
+            throw new Error(`Invalid case in custom type '${customType.name}'.`);
+          }
+        });
+      });
+      const checkTypeReference = (column) => {
+        const parsed = typeOf(column);
+        if (parsed.code === 9 && !names.has(parsed.argument)) throw new Error(`Custom type '${parsed.argument}' is not defined.`);
+      };
+      (state.data && state.data.sheets || []).forEach((sheet) => (sheet.columns || []).forEach(checkTypeReference));
+      customTypes.forEach((customType) => (customType.cases || []).forEach((typeCase) => (typeCase.args || []).forEach(checkTypeReference)));
+    } catch (error) {
+      return { ok: false, message: error.message };
+    }
+    return { ok: true };
+  }
+
+  function updateCustomTypes(customTypes) {
+    const result = validateCustomTypes(customTypes);
+    if (!result.ok) return result;
+    if (!state.data || typeof state.data !== "object" || Array.isArray(state.data)) {
+      return { ok: false, message: "Load a valid CastleDB document before editing custom types." };
+    }
+    state.data.customTypes = customTypes;
+    return { ok: true };
+  }
+
   Object.assign(CDBVS, {
     defaultValue, listSheet, listKey, readValue,
     referenceOptions, clearReferenceOptionsCache, createRowForSchema, listPreview,
-    columnExtraProperties, sheetExtraProperties
+    columnExtraProperties, sheetExtraProperties, validateCustomTypes, updateCustomTypes
   });
 })(window);

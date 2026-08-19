@@ -1,11 +1,11 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
-  const state = CDBVS.state;
   const ensureStateMap = CDBVS.ensureStateMap;
+  const clearSheetState = CDBVS.clearSheetState;
 
   function selectedRowIndices(sheet) {
-    if (!sheet || !state.selectedRows) return [];
+    if (!sheet) return [];
     const raw = (ensureStateMap("selectedRows"))[sheet.name];
     const values = Array.isArray(raw) ? raw : [raw];
     const indexes = values.filter((index) => Number.isInteger(index) && index >= 0 && index < (sheet.lines || []).length);
@@ -38,8 +38,8 @@
       delete ensureStateMap("activeRows")[sheet.name];
       delete ensureStateMap("rowSelectionAnchors")[sheet.name];
     }
-    if (state.selectedCells) delete state.selectedCells[sheet.name];
-    if (state.activeCells) delete state.activeCells[sheet.name];
+    clearSheetState("selectedCells", sheet.name);
+    clearSheetState("activeCells", sheet.name);
   }
 
   function selectRow(sheet, index) {

@@ -5,6 +5,7 @@
   const makeButton = CDBVS.makeButton;
   const renderMutation = CDBVS.renderMutation;
   const commitMutation = CDBVS.commitMutation;
+  const updateSeparatorTitle = CDBVS.updateSeparatorTitle;
 
   function editSeparatorTitle(sheet, separator, separatorPosition, titleSpan, label) {
     const input = document.createElement("input");
@@ -20,15 +21,7 @@
         return;
       }
       const title = input.value.trim() || "Section";
-      commitMutation(() => {
-        if (separator && typeof separator === "object") separator.title = title;
-        else {
-          if (!sheet.props || typeof sheet.props !== "object") sheet.props = {};
-          if (!Array.isArray(sheet.props.separatorTitles)) sheet.props.separatorTitles = [];
-          sheet.props.separatorTitles[separatorPosition] = title;
-        }
-        return true;
-      });
+      commitMutation(() => updateSeparatorTitle(sheet, separatorPosition, title));
     };
     label.replaceChild(input, titleSpan);
     input.addEventListener("keydown", (event) => {

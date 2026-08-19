@@ -1,7 +1,6 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
-  const state = CDBVS.state;
   const commitMutation = CDBVS.commitMutation;
   const selectedRowIndex = CDBVS.selectedRowIndex;
   const selectedRowIndices = CDBVS.selectedRowIndices;
@@ -10,6 +9,8 @@
   const selectRows = CDBVS.selectRows;
   const insertRowAt = CDBVS.insertRow;
   const deleteRowAt = CDBVS.deleteRowAt;
+  const clearCellValue = CDBVS.clearCellValue;
+  const setCellValue = CDBVS.setCellValue;
 
   function cloneRow(row) {
     return CDBVS.cloneValue(row);
@@ -32,10 +33,6 @@
     return CDBVS.cloneValue(value);
   }
 
-  function clearCellValue(row, column) {
-    row[column.name] = null;
-  }
-
   function copySelectedCell(sheet, cut) {
     const selection = selectedCell(sheet);
     if (!selection || !sheet.lines[selection.rowIndex]) return false;
@@ -47,8 +44,7 @@
       hasValue,
       value: hasValue ? cloneValue(row[selection.column.name]) : null
     };
-    state.cellClipboard = cell;
-    state.rowClipboard = null;
+    CDBVS.setCellClipboard(cell);
     writeCellClipboard(cell);
     if (!cut) return true;
     commitMutation(() => clearCellValue(row, selection.column));
@@ -62,8 +58,7 @@
     if (!selected.length) return false;
     const rows = selected.map((index) => sheet.lines[index]).filter(Boolean).map(cloneRow);
     if (!rows.length) return false;
-    state.rowClipboard = { sheetName: sheet.name, rows };
-    state.cellClipboard = null;
+    CDBVS.setRowClipboard({ sheetName: sheet.name, rows });
     writeRowClipboard(rows);
     if (!cut) return true;
     commitMutation(() => {
@@ -124,7 +119,7 @@
     const row = sheet.lines[selection.rowIndex];
     if (!row) return false;
     commitMutation(() => {
-      if (cell.hasValue) row[selection.column.name] = cloneValue(cell.value);
+      if (cell.hasValue) setCellValue(row, selection.column, cloneValue(cell.value));
       else clearCellValue(row, selection.column);
     });
     return true;
@@ -132,7 +127,8 @@
 
   function pasteSelectedCell(sheet) {
     if (!sheet || !selectedCell(sheet)) return false;
-    if (state.cellClipboard) return pasteCellData(sheet, state.cellClipboard);
+    const clipboard = CDBVS.getCellClipboard();
+    if (clipboard) return pasteCellData(sheet, clipboard);
     if (typeof navigator === "undefined" || !navigator.clipboard || typeof navigator.clipboard.readText !== "function") return false;
     try {
       navigator.clipboard.readText().then((text) => {
@@ -141,8 +137,7 @@
           CDBVS.setStatus("Clipboard does not contain a CDBVS cell.", true);
           return;
         }
-        state.cellClipboard = cell;
-        state.rowClipboard = null;
+        CDBVS.setCellClipboard(cell);
         pasteCellData(sheet, cell);
       }).catch(() => CDBVS.setStatus("Unable to read the clipboard.", true));
       return true;
@@ -154,7 +149,8 @@
   function pasteSelectedRow(sheet, rowOnly = false) {
     if (!sheet) return false;
     if (!rowOnly && selectedCell(sheet)) return pasteSelectedCell(sheet);
-    if (state.rowClipboard && (state.rowClipboard.rows || state.rowClipboard.row)) return insertPastedRows(sheet, state.rowClipboard.rows || [state.rowClipboard.row]);
+    const clipboard = CDBVS.getRowClipboard();
+    if (clipboard && (clipboard.rows || clipboard.row)) return insertPastedRows(sheet, clipboard.rows || [clipboard.row]);
     if (typeof navigator === "undefined" || !navigator.clipboard || typeof navigator.clipboard.readText !== "function") return false;
     try {
       navigator.clipboard.readText().then((text) => {
@@ -163,8 +159,7 @@
           CDBVS.setStatus("Clipboard does not contain a CDBVS row.", true);
           return;
         }
-        state.rowClipboard = { sheetName: sheet.name, rows: row };
-        state.cellClipboard = null;
+        CDBVS.setRowClipboard({ sheetName: sheet.name, rows: row });
         insertPastedRows(sheet, row);
       }).catch(() => CDBVS.setStatus("Unable to read the clipboard.", true));
       return true;

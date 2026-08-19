@@ -1,11 +1,12 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
-  const state = CDBVS.state;
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
   const commitMutation = CDBVS.commitMutation;
-  const visibleSheets = CDBVS.visibleSheets;
+  const allSheets = CDBVS.allSheets;
+  const createSheet = CDBVS.createSheet;
+  const setRawMode = CDBVS.setRawMode;
   const modalField = CDBVS.modalField;
   const appendModalActions = CDBVS.appendModalActions;
   const createModal = CDBVS.createModal;
@@ -15,7 +16,7 @@
     const form = makeElement("div", null, "sheet-form");
     const nameInput = document.createElement("input");
     nameInput.type = "text";
-    const existingNames = new Set((state.data && Array.isArray(state.data.sheets) ? state.data.sheets : []).map((sheet) => sheet && sheet.name));
+    const existingNames = new Set(allSheets().map((sheet) => sheet && sheet.name));
     let suggestedName = "newSheet";
     let suffix = 1;
     while (existingNames.has(suggestedName)) suggestedName = `newSheet${++suffix}`;
@@ -30,19 +31,13 @@
         nameInput.focus();
         return;
       }
-      if (!state.data || typeof state.data !== "object" || Array.isArray(state.data)) state.data = { customTypes: [], sheets: [] };
-      if (!Array.isArray(state.data.sheets)) state.data.sheets = [];
-      if (state.data.sheets.some((sheet) => sheet && sheet.name === name)) {
-        error.textContent = `Sheet '${name}' already exists.`;
+      const result = createSheet(name);
+      if (!result.ok) {
+        error.textContent = result.message;
         nameInput.focus();
         return;
       }
-      const sheet = { name, columns: [], lines: [], separators: [], props: {} };
-      state.data.sheets.push(sheet);
-      const sheets = visibleSheets();
-      const index = sheets.indexOf(sheet);
-      if (index >= 0) state.sheetIndex = index;
-      state.rawMode = false;
+      setRawMode(false);
       close();
       commitMutation();
     };

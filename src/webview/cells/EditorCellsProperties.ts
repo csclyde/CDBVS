@@ -1,11 +1,15 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
-  const state = CDBVS.state;
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
   const listKey = CDBVS.listKey;
   const listPreview = CDBVS.listPreview;
+  const isListExpanded = CDBVS.isListExpanded;
+  const setListExpanded = CDBVS.setListExpanded;
+  const commitCellMutation = CDBVS.commitCellMutation;
+  const refreshCell = CDBVS.refreshCell;
+  const setCellValue = CDBVS.setCellValue;
 
   function renderPropertiesCell(cell, row, column, context, schema) {
     const deferChanges = context && context.deferChanges === true;
@@ -16,25 +20,29 @@
       : (editSheet && Array.isArray(editSheet.columns) ? editSheet.columns.indexOf(column) : -1));
     const properties = row[column.name] && typeof row[column.name] === "object" && !Array.isArray(row[column.name]) ? row[column.name] : {};
     const key = listKey(context, column);
-    const expanded = state.expandedLists.has(key);
+    const expanded = isListExpanded(key);
+    const refresh = () => refreshCell(cell, () => renderPropertiesCell(cell, row, column, context, schema));
+    const applyPropertyMutation = (mutator, persist) => {
+      if (deferChanges || !persist) {
+        mutator();
+        refresh();
+      } else commitCellMutation(mutator, refresh);
+    };
     const preview = Object.keys(properties).length ? listPreview([properties], schema) : "empty properties";
     const toggle = makeButton("", () => {
-      const tableWrap = document.querySelector(".table-wrap");
-      const scrollLeft = tableWrap ? tableWrap.scrollLeft : 0;
-      const scrollTop = tableWrap ? tableWrap.scrollTop : 0;
-      if (state.expandedLists.has(key)) {
-        state.expandedLists.delete(key);
-        if (column.opt && Object.keys(properties).length === 0) row[column.name] = null;
-      } else {
-        state.expandedLists.add(key);
-        row[column.name] = properties;
-      }
-      cell.replaceChildren();
-      renderPropertiesCell(cell, row, column, context, schema);
-      if (tableWrap) requestAnimationFrame(() => {
-        tableWrap.scrollLeft = scrollLeft;
-        tableWrap.scrollTop = scrollTop;
-      });
+      const wasExpanded = isListExpanded(key);
+      const rawValue = row[column.name];
+      const needsObject = !rawValue || typeof rawValue !== "object" || Array.isArray(rawValue);
+      const documentChanged = wasExpanded ? column.opt && Object.keys(properties).length === 0 : needsObject;
+      applyPropertyMutation(() => {
+        setListExpanded(key, !wasExpanded);
+        if (wasExpanded) {
+          if (column.opt && Object.keys(properties).length === 0) setCellValue(row, column, null);
+        } else {
+          setCellValue(row, column, properties);
+        }
+        return true;
+      }, documentChanged);
     }, expanded ? "list-toggle expanded" : "list-toggle");
     toggle.title = expanded ? "Collapse properties" : "Expand properties";
     toggle.setAttribute("aria-label", toggle.title);

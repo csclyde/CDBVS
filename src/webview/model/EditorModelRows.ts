@@ -1,10 +1,10 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
-  const state = CDBVS.state;
   const commitMutation = CDBVS.commitMutation;
   const persistMutation = CDBVS.persistMutation;
   const ensureSheetState = CDBVS.ensureSheetState;
+  const ensureStateMap = CDBVS.ensureStateMap;
 
   function isSeparatorCollapsed(sheet, index) {
     if (!sheet) return false;
@@ -21,13 +21,15 @@
   }
 
   function shiftCollapsedSeparators(sheet, change) {
-    if (!sheet || !state.collapsedSeparators || !state.collapsedSeparators[sheet.name]) return;
+    if (!sheet) return;
+    const collapsed = ensureStateMap("collapsedSeparators")[sheet.name];
+    if (!collapsed) return;
     const shifted = {};
-    Object.keys(state.collapsedSeparators[sheet.name]).forEach((key) => {
+    Object.keys(collapsed).forEach((key) => {
       const next = change(Number.parseInt(key, 10));
-      if (next !== null && next !== undefined) shifted[String(next)] = state.collapsedSeparators[sheet.name][key];
+      if (next !== null && next !== undefined) shifted[String(next)] = collapsed[key];
     });
-    state.collapsedSeparators[sheet.name] = shifted;
+    ensureStateMap("collapsedSeparators")[sheet.name] = shifted;
   }
 
   function separatorIndex(separator) {
@@ -54,6 +56,18 @@
     if (!sheet.props.separatorTitles.some((title) => title !== undefined && title !== null)) delete sheet.props.separatorTitles;
   }
 
+  function updateSeparatorTitle(sheet, position, title) {
+    if (!sheet || !Array.isArray(sheet.separators) || !Number.isInteger(position)) return false;
+    const separator = sheet.separators[position];
+    if (separator && typeof separator === "object") separator.title = title;
+    else {
+      if (!sheet.props || typeof sheet.props !== "object") sheet.props = {};
+      if (!Array.isArray(sheet.props.separatorTitles)) sheet.props.separatorTitles = [];
+      sheet.props.separatorTitles[position] = title;
+    }
+    return true;
+  }
+
   function insertRow(sheet, index, row, notify = true) {
     if (!sheet) return;
     const mutate = () => {
@@ -66,6 +80,21 @@
     };
     if (notify) persistMutation(mutate);
     else mutate();
+  }
+
+  function appendRow(sheet) {
+    if (!sheet) return false;
+    const index = Array.isArray(sheet.lines) ? sheet.lines.length : 0;
+    insertRow(sheet, index, undefined, false);
+    return true;
+  }
+
+  function updateRow(sheet, rowIndex, draft) {
+    if (!sheet || !Array.isArray(sheet.lines) || !sheet.lines[rowIndex] || !draft || typeof draft !== "object" || Array.isArray(draft)) return false;
+    const row = sheet.lines[rowIndex];
+    Object.keys(row).forEach((key) => delete row[key]);
+    Object.assign(row, draft);
+    return true;
   }
 
   function moveRow(sheet, index, delta, notify = true) {
@@ -112,7 +141,8 @@
     return commitMutation(() => {
       sheet.separators.splice(position, 1);
       if (sheet.props && Array.isArray(sheet.props.separatorTitles)) sheet.props.separatorTitles.splice(position, 1);
-      if (state.collapsedSeparators && state.collapsedSeparators[sheet.name]) delete state.collapsedSeparators[sheet.name][String(index)];
+      const collapsed = ensureStateMap("collapsedSeparators")[sheet.name];
+      if (collapsed) delete collapsed[String(index)];
       return true;
     }) === true;
   }
@@ -138,6 +168,7 @@
 
   Object.assign(CDBVS, {
     isSeparatorCollapsed, toggleSeparatorCollapsed, shiftCollapsedSeparators, separatorIndex,
-    moveSeparators, insertRow, moveRow, toggleSeparator, addSeparator, removeSeparator, deleteRowAt
+    moveSeparators, insertRow, appendRow, updateRow, moveRow, toggleSeparator, addSeparator, removeSeparator, deleteRowAt,
+    updateSeparatorTitle
   });
 })(window);

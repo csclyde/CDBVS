@@ -1,25 +1,25 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
-  const state = CDBVS.state;
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
   const commitMutation = CDBVS.commitMutation;
+  const documentText = CDBVS.documentText;
+  const replaceDocumentText = CDBVS.replaceDocumentText;
 
   function renderRaw(container) {
     const raw = document.createElement("textarea");
     raw.className = "raw-editor";
-    raw.value = state.text;
+    raw.value = documentText();
     raw.spellcheck = false;
     container.appendChild(raw);
     container.appendChild(makeButton("Apply JSON", () => {
-      try {
-        const parsed = JSON.parse(raw.value);
-        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("The root must be an object.");
-        commitMutation(() => { state.data = parsed; });
-      } catch (error) {
-        CDBVS.setStatus(`Invalid JSON: ${error.message}`, true);
+      const result = replaceDocumentText(raw.value);
+      if (!result.ok) {
+        CDBVS.setStatus(result.message, true);
+        return;
       }
+      commitMutation();
     }, "button primary raw-apply"));
   }
 

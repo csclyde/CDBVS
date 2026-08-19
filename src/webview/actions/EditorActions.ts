@@ -1,7 +1,6 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
-  const state = CDBVS.state;
   const commitMutation = CDBVS.commitMutation;
   const renderMutation = CDBVS.renderMutation;
   const selectedRowIndex = CDBVS.selectedRowIndex;
@@ -12,9 +11,11 @@
   const insertRowAt = CDBVS.insertRow;
   const deleteRowAt = CDBVS.deleteRowAt;
   const moveRowAt = CDBVS.moveRow;
+  const appendRow = CDBVS.appendRow;
   const rowsForView = CDBVS.rowsForView;
   const deleteColumnAt = CDBVS.deleteColumnAt;
   const deleteSheetAt = CDBVS.deleteSheetAt;
+  const ensureSheetColumns = CDBVS.ensureSheetColumns;
 
   function addSheet() {
     if (typeof CDBVS.openNewSheetEditor === "function") {
@@ -29,9 +30,9 @@
       CDBVS.setStatus("Create or select a sheet before adding a column.", true);
       return false;
     }
-    if (!Array.isArray(sheet.columns)) sheet.columns = [];
+    const columns = ensureSheetColumns(sheet);
     if (typeof CDBVS.openNewColumnEditor === "function") {
-      CDBVS.openNewColumnEditor(sheet, sheet.columns.length);
+      CDBVS.openNewColumnEditor(sheet, columns.length);
       return true;
     }
     CDBVS.setStatus("The new column editor is unavailable.", true);
@@ -48,10 +49,7 @@
 
   function addRow(sheet) {
     if (!sheet) return;
-    commitMutation(() => {
-      if (!Array.isArray(sheet.lines)) sheet.lines = [];
-      sheet.lines.push(CDBVS.createRowForSchema(sheet, sheet.lines));
-    });
+    commitMutation(() => appendRow(sheet));
   }
 
   function deleteRow(sheet, index) {

@@ -8,6 +8,8 @@
   const setActiveModal = CDBVS.setActiveModal;
   const typeLabel = CDBVS.typeLabel;
   const idColumn = CDBVS.idColumn;
+  const updateRow = CDBVS.updateRow;
+  const setCellValue = CDBVS.setCellValue;
 
   function cloneRowForEditor(row) {
     return CDBVS.cloneValue(row && typeof row === "object" && !Array.isArray(row) ? row : {}) || {};
@@ -24,10 +26,7 @@
     const save = () => {
       form.querySelectorAll("input, select, textarea").forEach((input) => input.dispatchEvent(new Event("change", { bubbles: false })));
       close();
-      commitMutation(() => {
-        Object.keys(row).forEach((key) => delete row[key]);
-        Object.assign(row, draft);
-      });
+      commitMutation(() => updateRow(sheet, rowIndex, draft));
     };
     (sheet.columns || []).forEach((column) => {
       const field = makeElement("div", null, "row-field");
@@ -57,7 +56,7 @@
     const save = () => {
       close();
       commitMutation(() => {
-        row[column.name] = textarea.value;
+        setCellValue(row, column, textarea.value);
         input.value = textarea.value;
       });
     };

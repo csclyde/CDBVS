@@ -1,8 +1,6 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
-  const state = CDBVS.state;
-
   let installed = false;
 
   function selectOpenListAbove(sheet, selection) {

@@ -11,10 +11,17 @@ const WEBVIEW_SCRIPTS = [
   ["EditorDom.js", "runtime"],
   ["EditorUtils.js", "runtime"],
   ["EditorMutation.js", "runtime"],
+  ["EditorStatus.js", "runtime"],
+  ["EditorViewport.js", "runtime"],
+  ["EditorModelDocument.js", "model"],
+  ["EditorModelValues.js", "model"],
   ["EditorModelSchema.js", "model"],
   ["EditorModel.js", "model"],
   ["EditorModelErrors.js", "model"],
+  ["EditorModelNested.js", "model"],
+  ["EditorModelTypeConversion.js", "model"],
   ["EditorModelStructure.js", "model"],
+  ["EditorModelColumns.js", "model"],
   ["EditorModelRows.js", "model"],
   ["EditorModelSheets.js", "model"],
   ["EditorSelection.js", "model"],
@@ -30,6 +37,7 @@ const WEBVIEW_SCRIPTS = [
   ["EditorModalsTypes.js", "modals"],
   ["EditorModalsFilters.js", "modals"],
   ["EditorModals.js", "modals"],
+  ["EditorCellRendering.js", "cells"],
   ["EditorCellsLists.js", "cells"],
   ["EditorCellsProperties.js", "cells"],
   ["EditorCells.js", "cells"],
@@ -98,6 +106,15 @@ function createWebviewHarness(data) {
   const statuses = [];
   const CDBVS = {
     state,
+    setDocument(message) {
+      state.text = message.text || "";
+      state.data = message.data;
+      state.issues = Array.isArray(message.issues) ? message.issues : [];
+      if (typeof message.rawMode === "boolean") state.rawMode = message.rawMode;
+      state.showHiddenSheets = message.showHiddenSheets === true;
+    },
+    documentIssues() { return state.issues; },
+    documentText() { return state.text; },
     TYPE_NAMES: [
       "id", "string", "bool", "int", "float", "enum", "ref", "image",
       "list", "custom", "flags", "color", "layer", "file", "tilepos",
@@ -163,13 +180,21 @@ function createWebviewHarness(data) {
   loadScript(context, "EditorStateMaps.js");
   loadScript(context, "EditorUtils.js");
   loadScript(context, "EditorMutation.js");
+  loadScript(context, "EditorStatus.js");
+  loadScript(context, "EditorViewport.js");
+  loadScript(context, "EditorModelDocument.js");
+  loadScript(context, "EditorModelValues.js");
   loadScript(context, "EditorModelSchema.js");
   loadScript(context, "EditorModel.js");
   loadScript(context, "EditorModelErrors.js");
+  loadScript(context, "EditorModelNested.js");
+  loadScript(context, "EditorModelTypeConversion.js");
   loadScript(context, "EditorModelStructure.js");
+  loadScript(context, "EditorModelColumns.js");
   loadScript(context, "EditorModelRows.js");
   loadScript(context, "EditorModelSheets.js");
   loadScript(context, "EditorSelection.js");
+  loadScript(context, "EditorCellRendering.js");
   loadScript(context, "EditorCellsLists.js");
   loadScript(context, "EditorCellsProperties.js");
   loadScript(context, "EditorActionsClipboard.js");

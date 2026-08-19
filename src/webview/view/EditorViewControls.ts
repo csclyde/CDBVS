@@ -1,21 +1,22 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
-  const state = CDBVS.state;
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
   const typeOf = CDBVS.typeOf;
   const viewForSheet = CDBVS.viewForSheet;
   const renderMutation = CDBVS.renderMutation;
+  const getFilter = CDBVS.getFilter;
+  const setFilter = CDBVS.setFilter;
 
   function activeViewItems(sheet) {
     if (!sheet) return [];
     const view = viewForSheet(sheet);
     const items = [];
-    if (state.filter.trim()) {
+    if (getFilter().trim()) {
       items.push({
-        label: `Search: "${state.filter.trim()}"`,
-        remove: () => { state.filter = ""; renderMutation(); }
+        label: `Search: "${getFilter().trim()}"`,
+        remove: () => { setFilter(""); renderMutation(); }
       });
     }
     Object.keys(view.filters).forEach((columnName) => {

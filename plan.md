@@ -33,6 +33,16 @@ The first working editor baseline is in place. The repository now contains a des
 - The resulting webview hierarchy is: runtime services/state registry → domain models and mutation services → feature actions/modals/cell editors → leaf DOM renderers and controls. The global `CDBVS` surface remains the compatibility seam while responsibility is centralized behind these layers.
 - Verification completed after this pass: `npm.cmd test` (64 tests), `npm.cmd run check-types`, `npm.cmd run package`, and `git diff --check`.
 
+## Dependency-direction enforcement pass (2026-08-18)
+
+- Added `webview/model/EditorModelDocument.ts` for document presence, raw-text replacement, custom-type access, and root-object validation; raw JSON rendering and the custom-type modal no longer reach into global document state directly.
+- Moved host-message hydration and document issue/text accessors into the runtime boundary, leaving bootstrap responsible only for protocol routing and rendering.
+- Added `webview/model/EditorModelValues.ts` as the shared leaf-value write boundary. Primitive, flag, property, list, clipboard, and text-modal edits now use the same cell assignment/clear path.
+- Moved separator-title and row-update mutations behind the row model, and moved sheet-column initialization behind the column model. View, modal, and action modules now orchestrate these services instead of mutating schema/data structures themselves.
+- Removed duplicate column-name/type validation from the modal so the column model is the single validation and migration authority.
+- Audit result: direct state access and document/schema assignments are now limited to runtime and model modules; feature leaves only read domain objects and invoke model/mutation services.
+- Verification completed: `npm.cmd test` (64 tests), `npm.cmd run package`, and the dependency-direction audit plus `git diff --check`. A real packaged VS Code Extension Development Host smoke test remains outstanding.
+
 ## Completed
 
 - Created the VS Code extension manifest and `.cdb` language registration.

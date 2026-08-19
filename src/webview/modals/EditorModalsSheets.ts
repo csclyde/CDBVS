@@ -1,15 +1,13 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
-  const state = CDBVS.state;
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
   const commitMutation = CDBVS.commitMutation;
   const visibleSheets = CDBVS.visibleSheets;
-  const renameSheet = CDBVS.renameSheet;
+  const updateSheetMetadata = CDBVS.updateSheetMetadata;
   const moveSheet = CDBVS.moveSheet;
   const idColumn = CDBVS.idColumn;
-  const setPrimaryColumn = CDBVS.setPrimaryColumn;
   const sheetExtraProperties = CDBVS.sheetExtraProperties;
   const modalField = CDBVS.modalField;
   const createModal = CDBVS.createModal;
@@ -90,10 +88,6 @@
         showError("Sheet name cannot be empty.");
         return;
       }
-      if (state.data.sheets.some((item) => item !== sheet && item.name === newName)) {
-        showError(`Sheet '${newName}' already exists.`);
-        return;
-      }
       let extra;
       try {
         extra = JSON.parse(extraInput.value || "{}");
@@ -105,11 +99,6 @@
         showError(`Invalid advanced properties JSON: ${parseError.message}`);
         return;
       }
-      const oldName = sheet.name;
-      if (oldName !== newName) {
-        renameSheet(sheet, newName);
-      }
-      setPrimaryColumn(sheet, primaryInput.value);
       if (displayColumnInput.value === "") delete props.displayColumn;
       else props.displayColumn = displayColumnInput.value;
       if (displayIconInput.value === "") delete props.displayIcon;
@@ -129,7 +118,15 @@
         if (!standard.has(key)) delete props[key];
       });
       Object.assign(props, extra);
-      sheet.props = props;
+      const result = updateSheetMetadata(sheet, {
+        name: newName,
+        primaryColumn: primaryInput.value,
+        props
+      });
+      if (!result.ok) {
+        showError(result.message);
+        return;
+      }
       close();
       commitMutation();
     };

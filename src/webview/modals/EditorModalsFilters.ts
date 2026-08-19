@@ -1,7 +1,6 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
-  const state = CDBVS.state;
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
   const typeOf = CDBVS.typeOf;
@@ -9,6 +8,7 @@
   const viewForSheet = CDBVS.viewForSheet;
   const referenceOptions = CDBVS.referenceOptions;
   const renderMutation = CDBVS.renderMutation;
+  const setColumnFilters = CDBVS.setColumnFilters;
   const createModal = CDBVS.createModal;
 
   function openFilterModal(sheet) {
@@ -126,7 +126,7 @@
     });
     form.appendChild(controls);
     const apply = () => {
-      renderMutation(() => { state.columnFilters[sheet.name] = draftFilters; });
+      renderMutation(() => { setColumnFilters(sheet.name, draftFilters); });
       close();
     };
     CDBVS.appendModalActions(footer, close, apply, { saveLabel: "Apply" });

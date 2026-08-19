@@ -7,16 +7,24 @@
   const colorText = CDBVS.colorText;
   const renderNow = CDBVS.renderNow;
   const ensureSheetState = CDBVS.ensureSheetState;
+  const getFilter = CDBVS.getFilter;
+  const getSheetIndex = CDBVS.getSheetIndex;
+  const setSheetIndex = CDBVS.setSheetIndex;
 
   function visibleSheets() {
     if (!state.data || !Array.isArray(state.data.sheets)) return [];
     return state.data.sheets.filter((sheet) => state.showHiddenSheets || !sheet.props || !sheet.props.hide);
   }
 
+  function allSheets() {
+    return state.data && Array.isArray(state.data.sheets) ? state.data.sheets : [];
+  }
+
   function currentSheet() {
     const sheets = visibleSheets();
-    if (!Number.isInteger(state.sheetIndex) || state.sheetIndex < 0 || state.sheetIndex >= sheets.length) state.sheetIndex = Math.max(0, sheets.length - 1);
-    return sheets[state.sheetIndex] || null;
+    const index = getSheetIndex();
+    if (index < 0 || index >= sheets.length) setSheetIndex(Math.max(0, sheets.length - 1));
+    return sheets[getSheetIndex()] || null;
   }
 
   function viewForSheet(sheet) {
@@ -64,7 +72,8 @@
       const row = rawRow && typeof rawRow === "object" && !Array.isArray(rawRow) ? rawRow : {};
       return { row, rowIndex };
     }).filter((entry) => {
-      if (state.filter && !JSON.stringify(entry.row).toLowerCase().includes(state.filter.toLowerCase())) return false;
+      const filter = getFilter();
+      if (filter && !JSON.stringify(entry.row).toLowerCase().includes(filter.toLowerCase())) return false;
       return (sheet.columns || []).every((column) => filterMatches(column, entry.row[column.name], view.filters[column.name]));
     });
     if (!view.sort.column) return rows;
@@ -94,6 +103,6 @@
   }
 
   Object.assign(CDBVS, {
-    visibleSheets, currentSheet, viewForSheet, filterMatches, rowsForView, setPrimaryColumn
+    allSheets, visibleSheets, currentSheet, viewForSheet, filterMatches, rowsForView, setPrimaryColumn
   });
 })(window);

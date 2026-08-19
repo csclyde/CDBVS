@@ -1,25 +1,16 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
-  const state = CDBVS.state;
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
   const commitMutation = CDBVS.commitMutation;
   const typeOf = CDBVS.typeOf;
-  const renameViewColumn = CDBVS.renameViewColumn;
   const moveColumn = CDBVS.moveColumn;
   const deleteColumnAt = CDBVS.deleteColumnAt;
-  const mapTypeStrings = CDBVS.mapTypeStrings;
-  const setPrimaryColumn = CDBVS.setPrimaryColumn;
-  const clearListState = CDBVS.clearListState;
+  const applyColumnEdit = CDBVS.applyColumnEdit;
   const createModal = CDBVS.createModal;
   const modalField = CDBVS.modalField;
   const appendModalActions = CDBVS.appendModalActions;
-  const isNestedType = CDBVS.isNestedType;
-  const prepareColumnTypeChange = CDBVS.prepareColumnTypeChange;
-  const ensureNestedSheet = CDBVS.ensureNestedSheet;
-  const removeNestedSheet = CDBVS.removeNestedSheet;
-  const defaultValue = CDBVS.defaultValue;
   const columnTypeOptions = [
     [0, "Primary ID"], [1, "Text"], [2, "Boolean"], [3, "Integer"], [4, "Float"],
     [5, "Enum"], [6, "Reference"], [7, "Image"], [8, "List"], [9, "Custom type"],
@@ -88,62 +79,20 @@
     const showError = (message) => { error.textContent = message; };
     const removeColumn = () => {
       if (isNew) { close(); return; }
-      deleteColumnAt(sheet, columnIndex);
+      commitMutation(() => deleteColumnAt(sheet, columnIndex));
       close();
-      commitMutation();
     };
     const save = () => {
       const newName = nameInput.value.trim();
-      if (!newName) { showError("Column name cannot be empty."); return; }
-      if (sheet.columns.some((item, index) => (isNew || index !== columnIndex) && item.name === newName)) { showError(`Column '${newName}' already exists on this sheet.`); return; }
       const selectedType = typeSelect.value === "raw" ? rawTypeInput.value.trim() : `${typeSelect.value}${typeArgumentCodes.has(Number(typeSelect.value)) && typeArgumentInput.value.trim() ? `:${typeArgumentInput.value.trim()}` : ""}`;
-      if (!selectedType) { showError("Type cannot be empty."); return; }
-      const oldName = column.name;
-      const oldNested = isNestedType(typeOf(column));
-      const preparedType = prepareColumnTypeChange(sheet, column, selectedType);
-      if (!preparedType.ok) { showError(preparedType.message); return; }
-      const typeProperty = Object.prototype.hasOwnProperty.call(column, "typeStr") ? "typeStr" : (Object.prototype.hasOwnProperty.call(column, "type") ? "type" : "typeStr");
-      if (!isNew && oldName !== newName) {
-        (sheet.lines || []).forEach((line) => {
-          if (!line || !Object.prototype.hasOwnProperty.call(line, oldName)) return;
-          if (!Object.prototype.hasOwnProperty.call(line, newName)) line[newName] = line[oldName];
-          delete line[oldName];
-        });
-        const oldPrefix = `${sheet.name}@${oldName}`;
-        const newPrefix = `${sheet.name}@${newName}`;
-        (state.data.sheets || []).forEach((subSheet) => {
-          if (subSheet.name === oldPrefix || subSheet.name.startsWith(`${oldPrefix}@`)) subSheet.name = `${newPrefix}${subSheet.name.slice(oldPrefix.length)}`;
-        });
-        mapTypeStrings((raw) => {
-          const separator = raw.indexOf(":");
-          if (separator < 0) return raw;
-          const code = raw.slice(0, separator);
-          const target = raw.slice(separator + 1);
-          return (code === "6" || code === "12") && (target === oldPrefix || target.startsWith(`${oldPrefix}@`)) ? `${code}:${newPrefix}${target.slice(oldPrefix.length)}` : raw;
-        });
-        if (sheet.props && sheet.props.displayColumn === oldName) sheet.props.displayColumn = newName;
-        if (sheet.props && sheet.props.displayIcon === oldName) sheet.props.displayIcon = newName;
-        renameViewColumn(sheet.name, oldName, newName);
-        clearListState();
-      }
-      column.name = newName;
-      column[typeProperty] = selectedType;
-      column.opt = optionalInput.checked;
-      preparedType.values.forEach(({ line, value }) => { line[newName] = value; });
-      if (!column.opt) {
-        (sheet.lines || []).forEach((line) => {
-          if (!line || Object.prototype.hasOwnProperty.call(line, newName)) return;
-          const value = defaultValue(column, sheet);
-          if (value !== null) line[newName] = value;
-        });
-      }
-      if (displayInput.value === "") delete column.display;
-      else column.display = Number(displayInput.value);
-      if (isNew) sheet.columns.splice(Math.min(columnIndex, sheet.columns.length), 0, column);
-      if (Number(typeSelect.value) === 0) setPrimaryColumn(sheet, column.name);
-      const newNested = isNestedType(typeOf(column));
-      if (oldNested && !newNested) removeNestedSheet(sheet, newName);
-      else if (newNested) ensureNestedSheet(sheet, column);
+      const result = applyColumnEdit(sheet, column, columnIndex, {
+        name: newName,
+        typeString: selectedType,
+        optional: optionalInput.checked,
+        display: displayInput.value,
+        isNew
+      });
+      if (!result.ok) { showError(result.message); return; }
       close();
       commitMutation();
     };

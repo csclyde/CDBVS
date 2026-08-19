@@ -1,4 +1,5 @@
 import type { CdbvsWebviewApi } from "../contract";
+import type { HostToWebviewMessage } from "../../shared/protocol";
 import { createEditorState, TYPE_NAMES } from "./EditorState";
 
 (function (global: Window) {
@@ -8,6 +9,23 @@ import { createEditorState, TYPE_NAMES } from "./EditorState";
   CDBVS.app = document.getElementById("app");
   CDBVS.TYPE_NAMES = TYPE_NAMES;
   CDBVS.state = createEditorState();
+
+  CDBVS.setDocument = function (message: Extract<HostToWebviewMessage, { type: "document" }>) {
+    const state = CDBVS.state;
+    state.text = message.text || "";
+    state.data = message.data;
+    state.issues = Array.isArray(message.issues) ? message.issues : [];
+    if (typeof message.rawMode === "boolean") state.rawMode = message.rawMode;
+    state.showHiddenSheets = message.showHiddenSheets === true;
+  };
+
+  CDBVS.documentIssues = function () {
+    return Array.isArray(CDBVS.state.issues) ? CDBVS.state.issues : [];
+  };
+
+  CDBVS.documentText = function () {
+    return typeof CDBVS.state.text === "string" ? CDBVS.state.text : "";
+  };
 
   let scheduledUpdateTimer: ReturnType<typeof setTimeout> | null = null;
   const clearScheduledUpdate = () => {
@@ -45,26 +63,4 @@ import { createEditorState, TYPE_NAMES } from "./EditorState";
     CDBVS.flushUpdate();
   });
 
-  CDBVS.setStatus = function (message: string, error?: boolean) {
-    const status = document.getElementById("status");
-    if (!status) return;
-    status.textContent = message || "";
-    status.className = error ? "status error" : "status";
-  };
-
-  CDBVS.rememberViewport = function () {
-    const tableWrap = document.querySelector(".table-wrap");
-    if (!tableWrap) return;
-    CDBVS.state.scrollLeft = tableWrap.scrollLeft;
-    CDBVS.state.scrollTop = tableWrap.scrollTop;
-  };
-
-  CDBVS.restoreViewport = function () {
-    const tableWrap = document.querySelector(".table-wrap");
-    if (!tableWrap) return;
-    tableWrap.scrollLeft = CDBVS.state.scrollLeft;
-    tableWrap.scrollTop = CDBVS.state.scrollTop;
-    const horizontalScroll = document.querySelector(".horizontal-scroll-dock");
-    if (horizontalScroll) horizontalScroll.scrollLeft = tableWrap.scrollLeft;
-  };
 })(window);

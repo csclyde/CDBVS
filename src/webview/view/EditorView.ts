@@ -1,16 +1,24 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
-  const state = CDBVS.state;
+  const getFilter = CDBVS.getFilter;
+  const setFilter = CDBVS.setFilter;
+  const setRawMode = CDBVS.setRawMode;
+  const setSheetIndex = CDBVS.setSheetIndex;
+  const getSheetIndex = CDBVS.getSheetIndex;
+  const isRawMode = CDBVS.isRawMode;
+  const clearStateMap = CDBVS.clearStateMap;
   const app = CDBVS.app;
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
   const rememberViewport = CDBVS.rememberViewport;
   const restoreViewport = CDBVS.restoreViewport;
+  const documentIssues = CDBVS.documentIssues;
+  const hasDocument = CDBVS.hasDocument;
 
   function render() {
     CDBVS.clearReferenceOptionsCache();
-    if (state.activeCells) state.activeCells = {};
+    clearStateMap("activeCells");
     CDBVS.closeContextMenu();
     rememberViewport();
     app.replaceChildren();
@@ -19,8 +27,8 @@
     toolbar.appendChild(makeButton("+ Sheet", CDBVS.addSheet));
     toolbar.appendChild(makeButton("+ Column", () => CDBVS.addColumn(CDBVS.currentSheet())));
     toolbar.appendChild(makeButton("Types", CDBVS.openTypesEditor));
-    toolbar.appendChild(makeButton("Table", () => { state.rawMode = false; render(); }, state.rawMode ? "button" : "button active"));
-    toolbar.appendChild(makeButton("Raw JSON", () => { state.rawMode = true; render(); }, state.rawMode ? "button active" : "button"));
+    toolbar.appendChild(makeButton("Table", () => { setRawMode(false); render(); }, isRawMode() ? "button" : "button active"));
+    toolbar.appendChild(makeButton("Raw JSON", () => { setRawMode(true); render(); }, isRawMode() ? "button active" : "button"));
     app.appendChild(toolbar);
 
     const sheetsBar = makeElement("div", null, "sheets");
@@ -29,12 +37,12 @@
         CDBVS.showSheetsBarContextMenu(event);
     });
     CDBVS.visibleSheets().forEach((sheet, index) => {
-      const tab = makeElement("div", null, index === state.sheetIndex ? "sheet-tab active" : "sheet-tab");
+      const tab = makeElement("div", null, index === getSheetIndex() ? "sheet-tab active" : "sheet-tab");
       tab.addEventListener("contextmenu", (event) => {
         event.stopPropagation();
         CDBVS.showSheetContextMenu(event, sheet);
       });
-      tab.appendChild(makeButton(sheet.name, () => { state.sheetIndex = index; state.rawMode = false; render(); }, "sheet"));
+      tab.appendChild(makeButton(sheet.name, () => { setSheetIndex(index); setRawMode(false); render(); }, "sheet"));
       tab.appendChild(makeButton("\u270E", () => CDBVS.openSheetEditor(sheet), "sheet-edit-button"));
       sheetsBar.appendChild(tab);
     });
@@ -53,10 +61,10 @@
     const search = document.createElement("input");
     search.className = "search";
     search.placeholder = "Search this sheet...";
-    search.value = state.filter;
+    search.value = getFilter();
     search.addEventListener("input", () => {
       const value = search.value;
-      state.filter = value;
+      setFilter(value);
       render();
       const nextSearch = document.querySelector(".search");
       if (nextSearch) {
@@ -65,9 +73,9 @@
       }
     });
     searchWrap.appendChild(search);
-    if (state.filter.trim()) searchWrap.classList.add("has-value");
+    if (getFilter().trim()) searchWrap.classList.add("has-value");
     const clearSearch = makeButton("x", () => {
-      state.filter = "";
+      setFilter("");
       render();
       const nextSearch = document.querySelector(".search");
       if (nextSearch) nextSearch.focus();
@@ -84,10 +92,11 @@
 
     const status = makeElement("div", null, "status");
     status.id = "status";
-    if (state.issues.length) status.textContent = state.issues.join(" / ");
+    const issues = documentIssues();
+    if (issues.length) status.textContent = issues.join(" / ");
     app.appendChild(status);
     const content = makeElement("main", null, "content");
-    if (state.rawMode || !state.data) CDBVS.renderRaw(content);
+    if (isRawMode() || !hasDocument()) CDBVS.renderRaw(content);
     else CDBVS.renderTable(content, CDBVS.currentSheet());
     app.appendChild(content);
     app.appendChild(sheetsBar);

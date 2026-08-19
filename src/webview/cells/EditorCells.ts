@@ -12,6 +12,7 @@
   const renderMutation = CDBVS.renderMutation;
   const commitCellMutation = CDBVS.commitCellMutation;
   const scheduleCellMutation = CDBVS.scheduleCellMutation;
+  const setCellValue = CDBVS.setCellValue;
 
   function canSyncInputValue(type, input) {
     const value = String(input.value || "").trim();
@@ -93,8 +94,7 @@
         checkbox.addEventListener("change", () => {
           if (checkbox.checked) current |= 1 << flagIndex;
           else current &= ~(1 << flagIndex);
-          if (column.opt && current === 0) row[column.name] = null;
-          else row[column.name] = current;
+          setCellValue(row, column, column.opt && current === 0 ? null : current);
           if (isActiveCellEditor() && !committing) {
             flagsNeedCommit = true;
             return;
@@ -148,7 +148,7 @@
       const next = readValue(input, column);
       if (next === undefined) return;
       needsCommit = true;
-      row[column.name] = next;
+      setCellValue(row, column, next);
       if (isEditingCell()) return;
       scheduleCellMutation();
     });
@@ -163,7 +163,7 @@
         CDBVS.setStatus(`${column.name} must contain a valid ${type.name} value.`, true);
         return;
       }
-      if (next !== undefined) row[column.name] = next;
+      if (next !== undefined) setCellValue(row, column, next);
       if (isEditingCell() && !committing) {
         needsCommit = true;
         return;
@@ -185,7 +185,7 @@
       input.style.pointerEvents = "none";
       input.setAttribute("aria-readonly", "true");
       cell._cdbvsToggleBoolean = () => {
-        row[column.name] = row[column.name] !== true;
+        setCellValue(row, column, row[column.name] !== true);
         input.checked = row[column.name] === true;
         if (!cellContext.deferChanges) {
           commitCellMutation(undefined, refreshAfterCommit);
