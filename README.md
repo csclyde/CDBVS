@@ -21,6 +21,10 @@ CDBVS is a desktop VS Code extension for editing CastleDB `.cdb` files in a spre
 
 The extension is for desktop VS Code only; web and mobile VS Code are not supported.
 
+## Development
+
+Install dependencies with `npm install`, then run `npm run build` to type-check the TypeScript host/domain code and bundle the extension and webview. `npm test` builds first and runs the parser, protocol, extension-host, and webview tests. `npm run package` creates the production bundles used by VSIX packaging.
+
 ## Install from a VSIX
 
 1. Open the Extensions view in VS Code.

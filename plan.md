@@ -4,6 +4,17 @@
 
 The first working editor baseline is in place. The repository now contains a desktop VS Code extension with a custom `.cdb` editor, a spreadsheet-style webview, schema-aware primitive/reference controls, row/column/sheet editing, quick search, per-column filtering and sorting, and a raw JSON fallback. The reusable CastleDB Haxe `cdb` sources from `Cursemark\.haxelib\castle\git` are vendored under `vendor/castledb/cdb`, while the legacy level-editor sources are intentionally excluded. Marketplace release metadata and packaging exclusions are also prepared; publisher registration, authentication, and final VSIX validation remain external steps.
 
+## TypeScript/build and boundary hardening update (2026-08-18)
+
+- Migrated the extension host, CastleDB parser, document adapter, shared protocol, and webview source tree to TypeScript under `src/`.
+- Added strict TypeScript checking for the host/domain layer and a repeatable esbuild pipeline that emits `dist/extension.js` and `media/editor.js`; development source maps are generated automatically and production output is cleaned/minified.
+- Updated the custom editor HTML to load one bundled webview script with a cryptographically random CSP nonce instead of a dependency-ordered list of individual scripts.
+- Added typed host-to-webview and webview-to-host message contracts with runtime guards, validated document data before sending it to the webview, and added protocol regression tests for malformed messages.
+- Updated the test harness to transpile TypeScript webview modules in memory while retaining isolated DOM-module coverage.
+- Added build/test/package scripts, VS Code build task integration, package-lock metadata, and development instructions in `README.md`.
+- Verification completed: `npm run check-types`, `npm test` (63 tests), `npm run package`, and a VSIX packaging check with `vsce`.
+- Limitation recorded: the existing DOM modules retain their global/IIFE composition and are marked as a staged TypeScript migration boundary; the new runtime/bootstrap contract and all extension-host/domain code are type-checked strictly. Converting every DOM function to fully strict typed modules is an independent follow-up and was deliberately kept out of this behavior-preserving migration.
+
 ## Completed
 
 - Created the VS Code extension manifest and `.cdb` language registration.

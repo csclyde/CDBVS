@@ -28,9 +28,19 @@
   "categories": [
     "Other"
   ],
-  "main": "./extension.js",
+  "main": "./dist/extension.js",
   "scripts": {
-    "test": "node --test test/parser.test.js test/webview.test.js test/extension.test.js"
+    "check-types": "tsc --noEmit",
+    "build": "npm run check-types && node esbuild.js",
+    "package": "npm run check-types && node esbuild.js --production",
+    "test": "npm run build && node --test test/parser.test.js test/protocol.test.js test/webview.test.js test/extension.test.js",
+    "vscode:prepublish": "npm run package"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.80.0",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.6.0"
   },
   "activationEvents": [
     "onLanguage:cdb",

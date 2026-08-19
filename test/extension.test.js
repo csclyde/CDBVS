@@ -8,7 +8,7 @@ function loadProvider(vscode) {
     return request === "vscode" ? vscode : originalLoad.call(this, request, parent, isMain);
   };
   try {
-    const filename = require.resolve("../extension");
+    const filename = require.resolve("../dist/extension");
     delete require.cache[filename];
     return require(filename).CdbEditorProvider;
   } finally {

@@ -4,6 +4,9 @@
 # Local dependencies and test tooling
 node_modules/
 .vscode-test/
+dist/
+media/editor.js
+media/editor.js.map
 
 # Logs
 *.log

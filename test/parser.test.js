@@ -2,7 +2,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
-const parser = require("../src/Parser");
+const parser = require("../dist/cdb/Parser");
 
 const fixtureRoot = path.join(__dirname, "fixtures");
 

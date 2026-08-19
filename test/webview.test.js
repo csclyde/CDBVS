@@ -734,13 +734,13 @@ test("deleting multiple selected nested list items removes them together", () =>
 });
 
 test("webview source contains no native prompt, confirm, or alert calls", () => {
-  const mediaRoot = path.join(__dirname, "..", "media");
+  const mediaRoot = path.join(__dirname, "..", "src", "webview");
   const sources = [];
   const collectSources = (directory) => {
     fs.readdirSync(directory, { withFileTypes: true }).forEach((entry) => {
       const filename = path.join(directory, entry.name);
       if (entry.isDirectory()) collectSources(filename);
-      else if (entry.name.endsWith(".js")) sources.push(fs.readFileSync(filename, "utf8"));
+      else if (entry.name.endsWith(".ts")) sources.push(fs.readFileSync(filename, "utf8"));
     });
   };
   collectSources(mediaRoot);

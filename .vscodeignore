@@ -7,7 +7,14 @@ debug.log
 plan.md
 test/**
 
-# The JavaScript compatibility layer is used at runtime; the original Haxe
-# sources remain in the repository for provenance but are not runtime files.
+# TypeScript sources and build tooling are not needed by the packaged extension.
+src/**
+esbuild.js
+tsconfig.json
+media/**/*.js
+!media/editor.js
+
+# The original Haxe sources remain in the repository for provenance but are
+# not runtime files.
 vendor/castledb/cdb/**
 vendor/castledb/README.md

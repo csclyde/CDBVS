@@ -1,0 +1,37 @@
+// The existing webview modules intentionally remain DOM-oriented and global: the
+// editor is a browser application, while the extension host owns the document
+// boundary. esbuild combines them into one deterministic runtime bundle.
+import "./webview/runtime/EditorRuntime";
+import "./webview/runtime/EditorDom";
+import "./webview/runtime/EditorUtils";
+import "./webview/model/EditorModelSchema";
+import "./webview/model/EditorModel";
+import "./webview/model/EditorModelErrors";
+import "./webview/model/EditorModelStructure";
+import "./webview/model/EditorModelSheets";
+import "./webview/model/EditorSelection";
+import "./webview/actions/EditorActionsClipboard";
+import "./webview/actions/EditorActions";
+import "./webview/modals/EditorModalShared";
+import "./webview/modals/EditorModalsConfirm";
+import "./webview/modals/EditorModalsRows";
+import "./webview/modals/EditorModalsColumns";
+import "./webview/modals/EditorModalsSheetCreate";
+import "./webview/modals/EditorModalsSheetDelete";
+import "./webview/modals/EditorModalsSheets";
+import "./webview/modals/EditorModalsTypes";
+import "./webview/modals/EditorModalsFilters";
+import "./webview/modals/EditorModals";
+import "./webview/cells/EditorCellsLists";
+import "./webview/cells/EditorCellsProperties";
+import "./webview/cells/EditorCells";
+import "./webview/view/EditorViewControls";
+import "./webview/view/EditorViewContextMenus";
+import "./webview/view/EditorViewSelection";
+import "./webview/view/EditorViewTableHeader";
+import "./webview/view/EditorViewTableCells";
+import "./webview/view/EditorViewTableRows";
+import "./webview/view/EditorViewTable";
+import "./webview/view/EditorView";
+import "./webview/view/EditorViewKeyboard";
+import "./webview/bootstrap/Editor";

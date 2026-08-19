@@ -1,15 +1,64 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
+const esbuild = require("esbuild");
 const { FakeDocument, FakeOption } = require("./fakeDom");
-const { WEBVIEW_SCRIPTS } = require("../../src/WebviewFiles");
+// The harness loads individual source modules so tests can exercise the DOM
+// without starting VS Code. Production uses the bundled media/editor.js.
+const WEBVIEW_SCRIPTS = [
+  ["EditorRuntime.js", "runtime"],
+  ["EditorDom.js", "runtime"],
+  ["EditorUtils.js", "runtime"],
+  ["EditorModelSchema.js", "model"],
+  ["EditorModel.js", "model"],
+  ["EditorModelErrors.js", "model"],
+  ["EditorModelStructure.js", "model"],
+  ["EditorModelSheets.js", "model"],
+  ["EditorSelection.js", "model"],
+  ["EditorActionsClipboard.js", "actions"],
+  ["EditorActions.js", "actions"],
+  ["EditorModalShared.js", "modals"],
+  ["EditorModalsConfirm.js", "modals"],
+  ["EditorModalsRows.js", "modals"],
+  ["EditorModalsColumns.js", "modals"],
+  ["EditorModalsSheetCreate.js", "modals"],
+  ["EditorModalsSheetDelete.js", "modals"],
+  ["EditorModalsSheets.js", "modals"],
+  ["EditorModalsTypes.js", "modals"],
+  ["EditorModalsFilters.js", "modals"],
+  ["EditorModals.js", "modals"],
+  ["EditorCellsLists.js", "cells"],
+  ["EditorCellsProperties.js", "cells"],
+  ["EditorCells.js", "cells"],
+  ["EditorViewControls.js", "view"],
+  ["EditorViewContextMenus.js", "view"],
+  ["EditorViewSelection.js", "view"],
+  ["EditorViewTableHeader.js", "view"],
+  ["EditorViewTableCells.js", "view"],
+  ["EditorViewTableRows.js", "view"],
+  ["EditorViewTable.js", "view"],
+  ["EditorView.js", "view"],
+  ["EditorViewKeyboard.js", "view"],
+  ["Editor.js", "bootstrap"]
+];
 
-const mediaRoot = path.resolve(__dirname, "..", "..", "media");
+const mediaRoot = path.resolve(__dirname, "..", "..", "src", "webview");
 const scriptFolders = new Map(WEBVIEW_SCRIPTS);
 
 function loadScript(context, name) {
-  const filename = path.join(mediaRoot, scriptFolders.get(name) || path.dirname(name), path.basename(name));
-  vm.runInNewContext(fs.readFileSync(filename, "utf8"), context, { filename });
+  const sourceName = path.basename(name).replace(/\.js$/, ".ts");
+  const filename = path.join(mediaRoot, scriptFolders.get(name) || path.dirname(name), sourceName);
+  const source = fs.readFileSync(filename, "utf8");
+  const transformed = esbuild.buildSync({
+    stdin: { contents: source, sourcefile: filename, resolveDir: path.dirname(filename), loader: "ts" },
+    bundle: true,
+    platform: "browser",
+    format: "iife",
+    target: "es2022",
+    write: false,
+    sourcemap: false
+  });
+  vm.runInNewContext(transformed.outputFiles[0].text, context, { filename });
 }
 
 function createWebviewHarness(data) {
