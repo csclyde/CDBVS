@@ -11,6 +11,7 @@
   function renderRaw(container) {
     const raw = document.createElement("textarea");
     raw.className = "raw-editor";
+    raw.dataset.cdbvsViewportKey = "raw";
     raw.value = documentText();
     raw.spellcheck = false;
     container.appendChild(raw);
@@ -31,6 +32,7 @@
     }
     const config = options || {};
     const tableWrap = makeElement("div", null, "table-wrap");
+    tableWrap.dataset.cdbvsViewportKey = CDBVS.viewportKeyForSheet(sheet.name);
     tableWrap.setAttribute("aria-busy", "true");
     const loading = makeElement("div", "Loading sheet...", "sheet-loading");
     loading.setAttribute("role", "status");

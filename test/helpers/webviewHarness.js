@@ -108,6 +108,7 @@ function createWebviewHarness(data) {
     collapsedSeparators: {},
     showHiddenSheets: false,
     expandedLists: new Set(),
+    viewports: {},
     scrollLeft: 0,
     scrollTop: 0
   };

@@ -4,6 +4,13 @@
 
 The first working editor baseline is in place. The repository now contains a desktop VS Code extension with a custom `.cdb` editor, a spreadsheet-style webview, schema-aware primitive/reference controls, row/column/sheet editing, quick search, per-column filtering and sorting, and a raw JSON fallback. The reusable CastleDB Haxe `cdb` sources from `Cursemark\.haxelib\castle\git` are vendored under `vendor/castledb/cdb`, while the legacy level-editor sources are intentionally excluded. Marketplace release metadata and packaging exclusions are also prepared; publisher registration, authentication, and final VSIX validation remain external steps.
 
+## Viewport preservation hardening (2026-08-19)
+
+- Made the webview observe table and raw-editor scroll events continuously instead of only sampling the viewport when a render begins.
+- Stored horizontal and vertical positions per sheet, with separate raw JSON state; renamed sheets migrate their saved viewport keys.
+- Restored the viewport after the table shell is laid out and again after progressive row construction completes, preventing an early restore from being clamped to the top while the table is still short.
+- Added regression coverage for scroll-event tracking, per-sheet/raw restoration, renamed-sheet migration, and post-progressive-render restoration. The real VS Code Extension Development Host remains an integration-test follow-up.
+
 ## Webview rendering performance diagnosis (2026-08-19)
 
 - Sheet-tab clicks synchronously call the global `render()` path. That path clears and rebuilds the entire webview DOM, including every visible row and cell in the destination sheet, before the browser can paint the selected tab; the VS Code host, document update queue, and disk are not on the sheet-switch critical path.

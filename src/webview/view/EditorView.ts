@@ -18,6 +18,7 @@
   const makeButton = CDBVS.makeButton;
   const rememberViewport = CDBVS.rememberViewport;
   const restoreViewport = CDBVS.restoreViewport;
+  const restoreViewportAfterLayout = CDBVS.restoreViewportAfterLayout;
   const documentIssues = CDBVS.documentIssues;
   const hasDocument = CDBVS.hasDocument;
   let cancelActiveTableRender = null;
@@ -104,13 +105,23 @@
     if (issues.length) status.textContent = issues.join(" / ");
     app.appendChild(status);
     const content = makeElement("main", null, "content");
+    const renderedViewport = () => content.querySelector(".table-wrap") || content.querySelector(".raw-editor");
     if (isRawMode() || !hasDocument()) viewCapabilities.renderRaw(content);
     else cancelActiveTableRender = viewCapabilities.renderTable(content, sheetViewModel.currentSheet(), {
-      onComplete: () => { cancelActiveTableRender = null; }
+      onComplete: () => {
+        cancelActiveTableRender = null;
+        // Progressive row construction can clamp scrollTop while the table is
+        // still short. Restore after the last batch has established its size.
+        const target = renderedViewport();
+        if (typeof restoreViewportAfterLayout === "function") restoreViewportAfterLayout(target);
+        else restoreViewport(target);
+      }
     });
     app.appendChild(content);
     app.appendChild(sheetsBar);
-    requestAnimationFrame(restoreViewport);
+    const target = renderedViewport();
+    if (typeof restoreViewportAfterLayout === "function") restoreViewportAfterLayout(target);
+    else requestAnimationFrame(() => restoreViewport(target));
   }
 
   CDBVS.render = render;

@@ -670,7 +670,8 @@ test("sheet rendering paints a loading state before progressive rows", () => {
   const harness = createWebviewHarness({ customTypes: [], sheets: [target] });
   harness.CDBVS.app = harness.document.createElement("div");
   harness.CDBVS.rememberViewport = () => {};
-  harness.CDBVS.restoreViewport = () => {};
+  let restoreCount = 0;
+  harness.CDBVS.restoreViewport = () => { restoreCount += 1; };
   const timers = [];
   const frames = [];
   harness.context.setTimeout = (callback) => { timers.push(callback); return timers.length - 1; };
@@ -687,6 +688,7 @@ test("sheet rendering paints a loading state before progressive rows", () => {
   while (frames.length) frames.shift()();
   assert.equal(harness.CDBVS.app.querySelector(".sheet-loading"), null);
   assert.equal(harness.CDBVS.app.querySelectorAll("tr").filter((row) => row.dataset.rowIndex !== undefined).length, 20);
+  assert.ok(restoreCount >= 2, "viewport should restore before and after progressive rows finish");
 });
 
 test("table choice editors defer large option and flag control construction", () => {

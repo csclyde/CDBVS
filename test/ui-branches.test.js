@@ -78,6 +78,63 @@ test("viewport remember and restore synchronize the table and horizontal dock", 
   assert.equal(dock.scrollLeft, 42);
 });
 
+test("viewport tracking follows scroll events and keeps sheet and raw positions separate", () => {
+  const harness = createWebviewHarness({ customTypes: [], sheets: [] });
+  const app = harness.document.createElement("div");
+  harness.CDBVS.app = app;
+  harness.document.body.appendChild(app);
+
+  const firstTable = harness.document.createElement("div");
+  firstTable.className = "table-wrap";
+  firstTable.dataset.cdbvsViewportKey = "table:Players";
+  const firstDock = harness.document.createElement("div");
+  firstDock.className = "horizontal-scroll-dock";
+  app.appendChild(firstTable);
+  app.appendChild(firstDock);
+  harness.CDBVS.restoreViewport();
+  firstTable.scrollLeft = 42;
+  firstTable.scrollTop = 84;
+  firstTable.dispatchEvent({ type: "scroll", target: firstTable });
+
+  const secondTable = harness.document.createElement("div");
+  secondTable.className = "table-wrap";
+  secondTable.dataset.cdbvsViewportKey = "table:Scores";
+  const secondDock = harness.document.createElement("div");
+  secondDock.className = "horizontal-scroll-dock";
+  app.replaceChildren(secondTable, secondDock);
+  harness.CDBVS.restoreViewport();
+  assert.equal(secondTable.scrollLeft, 0);
+  assert.equal(secondTable.scrollTop, 0);
+
+  const raw = harness.document.createElement("textarea");
+  raw.className = "raw-editor";
+  raw.dataset.cdbvsViewportKey = "raw";
+  app.replaceChildren(raw);
+  harness.CDBVS.restoreViewport();
+  raw.scrollLeft = 3;
+  raw.scrollTop = 7;
+  raw.dispatchEvent({ type: "scroll", target: raw });
+
+  const renamedTable = harness.document.createElement("div");
+  renamedTable.className = "table-wrap";
+  renamedTable.dataset.cdbvsViewportKey = "table:Renamed";
+  const renamedDock = harness.document.createElement("div");
+  renamedDock.className = "horizontal-scroll-dock";
+  app.replaceChildren(renamedTable, renamedDock);
+  harness.CDBVS.renameViewport("Players", "Renamed");
+  harness.CDBVS.restoreViewport();
+  assert.equal(renamedTable.scrollLeft, 42);
+  assert.equal(renamedTable.scrollTop, 84);
+  assert.equal(renamedDock.scrollLeft, 42);
+
+  app.replaceChildren(raw);
+  raw.scrollLeft = 0;
+  raw.scrollTop = 0;
+  harness.CDBVS.restoreViewport();
+  assert.equal(raw.scrollLeft, 3);
+  assert.equal(raw.scrollTop, 7);
+});
+
 test("row editor keeps a draft until Save and text editor supports cancel and save", () => {
   const target = {
     name: "Players",

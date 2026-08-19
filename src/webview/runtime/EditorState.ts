@@ -30,6 +30,7 @@ export function createEditorState(): WebviewState {
     collapsedSeparators: {},
     showHiddenSheets: false,
     expandedLists: new Set<string>(),
+    viewports: {},
     scrollLeft: 0,
     scrollTop: 0
   };

@@ -6,6 +6,7 @@
   const sheetState = services.sheetState;
   const sheetLifecycle = sheetState.lifecycle;
   const sheetViewModel = services.sheetView;
+  const renameViewport = CDBVS.renameViewport;
   const commitMutation = services.application.commitMutation;
   const model = services.document.operations.sheets;
 
@@ -39,7 +40,10 @@
     if (!sheet) return false;
     const oldName = sheet.name;
     const result = model.rename(sheet, newName);
-    if (result === true && oldName !== sheet.name) sheetLifecycle.renameSheet(oldName, sheet.name);
+    if (result === true && oldName !== sheet.name) {
+      sheetLifecycle.renameSheet(oldName, sheet.name);
+      if (typeof renameViewport === "function") renameViewport(oldName, sheet.name);
+    }
     return result;
   }
 
@@ -47,7 +51,10 @@
     if (!sheet) return { ok: false, message: "Sheet is unavailable." };
     const oldName = sheet.name;
     const result = model.updateMetadata(sheet, options);
-    if (result.ok && oldName !== sheet.name) sheetLifecycle.renameSheet(oldName, sheet.name);
+    if (result.ok && oldName !== sheet.name) {
+      sheetLifecycle.renameSheet(oldName, sheet.name);
+      if (typeof renameViewport === "function") renameViewport(oldName, sheet.name);
+    }
     return result;
   }
 
