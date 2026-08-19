@@ -12,7 +12,7 @@
 
   function visibleSheets() {
     const sheets = documentModel.sheets();
-    return sheets.filter((sheet) => !viewState.showHiddenSheets() || !sheet.props || !sheet.props.hide);
+    return sheets.filter((sheet) => viewState.showHiddenSheets() || !sheet.props || !sheet.props.hide);
   }
 
   function currentSheet() {

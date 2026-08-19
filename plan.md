@@ -4,6 +4,13 @@
 
 The first working editor baseline is in place. The repository now contains a desktop VS Code extension with a custom `.cdb` editor, a spreadsheet-style webview, schema-aware primitive/reference controls, row/column/sheet editing, quick search, per-column filtering and sorting, and a raw JSON fallback. The reusable CastleDB Haxe `cdb` sources from `Cursemark\.haxelib\castle\git` are vendored under `vendor/castledb/cdb`, while the legacy level-editor sources are intentionally excluded. Marketplace release metadata and packaging exclusions are also prepared; publisher registration, authentication, and final VSIX validation remain external steps.
 
+## Test expansion and hidden-sheet regression fix (2026-08-18)
+
+- Expanded the automated suite from 68 to 106 tests across CastleDB parsing/validation, host document and command boundaries, update queues, CSP HTML generation, the production webview bootstrap, type conversion, schema defaults, validation decorations, row/separator operations, filtering/sorting, raw JSON recovery, modals, context menus, clipboard behavior, viewport restoration, table rendering, and the existing interaction regressions.
+- Added direct TypeScript-module loading for host/domain unit tests and extended the fake DOM with browser APIs used by the production code (`Event`, element IDs, `offsetHeight`, and `setSelectionRange`).
+- Fixed `visibleSheets()` so hidden sheets are excluded when `cdbvs.showHiddenSheets` is false and included when it is true.
+- Verification completed: `npm.cmd test` (106 tests), `npm.cmd run check-types`, `npm.cmd run package`, `git diff --check`, and built-in Node coverage at approximately 86.5% lines, 77.2% branches, and 91% functions. Real VS Code Extension Development Host testing remains an integration-test follow-up.
+
 ## TypeScript/build and boundary hardening update (2026-08-18)
 
 - Migrated the extension host, CastleDB parser, document adapter, shared protocol, and webview source tree to TypeScript under `src/`.

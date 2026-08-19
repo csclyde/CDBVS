@@ -6,6 +6,7 @@ class FakeElement {
     this.children = [];
     this.listeners = {};
     this.attributes = {};
+    this.id = "";
     this.dataset = {};
     this.style = {};
     this.className = "";
@@ -24,6 +25,7 @@ class FakeElement {
     this.scrollTop = 0;
     this.scrollWidth = 0;
     this.offsetWidth = 0;
+    this.offsetHeight = 0;
     this.clientWidth = 0;
   }
 
@@ -106,6 +108,11 @@ class FakeElement {
 
   select() {}
 
+  setSelectionRange(start, end) {
+    this.selectionStart = start;
+    this.selectionEnd = end;
+  }
+
   closest(selector) {
     let current = this;
     while (current) {
@@ -168,7 +175,17 @@ class FakeDocument extends FakeElement {
   }
 
   getElementById(id) {
-    return this.querySelector(`#${id}`);
+    let found = null;
+    const visit = (element) => {
+      if (found) return;
+      if (element.id === id || element.attributes.id === id) {
+        found = element;
+        return;
+      }
+      element.children.forEach(visit);
+    };
+    visit(this);
+    return found;
   }
 }
 

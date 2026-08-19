@@ -172,6 +172,9 @@ function createWebviewHarness(data) {
     Map,
     Date,
     RegExp,
+    Event: class FakeEvent {
+      constructor(type, options = {}) { this.type = type; Object.assign(this, options); }
+    },
     parseInt,
     parseFloat,
     isNaN,
