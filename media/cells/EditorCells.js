@@ -50,6 +50,19 @@
         : (Array.isArray(editSheet.columns) ? editSheet.columns.indexOf(column) : -1);
       return !!active && active.rowIndex === editRowIndex && active.columnIndex === editColumnIndex;
     };
+    const isFocusedSelectedCellEditor = () => {
+      const editSheet = cellContext.editSheet || cellContext.sheet;
+      if (!editSheet || typeof CDBVS.selectedCell !== "function" || typeof document === "undefined") return false;
+      const selected = CDBVS.selectedCell(editSheet);
+      const editRowIndex = Number.isInteger(cellContext.editRowIndex) ? cellContext.editRowIndex : cellContext.rowIndex;
+      const editColumnIndex = Number.isInteger(cellContext.editColumnIndex)
+        ? cellContext.editColumnIndex
+        : (Array.isArray(editSheet.columns) ? editSheet.columns.indexOf(column) : -1);
+      const focused = document.activeElement;
+      return !!selected && selected.rowIndex === editRowIndex && selected.columnIndex === editColumnIndex
+        && !!focused && typeof cell.contains === "function" && cell.contains(focused);
+    };
+    const isEditingCell = () => isActiveCellEditor() || isFocusedSelectedCellEditor();
     const refreshAfterCommit = () => {
       if (typeof cellContext.refresh === "function") cellContext.refresh();
       else if (typeof CDBVS.refreshRenderedCell === "function") {
@@ -134,7 +147,7 @@
       if (next === undefined) return;
       needsCommit = true;
       row[column.name] = next;
-      if (isActiveCellEditor()) return;
+      if (isEditingCell()) return;
       if (typeof CDBVS.scheduleUpdate === "function") CDBVS.scheduleUpdate();
       else CDBVS.sendUpdate();
     });
@@ -150,7 +163,7 @@
         return;
       }
       if (next !== undefined) row[column.name] = next;
-      if (isActiveCellEditor() && !committing) {
+      if (isEditingCell() && !committing) {
         needsCommit = true;
         return;
       }

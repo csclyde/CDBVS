@@ -549,6 +549,39 @@ test("Tab exits the current editor and activates the next cell", () => {
   assert.equal(harness.document.activeElement, previousCell.querySelector("input"));
 });
 
+test("focused numeric drafts survive rapid input when active state is stale", () => {
+  const target = sheet("Players");
+  target.columns = [{ name: "count", typeStr: "3" }];
+  target.lines = [{ count: 0 }];
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target] });
+  harness.context.innerWidth = 1200;
+  harness.context.innerHeight = 800;
+  harness.context.Event = class { constructor(type) { this.type = type; } };
+  harness.CDBVS.app = harness.document.createElement("div");
+  harness.CDBVS.rememberViewport = () => {};
+  harness.CDBVS.restoreViewport = () => {};
+  loadScript(harness.context, "EditorCells.js");
+  loadScript(harness.context, "EditorView.js");
+  harness.CDBVS.render();
+
+  const cell = harness.CDBVS.app.querySelectorAll("td").find((item) => item.dataset.columnIndex === "0");
+  cell.dispatchEvent({ type: "click" });
+  cell.dispatchEvent({ type: "click" });
+  const input = cell.querySelector("input");
+  harness.state.activeCells = {};
+  const scheduledBefore = harness.updates.length;
+  ["1", "12", "123", "1234"].forEach((value) => {
+    input.value = value;
+    input.dispatchEvent({ type: "input", target: input });
+  });
+  assert.equal(target.lines[0].count, 1234);
+  assert.equal(harness.updates.length, scheduledBefore);
+
+  harness.document.dispatchEvent({ type: "keydown", key: "Enter", target: input, preventDefault() {} });
+  assert.equal(harness.CDBVS.activeCell(target), null);
+  assert.equal(target.lines[0].count, 1234);
+});
+
 test("arrow keys select an initial cell before any cell has been selected", () => {
   const target = sheet("Players");
   target.columns = [{ name: "a", typeStr: "1" }, { name: "b", typeStr: "1" }];
@@ -869,6 +902,43 @@ test("vertical arrows enter and traverse expanded list items", () => {
   assert.equal(harness.state.selectedListCells["Groups/0/members"], undefined);
   assert.equal(harness.document.activeElement, listCell);
   assert.equal(harness.CDBVS.selectedCell(target).columnIndex, 0);
+});
+
+test("Ctrl/Cmd+Up and Down reorder selected list items without moving the parent row", () => {
+  const target = sheet("Groups");
+  target.columns = [{ name: "id", typeStr: "0" }, { name: "members", typeStr: "8" }];
+  target.lines = [
+    { id: "group-a", members: [{ name: "Ada" }, { name: "Grace" }] },
+    { id: "group-b", members: [{ name: "Lee" }] }
+  ];
+  const child = sheet("Groups@members");
+  child.columns = [{ name: "name", typeStr: "1" }];
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target, child] });
+  harness.context.innerWidth = 1200;
+  harness.context.innerHeight = 800;
+  harness.context.Event = class { constructor(type) { this.type = type; } };
+  harness.CDBVS.app = harness.document.createElement("div");
+  harness.CDBVS.rememberViewport = () => {};
+  harness.CDBVS.restoreViewport = () => {};
+  harness.state.expandedLists.add("Groups/0/members");
+  loadScript(harness.context, "EditorCells.js");
+  loadScript(harness.context, "EditorView.js");
+  harness.CDBVS.render();
+
+  const listCell = harness.CDBVS.app.querySelectorAll("td").find((cell) => cell.classList.contains("list-cell"));
+  listCell.dispatchEvent({ type: "click", target: listCell });
+  harness.document.dispatchEvent({ type: "keydown", key: "ArrowDown", target: listCell, preventDefault() {} });
+  assert.equal(harness.state.selectedListCells["Groups/0/members"].itemIndex, 0);
+
+  harness.document.dispatchEvent({ type: "keydown", key: "ArrowDown", ctrlKey: true, target: harness.document.activeElement, preventDefault() {} });
+  assert.deepEqual(target.lines[0].members.map((item) => item.name), ["Grace", "Ada"]);
+  assert.deepEqual(target.lines.map((row) => row.id), ["group-a", "group-b"]);
+  assert.equal(harness.state.selectedListCells["Groups/0/members"].itemIndex, 1);
+
+  harness.document.dispatchEvent({ type: "keydown", key: "ArrowUp", metaKey: true, target: harness.document.activeElement, preventDefault() {} });
+  assert.deepEqual(target.lines[0].members.map((item) => item.name), ["Ada", "Grace"]);
+  assert.deepEqual(target.lines.map((row) => row.id), ["group-a", "group-b"]);
+  assert.equal(harness.state.selectedListCells["Groups/0/members"].itemIndex, 0);
 });
 
 test("vertical arrows cross list-cell boundaries without skipping open lists", () => {

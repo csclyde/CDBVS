@@ -35,6 +35,47 @@
       const selected = selectedListItems();
       return selected.length ? selected[selected.length - 1] : null;
     };
+    const moveSelectedListItem = (direction) => {
+      if (direction !== -1 && direction !== 1) return false;
+      const selected = selectedListItems().sort((left, right) => left - right);
+      if (!selected.length) return false;
+      if ((direction < 0 && selected[0] <= 0) || (direction > 0 && selected[selected.length - 1] >= values.length - 1)) return false;
+      const selectedSet = new Set(selected);
+      if (direction < 0) {
+        selected.forEach((index) => {
+          if (!selectedSet.has(index - 1)) [values[index - 1], values[index]] = [values[index], values[index - 1]];
+        });
+      } else {
+        selected.slice().reverse().forEach((index) => {
+          if (!selectedSet.has(index + 1)) [values[index], values[index + 1]] = [values[index + 1], values[index]];
+        });
+      }
+      const selectedNext = selected.map((index) => index + direction);
+      const active = currentSelectedItem();
+      const anchor = state.listSelectionAnchors && state.listSelectionAnchors[key];
+      storeSelectedItems(selectedNext, active === null ? null : active + direction,
+        Number.isInteger(anchor) ? anchor + direction : undefined);
+      const nestedSelection = selectedListCell();
+      if (nestedSelection && selectedSet.has(nestedSelection.itemIndex)) {
+        nestedSelection.itemIndex += direction;
+        if (!state.selectedListCells) state.selectedListCells = {};
+        state.selectedListCells[key] = nestedSelection;
+      }
+      if (editSheet && typeof CDBVS.deactivateCell === "function") CDBVS.deactivateCell(editSheet);
+      rerender();
+      const focusNestedSelection = () => {
+        const nextNestedSelection = selectedListCell();
+        if (nextNestedSelection) focusListCell(nextNestedSelection.itemIndex, nextNestedSelection.columnIndex);
+        else {
+          const row = listItemRows()[active === null ? selectedNext[selectedNext.length - 1] : active + direction];
+          if (row && typeof row.focus === "function") row.focus({ preventScroll: true });
+        }
+      };
+      if (typeof requestAnimationFrame === "function") requestAnimationFrame(focusNestedSelection);
+      else focusNestedSelection();
+      if (!deferChanges) CDBVS.sendUpdate();
+      return true;
+    };
     const listItemRows = () => {
       const table = cell.querySelector(".nested-table");
       const body = table && table.querySelector("tbody");
@@ -212,6 +253,8 @@
       ]);
     };
     cell._cdbvsHasSelectedListCell = () => !!selectedListCell();
+    cell._cdbvsHasSelectedListItem = () => selectedListItems().length > 0;
+    cell._cdbvsMoveSelectedListItem = moveSelectedListItem;
     cell._cdbvsActivateSelectedListCell = activateSelectedListCell;
     cell._cdbvsExitSelectedListCell = exitSelectedListCell;
     cell._cdbvsDeleteSelectedListCell = deleteSelectedListCell;

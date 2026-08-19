@@ -90,11 +90,20 @@
         : null);
     const nestedListCellSelected = listCell && typeof listCell._cdbvsHasSelectedListCell === "function"
       && listCell._cdbvsHasSelectedListCell();
+    const nestedListItemSelected = listCell && typeof listCell._cdbvsHasSelectedListItem === "function"
+      && listCell._cdbvsHasSelectedListItem();
     // Once a cell is active, its editor owns arrow keys so text cursors, number
     // inputs, selects, and nested editors can navigate their own value without
     // moving the grid selection.
     if (typeof CDBVS.handleSelectKeydown === "function"
       && CDBVS.handleSelectKeydown(event.target, event)) return;
+    if (modified && !event.altKey && (key === "arrowup" || key === "arrowdown")
+      && nestedListItemSelected && typeof listCell._cdbvsMoveSelectedListItem === "function") {
+      event.preventDefault();
+      CDBVS.commitEditorTarget(editorTarget);
+      listCell._cdbvsMoveSelectedListItem(key === "arrowup" ? -1 : 1);
+      return;
+    }
     if (!modified && !event.altKey && key === "insert" && !editorTarget
       && listCell && typeof listCell._cdbvsInsertSelectedListItem === "function") {
       event.preventDefault();
@@ -139,6 +148,11 @@
       }
       if (activeSelection) {
         event.preventDefault();
+        CDBVS.exitRenderedCell(sheet);
+      } else if (editorTarget && editorTarget.tagName !== "SELECT" && editorCell && cellSelection
+        && editorCell === CDBVS.findRenderedCell(cellSelection.rowIndex, cellSelection.columnIndex)) {
+        event.preventDefault();
+        CDBVS.activateCell(sheet, cellSelection.rowIndex, cellSelection.columnIndex);
         CDBVS.exitRenderedCell(sheet);
       } else {
         CDBVS.activateRenderedCell(sheet, cellSelection.rowIndex, cellSelection.columnIndex, event);

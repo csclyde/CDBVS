@@ -203,3 +203,5 @@ These are intentionally still open for the next milestone:
 - The modal and shared webview-manifest refactor passes all 44 Node tests, recursive JavaScript syntax checks, and `git diff --check`; a real packaged Extension Development Host smoke test remains outstanding.
 - Keep the extension desktop-only and do not bring over the source repository's `src/lvl` or `Level.hx` level editor.
 - Tab and Shift+Tab now move through visible grid cells while exiting the prior editor and immediately activating the destination editor; the regression suite passes 59 tests.
+- Focused numeric drafts now avoid debounced rerenders even if active-cell state is stale, and Enter commits/exits that editor; rapid numeric-input regression coverage passes.
+- Ctrl/Cmd+Up and Down now reorder selected expanded-list items without moving their parent sheet row; regression coverage preserves nested selection and parent order.
