@@ -92,6 +92,20 @@
       && listCell._cdbvsHasSelectedListCell();
     const nestedListItemSelected = listCell && typeof listCell._cdbvsHasSelectedListItem === "function"
       && listCell._cdbvsHasSelectedListItem();
+    const directListToggle = event.target && event.target.closest && event.target.closest(".list-toggle");
+    // A nested list toggle is its own control. Resolve the nearest list cell
+    // from the actual toggle before falling back to the selected outer cell;
+    // otherwise Enter on a nested toggle can reopen/close the wrong level.
+    const directToggleCell = directListToggle && directListToggle.closest
+      ? directListToggle.closest(".list-cell")
+      : null;
+    if (!modified && !event.altKey && key === "enter" && directListToggle
+      && (directToggleCell || listCell)
+      && typeof (directToggleCell || listCell)._cdbvsToggleList === "function") {
+      event.preventDefault();
+      (directToggleCell || listCell)._cdbvsToggleList(event);
+      return;
+    }
     // Once a cell is active, its editor owns arrow keys so text cursors, number
     // inputs, selects, and nested editors can navigate their own value without
     // moving the grid selection.

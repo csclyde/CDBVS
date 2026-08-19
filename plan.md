@@ -60,6 +60,7 @@ The first working editor baseline is in place. The repository now contains a des
 - Added application coordinators for sheet, column, and row operations. They own cross-model effects such as active-sheet reconciliation, sheet-state cleanup, selection/filter migration, nested-sheet cleanup, and separator-collapse index shifting.
 - Reduced document models to structural operations: sheet, column, and row models no longer decide persistence/rendering or directly clean up unrelated runtime state. Views consume the named sheet projection service rather than the ambient sheet-view global.
 - Added composition-boundary regression coverage. Verification completed: `npm.cmd test` (66 tests), `npm.cmd run package`, and `git diff --check` pass. A real packaged VS Code Extension Development Host smoke test remains outstanding.
+- Hardened list-cell click and Enter toggles against real DOM bubbling and native button activation, including nested list scope; the regression suite now exercises bubbling clicks and direct toggle-control Enter events. Verification remains at 68 passing tests with development and production builds succeeding.
 
 ## Completed
 

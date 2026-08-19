@@ -29,7 +29,8 @@
       } else commitCellMutation(mutator, refresh);
     };
     const preview = Object.keys(properties).length ? listPreview([properties], schema) : "empty properties";
-    const toggle = makeButton("", () => {
+    const toggleProperties = (event) => {
+      if (event && typeof event.stopPropagation === "function") event.stopPropagation();
       const wasExpanded = sheetState.isListExpanded(key);
       const rawValue = row[column.name];
       const needsObject = !rawValue || typeof rawValue !== "object" || Array.isArray(rawValue);
@@ -43,7 +44,9 @@
         }
         return true;
       }, documentChanged);
-    }, expanded ? "list-toggle expanded" : "list-toggle");
+    };
+    const toggle = makeButton("", toggleProperties, expanded ? "list-toggle expanded" : "list-toggle");
+    cell._cdbvsToggleList = toggleProperties;
     toggle.title = expanded ? "Collapse properties" : "Expand properties";
     toggle.setAttribute("aria-label", toggle.title);
     toggle.appendChild(makeElement("span", preview, "list-preview"));

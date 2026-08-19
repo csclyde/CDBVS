@@ -341,7 +341,11 @@
         return true;
       }) === true;
     };
-    const toggleList = () => {
+    const toggleList = (event) => {
+      // The parent table cell also listens for clicks to select/activate cells.
+      // Stop this control event after handling the list toggle so a real DOM
+      // bubble cannot immediately re-enter cell activation after rerendering.
+      if (event && typeof event.stopPropagation === "function") event.stopPropagation();
       const wasExpanded = sheetState.isListExpanded(key);
       if (wasExpanded) {
         const active = editSheet && typeof CDBVS.activeCell === "function" ? CDBVS.activeCell(editSheet) : null;

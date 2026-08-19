@@ -14,6 +14,21 @@ function click(element) {
   element.dispatchEvent({ type: "click" });
 }
 
+function dispatchBubbling(element, type, options = {}) {
+  const event = Object.assign({
+    type,
+    target: element,
+    preventDefault() {},
+    stopPropagation() { this.cancelBubble = true; }
+  }, options);
+  let current = element;
+  while (current && !event.cancelBubble) {
+    current.dispatchEvent(event);
+    current = current.parentNode;
+  }
+  return event;
+}
+
 function buttonByText(root, text) {
   return root.querySelectorAll("button").find((button) => button.textContent === text);
 }
@@ -1043,12 +1058,13 @@ test("list-cell click and Enter consistently toggle edit mode with expansion", (
   assert.equal(harness.state.expandedLists.has("Groups/0/members"), false);
 
   let listToggle = listCell.querySelector(".list-toggle");
-  listCell.dispatchEvent({ type: "mousedown", target: listToggle, button: 0, preventDefault() {} });
-  listToggle.dispatchEvent({ type: "click", target: listToggle });
+  dispatchBubbling(listToggle, "mousedown", { button: 0 });
+  dispatchBubbling(listToggle, "click");
   assert.equal(harness.state.expandedLists.has("Groups/0/members"), true);
   assert.equal(harness.CDBVS.activeCell(target).columnIndex, 0);
 
-  harness.document.dispatchEvent({ type: "keydown", key: "Enter", target: listCell, preventDefault() {} });
+  listToggle = listCell.querySelector(".list-toggle");
+  harness.document.dispatchEvent({ type: "keydown", key: "Enter", target: listToggle, preventDefault() {} });
   assert.equal(harness.state.expandedLists.has("Groups/0/members"), false);
   assert.equal(harness.CDBVS.activeCell(target), null);
 
@@ -1057,10 +1073,77 @@ test("list-cell click and Enter consistently toggle edit mode with expansion", (
   assert.equal(harness.CDBVS.activeCell(target).columnIndex, 0);
 
   listToggle = listCell.querySelector(".list-toggle");
-  listCell.dispatchEvent({ type: "mousedown", target: listToggle, button: 0, preventDefault() {} });
-  listToggle.dispatchEvent({ type: "click", target: listToggle, preventDefault() {}, stopPropagation() {} });
+  dispatchBubbling(listToggle, "mousedown", { button: 0 });
+  dispatchBubbling(listToggle, "click");
   assert.equal(harness.state.expandedLists.has("Groups/0/members"), false);
   assert.equal(harness.CDBVS.activeCell(target), null);
+});
+
+test("properties cells use the same click and Enter toggle contract", () => {
+  const target = sheet("Groups");
+  target.columns = [{ name: "settings", typeStr: "17" }];
+  target.lines = [{ settings: {} }];
+  const child = sheet("Groups@settings");
+  child.columns = [{ name: "label", typeStr: "1" }];
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target, child] });
+  harness.context.innerWidth = 1200;
+  harness.context.innerHeight = 800;
+  harness.context.Event = class { constructor(type) { this.type = type; } };
+  harness.CDBVS.app = harness.document.createElement("div");
+  harness.CDBVS.rememberViewport = () => {};
+  harness.CDBVS.restoreViewport = () => {};
+  loadScript(harness.context, "EditorCells.js");
+  loadScript(harness.context, "EditorView.js");
+  harness.CDBVS.render();
+
+  const listCell = harness.CDBVS.app.querySelectorAll("td").find((cell) => cell.dataset.columnIndex === "0");
+  listCell.dispatchEvent({ type: "mousedown", target: listCell, button: 0, preventDefault() {} });
+  listCell.dispatchEvent({ type: "click", target: listCell });
+  let listToggle = listCell.querySelector(".list-toggle");
+  dispatchBubbling(listToggle, "mousedown", { button: 0 });
+  dispatchBubbling(listToggle, "click");
+  assert.equal(harness.state.expandedLists.has("Groups/0/settings"), true);
+
+  listToggle = listCell.querySelector(".list-toggle");
+  harness.document.dispatchEvent({ type: "keydown", key: "Enter", target: listToggle, preventDefault() {} });
+  assert.equal(harness.state.expandedLists.has("Groups/0/settings"), false);
+});
+
+test("nested list toggles stay scoped to their own list cell", () => {
+  const target = sheet("Groups");
+  target.columns = [{ name: "members", typeStr: "8" }];
+  target.lines = [{ members: [{ children: [{ name: "Ada" }] }] }];
+  const child = sheet("Groups@members");
+  child.columns = [{ name: "children", typeStr: "8" }];
+  const grandchild = sheet("Groups@members@children");
+  grandchild.columns = [{ name: "name", typeStr: "1" }];
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target, child, grandchild] });
+  harness.context.innerWidth = 1200;
+  harness.context.innerHeight = 800;
+  harness.context.Event = class { constructor(type) { this.type = type; } };
+  harness.CDBVS.app = harness.document.createElement("div");
+  harness.CDBVS.rememberViewport = () => {};
+  harness.CDBVS.restoreViewport = () => {};
+  harness.state.expandedLists.add("Groups/0/members");
+  loadScript(harness.context, "EditorCells.js");
+  loadScript(harness.context, "EditorView.js");
+  harness.CDBVS.render();
+
+  const outerCell = harness.CDBVS.app.querySelectorAll("td").find((cell) => cell.dataset.columnIndex === "0");
+  const nestedCell = outerCell.querySelector(".nested-cell.list-cell");
+  assert.ok(nestedCell);
+  assert.equal(harness.state.expandedLists.has("Groups/0/members"), true);
+  assert.equal(harness.state.expandedLists.has("Groups/0/members/0/children"), false);
+
+  dispatchBubbling(nestedCell.querySelector(".list-toggle"), "mousedown", { button: 0 });
+  dispatchBubbling(nestedCell.querySelector(".list-toggle"), "click");
+  assert.equal(harness.state.expandedLists.has("Groups/0/members"), true);
+  assert.equal(harness.state.expandedLists.has("Groups/0/members/0/children"), true);
+
+  const nestedToggle = nestedCell.querySelector(".list-toggle");
+  harness.document.dispatchEvent({ type: "keydown", key: "Enter", target: nestedToggle, preventDefault() {} });
+  assert.equal(harness.state.expandedLists.has("Groups/0/members"), true);
+  assert.equal(harness.state.expandedLists.has("Groups/0/members/0/children"), false);
 });
 
 test("selecting another cell does not collapse previously expanded lists", () => {
