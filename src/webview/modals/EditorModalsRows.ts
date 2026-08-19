@@ -1,8 +1,8 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
+  const commitMutation = CDBVS.services.application.commitMutation;
   const makeElement = CDBVS.makeElement;
-  const commitMutation = CDBVS.commitMutation;
   const appendModalActions = CDBVS.appendModalActions;
   const createModal = CDBVS.createModal;
   const setActiveModal = CDBVS.setActiveModal;

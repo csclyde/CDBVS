@@ -1,10 +1,14 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
+  const application = CDBVS.services.application;
+  const sheetState = CDBVS.services.sheetState;
+  const tableCapabilities = CDBVS.capabilities.table;
+  const sheetView = CDBVS.services.sheetView;
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
-  const renderMutation = CDBVS.renderMutation;
-  const commitMutation = CDBVS.commitMutation;
+  const renderMutation = application.renderMutation;
+  const commitMutation = application.commitMutation;
   const updateSeparatorTitle = CDBVS.updateSeparatorTitle;
 
   function editSeparatorTitle(sheet, separator, separatorPosition, titleSpan, label) {
@@ -50,10 +54,10 @@
       const props = sheet.props || {};
       const titles = Array.isArray(props.separatorTitles) ? props.separatorTitles : [];
       const title = separator && typeof separator === "object" && separator.title ? separator.title : titles[separatorPosition];
-      const collapsed = CDBVS.isSeparatorCollapsed(sheet, index);
+      const collapsed = sheetState.isSeparatorCollapsed(sheet.name, index);
       const label = makeElement("span", null, "separator-label");
       const toggle = makeButton(collapsed ? "\u25B6" : "\u25BC", () => {
-        CDBVS.toggleSeparatorCollapsed(sheet, index);
+        sheetState.toggleSeparatorCollapsed(sheet.name, index);
         renderMutation();
       }, "separator-toggle");
       toggle.title = collapsed ? "Expand section" : "Collapse section";
@@ -76,7 +80,7 @@
 
   function renderTableBody(sheet) {
     const body = document.createElement("tbody");
-    const rows = CDBVS.sheetViewModel.rowsForView(sheet);
+    const rows = sheetView.rowsForView(sheet);
     const separatorRows = new Map();
     const separatorIndexes = [];
     (sheet.separators || []).forEach((separator, separatorPosition) => {
@@ -97,7 +101,7 @@
         if (separatorIndexes[middle] <= rowIndex) { last = separatorIndexes[middle]; low = middle + 1; }
         else high = middle - 1;
       }
-      return last !== null && CDBVS.isSeparatorCollapsed(sheet, last);
+      return last !== null && sheetState.isSeparatorCollapsed(sheet.name, last);
     };
     const selected = CDBVS.selectedRowIndices(sheet);
     const selectedCellValue = CDBVS.selectedCell(sheet);
@@ -127,7 +131,7 @@
       rowCell.appendChild(rowSelect);
       tr.appendChild(rowCell);
       (sheet.columns || []).forEach((column, columnIndex) => {
-        tr.appendChild(CDBVS.renderTableCell(sheet, row, rowIndex, column, columnIndex, tr, cellErrors, selectedCellValue));
+        tr.appendChild(tableCapabilities.renderCell(sheet, row, rowIndex, column, columnIndex, tr, cellErrors, selectedCellValue));
       });
       body.appendChild(tr);
     });
@@ -141,5 +145,6 @@
     return body;
   }
 
+  CDBVS.capabilities.table.renderBody = renderTableBody;
   CDBVS.renderTableBody = renderTableBody;
 })(window);

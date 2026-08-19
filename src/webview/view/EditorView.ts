@@ -1,9 +1,11 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
-  const sheetState = CDBVS.sheetState;
-  const sheetViewModel = CDBVS.sheetViewModel;
-  const viewState = CDBVS.viewState;
+  const viewCapabilities = CDBVS.capabilities.views;
+  const services = CDBVS.services;
+  const sheetState = services.sheetState;
+  const sheetViewModel = services.sheetView;
+  const viewState = services.viewState;
   const getFilter = viewState.getFilter;
   const setFilter = viewState.setFilter;
   const setRawMode = viewState.setRawMode;
@@ -88,7 +90,7 @@
     viewControls.appendChild(searchWrap);
     viewToolbar.appendChild(viewControls);
     const viewSummary = makeElement("div", null, "sheet-view-summary");
-    CDBVS.renderViewSummary(viewSummary, selectedSheet);
+    viewCapabilities.renderViewSummary(viewSummary, selectedSheet);
     viewToolbar.appendChild(viewSummary);
     app.appendChild(viewToolbar);
 
@@ -98,8 +100,8 @@
     if (issues.length) status.textContent = issues.join(" / ");
     app.appendChild(status);
     const content = makeElement("main", null, "content");
-    if (isRawMode() || !hasDocument()) CDBVS.renderRaw(content);
-    else CDBVS.renderTable(content, sheetViewModel.currentSheet());
+    if (isRawMode() || !hasDocument()) viewCapabilities.renderRaw(content);
+    else viewCapabilities.renderTable(content, sheetViewModel.currentSheet());
     app.appendChild(content);
     app.appendChild(sheetsBar);
     requestAnimationFrame(restoreViewport);

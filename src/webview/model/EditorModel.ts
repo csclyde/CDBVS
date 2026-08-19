@@ -1,7 +1,8 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
-  const documentModel = CDBVS.documentModel;
+  const services = CDBVS.services;
+  const documentModel = services.document;
 
   function allSheets() {
     return documentModel.sheets();

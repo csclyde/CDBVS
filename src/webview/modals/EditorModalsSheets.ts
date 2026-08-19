@@ -1,10 +1,10 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
+  const commitMutation = CDBVS.services.application.commitMutation;
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
-  const commitMutation = CDBVS.commitMutation;
-  const visibleSheets = CDBVS.sheetViewModel.visibleSheets;
+  const visibleSheets = CDBVS.services.sheetView.visibleSheets;
   const updateSheetMetadata = CDBVS.updateSheetMetadata;
   const moveSheet = CDBVS.moveSheet;
   const idColumn = CDBVS.idColumn;

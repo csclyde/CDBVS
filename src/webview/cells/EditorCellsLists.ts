@@ -1,16 +1,18 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
+  const services = CDBVS.services;
+  const tableCapabilities = CDBVS.capabilities.table;
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
   const listKey = CDBVS.listKey;
   const listPreview = CDBVS.listPreview;
   const createRowForSchema = CDBVS.createRowForSchema;
   const refreshCell = CDBVS.refreshCell;
-  const commitCellMutation = CDBVS.commitCellMutation;
+  const commitCellMutation = services.application.commitCellMutation;
   const setCellValue = CDBVS.setCellValue;
-  const sheetState = CDBVS.sheetState;
-  const clipboardState = CDBVS.clipboardState;
+  const sheetState = services.sheetState;
+  const clipboardState = services.clipboard;
 
   function renderListCell(cell, row, column, context, schema) {
     const deferChanges = context && context.deferChanges === true;
@@ -424,7 +426,7 @@
         childCell.tabIndex = -1;
         childCell.setAttribute("role", "gridcell");
         childCell.dataset.columnIndex = String(childColumnIndex);
-        if (typeof CDBVS.bindCellInteractions === "function") CDBVS.bindCellInteractions(childCell, {
+        if (typeof tableCapabilities.bindCellInteractions === "function") tableCapabilities.bindCellInteractions(childCell, {
           sheet: editSheet,
           rowIndex: itemIndex,
           columnIndex: childColumnIndex,
@@ -467,5 +469,6 @@
     updateListCellSelection();
   }
 
+  CDBVS.capabilities.cells.renderListCell = renderListCell;
   CDBVS.renderListCell = renderListCell;
 })(window);

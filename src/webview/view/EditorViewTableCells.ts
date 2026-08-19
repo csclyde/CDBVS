@@ -109,6 +109,8 @@
     return td;
   }
 
+  CDBVS.capabilities.table.renderCell = renderTableCell;
+  CDBVS.capabilities.table.bindCellInteractions = bindCellInteractions;
   CDBVS.renderTableCell = renderTableCell;
   CDBVS.bindCellInteractions = bindCellInteractions;
 })(window);

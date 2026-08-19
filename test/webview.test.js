@@ -36,6 +36,20 @@ test("document, sheet-state, and view-state models keep their boundaries", () =>
   assert.equal(harness.CDBVS.viewState.isRawMode(), false);
 });
 
+test("internal composition uses explicit services and capabilities", () => {
+  const target = sheet("Players");
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target] });
+
+  assert.strictEqual(harness.CDBVS.services.document, harness.CDBVS.documentModel);
+  assert.strictEqual(harness.CDBVS.services.sheetView, harness.CDBVS.sheetViewModel);
+  assert.equal(typeof harness.CDBVS.services.application.sheetActions.moveSheet, "function");
+  assert.equal(typeof harness.CDBVS.services.application.columnActions.applyColumnEdit, "function");
+  assert.equal(typeof harness.CDBVS.services.application.rowActions.insertRow, "function");
+  assert.strictEqual(harness.CDBVS.capabilities.cells.renderListCell, harness.CDBVS.renderListCell);
+  assert.strictEqual(harness.CDBVS.capabilities.table.renderCell, harness.CDBVS.renderTableCell);
+  assert.strictEqual(harness.CDBVS.capabilities.views.renderTable, harness.CDBVS.renderTable);
+});
+
 test("new sheet modal creates a sheet only after Save", () => {
   const harness = createWebviewHarness({ customTypes: [], sheets: [sheet()] });
   harness.CDBVS.openNewSheetEditor();

@@ -1,13 +1,14 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
+  const services = CDBVS.services;
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
   const typeOf = CDBVS.typeOf;
   const typeLabel = CDBVS.typeLabel;
   const referenceOptions = CDBVS.referenceOptions;
-  const renderMutation = CDBVS.renderMutation;
-  const setColumnFilters = CDBVS.sheetState.setFilters;
+  const renderMutation = services.application.renderMutation;
+  const setColumnFilters = services.sheetState.setFilters;
   const createModal = CDBVS.createModal;
 
   function openFilterModal(sheet) {
@@ -17,8 +18,8 @@
     }
     const { dialog, footer, close } = createModal({ className: "filter-modal", title: `Filter: ${sheet.name}` });
     const view = {
-      filters: CDBVS.sheetState.filters(sheet.name),
-      sort: CDBVS.sheetState.readSort(sheet.name)
+      filters: services.sheetState.filters(sheet.name),
+      sort: services.sheetState.readSort(sheet.name)
     };
     const draftFilters = CDBVS.cloneValue(view.filters) || {};
     const form = makeElement("div", null, "filter-form");

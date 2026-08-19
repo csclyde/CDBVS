@@ -1,9 +1,10 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
+  const tableCapabilities = CDBVS.capabilities.table;
+  const commitMutation = CDBVS.services.application.commitMutation;
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
-  const commitMutation = CDBVS.commitMutation;
   const documentText = CDBVS.documentText;
   const replaceDocumentText = CDBVS.replaceDocumentText;
 
@@ -30,8 +31,8 @@
     }
     const tableWrap = makeElement("div", null, "table-wrap");
     const table = document.createElement("table");
-    table.appendChild(CDBVS.renderTableHeader(sheet));
-    table.appendChild(CDBVS.renderTableBody(sheet));
+    table.appendChild(tableCapabilities.renderHeader(sheet));
+    table.appendChild(tableCapabilities.renderBody(sheet));
     tableWrap.appendChild(table);
     container.appendChild(tableWrap);
     const horizontalScroll = makeElement("div", null, "horizontal-scroll-dock");
@@ -51,5 +52,7 @@
     container.appendChild(horizontalScroll);
   }
 
+  CDBVS.capabilities.views.renderRaw = renderRaw;
+  CDBVS.capabilities.views.renderTable = renderTable;
   Object.assign(CDBVS, { renderRaw, renderTable });
 })(window);

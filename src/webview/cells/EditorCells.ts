@@ -1,17 +1,19 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
+  const cellCapabilities = CDBVS.capabilities.cells;
+  const application = CDBVS.services.application;
   const makeElement = CDBVS.makeElement;
   const typeOf = CDBVS.typeOf;
-  const currentSheet = CDBVS.sheetViewModel.currentSheet;
+  const currentSheet = CDBVS.services.sheetView.currentSheet;
   const listSheet = CDBVS.listSheet;
   const readValue = CDBVS.readValue;
   const valueText = CDBVS.valueText;
   const colorText = CDBVS.colorText;
   const referenceOptions = CDBVS.referenceOptions;
-  const renderMutation = CDBVS.renderMutation;
-  const commitCellMutation = CDBVS.commitCellMutation;
-  const scheduleCellMutation = CDBVS.scheduleCellMutation;
+  const renderMutation = application.renderMutation;
+  const commitCellMutation = application.commitCellMutation;
+  const scheduleCellMutation = application.scheduleCellMutation;
   const setCellValue = CDBVS.setCellValue;
 
   function canSyncInputValue(type, input) {
@@ -29,15 +31,15 @@
     const references = type.code === 6 ? referenceOptions(column) : null;
     if (type.code === 8) {
       const schema = listSheet(cellContext.sheet, column);
-      if (schema && typeof CDBVS.renderListCell === "function") {
-        CDBVS.renderListCell(cell, row, column, cellContext, schema);
+      if (schema && typeof cellCapabilities.renderListCell === "function") {
+        cellCapabilities.renderListCell(cell, row, column, cellContext, schema);
         return;
       }
     }
     if (type.code === 17) {
       const schema = listSheet(cellContext.sheet, column);
-      if (schema && typeof CDBVS.renderPropertiesCell === "function") {
-        CDBVS.renderPropertiesCell(cell, row, column, cellContext, schema);
+      if (schema && typeof cellCapabilities.renderPropertiesCell === "function") {
+        cellCapabilities.renderPropertiesCell(cell, row, column, cellContext, schema);
         return;
       }
     }

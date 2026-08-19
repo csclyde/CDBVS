@@ -1,12 +1,13 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
+  const services = CDBVS.services;
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
   const listKey = CDBVS.listKey;
   const listPreview = CDBVS.listPreview;
-  const sheetState = CDBVS.sheetState;
-  const commitCellMutation = CDBVS.commitCellMutation;
+  const sheetState = services.sheetState;
+  const commitCellMutation = services.application.commitCellMutation;
   const refreshCell = CDBVS.refreshCell;
   const setCellValue = CDBVS.setCellValue;
 
@@ -87,5 +88,6 @@
     cell.appendChild(editor);
   }
 
+  CDBVS.capabilities.cells.renderPropertiesCell = renderPropertiesCell;
   CDBVS.renderPropertiesCell = renderPropertiesCell;
 })(window);

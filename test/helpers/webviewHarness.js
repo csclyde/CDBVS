@@ -17,6 +17,8 @@ const WEBVIEW_SCRIPTS = [
   ["EditorStatus.js", "runtime"],
   ["EditorViewport.js", "runtime"],
   ["EditorModelDocument.js", "model"],
+  ["EditorServices.js", "runtime"],
+  ["EditorCapabilities.js", "runtime"],
   ["EditorModelValues.js", "model"],
   ["EditorModelSchema.js", "model"],
   ["EditorModel.js", "model"],
@@ -29,6 +31,9 @@ const WEBVIEW_SCRIPTS = [
   ["EditorModelRows.js", "model"],
   ["EditorModelSheets.js", "model"],
   ["EditorSelection.js", "model"],
+  ["EditorSheetActions.js", "application"],
+  ["EditorColumnActions.js", "application"],
+  ["EditorRowActions.js", "application"],
   ["EditorActionsClipboard.js", "actions"],
   ["EditorActions.js", "actions"],
   ["EditorModalShared.js", "modals"],
@@ -190,6 +195,8 @@ function createWebviewHarness(data) {
   loadScript(context, "EditorStatus.js");
   loadScript(context, "EditorViewport.js");
   loadScript(context, "EditorModelDocument.js");
+  loadScript(context, "EditorServices.js");
+  loadScript(context, "EditorCapabilities.js");
   loadScript(context, "EditorModelValues.js");
   loadScript(context, "EditorModelSchema.js");
   loadScript(context, "EditorModel.js");
@@ -202,6 +209,9 @@ function createWebviewHarness(data) {
   loadScript(context, "EditorModelRows.js");
   loadScript(context, "EditorModelSheets.js");
   loadScript(context, "EditorSelection.js");
+  loadScript(context, "EditorSheetActions.js");
+  loadScript(context, "EditorColumnActions.js");
+  loadScript(context, "EditorRowActions.js");
   loadScript(context, "EditorCellRendering.js");
   loadScript(context, "EditorCellsLists.js");
   loadScript(context, "EditorCellsProperties.js");

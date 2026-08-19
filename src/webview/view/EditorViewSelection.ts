@@ -1,13 +1,14 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
+  const sheetView = CDBVS.services.sheetView;
   function renderedRoot() {
     const app = CDBVS.app;
     return app && typeof app.querySelectorAll === "function" ? app : document;
   }
 
   function markRenderedRowSelected() {
-    const sheet = CDBVS.sheetViewModel.currentSheet();
+    const sheet = sheetView.currentSheet();
     renderedRoot().querySelectorAll(".table-wrap tr").forEach((row) => {
       if (CDBVS.isRowSelected(sheet, Number.parseInt(row.dataset.rowIndex, 10))) row.classList.add("row-selected");
       else row.classList.remove("row-selected");

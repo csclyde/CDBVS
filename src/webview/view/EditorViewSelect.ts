@@ -1,6 +1,7 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
+  const sheetView = CDBVS.services.sheetView;
   let openSelectState = null;
   let selectMenuId = 0;
 
@@ -149,7 +150,7 @@
     }
     openSelectState = {
       control, menu, filter, optionItems, filterValue: "", selectedIndex: 0,
-      sheet: sheet || CDBVS.sheetViewModel.currentSheet(), onClose, reposition, cleanup
+      sheet: sheet || sheetView.currentSheet(), onClose, reposition, cleanup
     };
     reposition();
     if (typeof control.setAttribute === "function") {

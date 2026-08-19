@@ -1,8 +1,9 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
-  const commitMutation = CDBVS.commitMutation;
-  const renderMutation = CDBVS.renderMutation;
+  const services = CDBVS.services;
+  const commitMutation = services.application.commitMutation;
+  const renderMutation = services.application.renderMutation;
   const selectedRowIndex = CDBVS.selectedRowIndex;
   const selectedRowIndices = CDBVS.selectedRowIndices;
   const selectedCell = CDBVS.selectedCell;
@@ -12,9 +13,11 @@
   const deleteRowAt = CDBVS.deleteRowAt;
   const moveRowAt = CDBVS.moveRow;
   const appendRow = CDBVS.appendRow;
-  const rowsForView = CDBVS.sheetViewModel.rowsForView;
-  const deleteColumnAt = CDBVS.deleteColumnAt;
-  const deleteSheetAt = CDBVS.deleteSheetAt;
+  const addSeparatorAt = CDBVS.addSeparatorAt;
+  const removeSeparatorAt = CDBVS.removeSeparatorAt;
+  const rowsForView = services.sheetView.rowsForView;
+  const deleteColumnAt = services.application.columnActions.deleteColumn;
+  const deleteSheetAction = CDBVS.services.application.sheetActions.deleteSheet;
   const ensureSheetColumns = CDBVS.ensureSheetColumns;
 
   function addSheet() {
@@ -44,7 +47,7 @@
   }
 
   function deleteSheet(sheet) {
-    return commitMutation(() => deleteSheetAt(sheet)) === true;
+    return deleteSheetAction(sheet);
   }
 
   function addRow(sheet) {
@@ -77,7 +80,7 @@
     const selected = selectedRowIndex(sheet);
     const index = selected === null ? (Array.isArray(sheet.lines) ? sheet.lines.length : 0) : selected + 1;
     commitMutation(() => {
-      insertRowAt(sheet, index, undefined, false);
+      insertRowAt(sheet, index);
       selectRow(sheet, index);
     });
     return true;
@@ -109,7 +112,7 @@
     if (target < 0 || target >= (sheet.lines || []).length) return;
     const cell = selectedCell(sheet);
     commitMutation(() => {
-      moveRowAt(sheet, selected, delta, false);
+      moveRowAt(sheet, selected, delta);
       if (cell) selectCell(sheet, target, cell.columnIndex);
       else selectRow(sheet, target);
     });
@@ -138,5 +141,13 @@
     return true;
   }
 
-  Object.assign(CDBVS, { addSheet, addColumn, deleteColumn, deleteSheet, addRow, deleteRow, insertSelectedRow, deleteSelectedRow, moveSelectedRow, moveSelectedCell });
+  function addSeparator(sheet, index) {
+    return commitMutation(() => addSeparatorAt(sheet, index)) === true;
+  }
+
+  function removeSeparator(sheet, index) {
+    return commitMutation(() => removeSeparatorAt(sheet, index)) === true;
+  }
+
+  Object.assign(CDBVS, { addSheet, addColumn, deleteColumn, deleteSheet, addRow, deleteRow, insertSelectedRow, deleteSelectedRow, moveSelectedRow, moveSelectedCell, addSeparator, removeSeparator });
 })(window);

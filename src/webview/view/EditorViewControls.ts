@@ -1,12 +1,13 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
+  const services = CDBVS.services;
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
   const typeOf = CDBVS.typeOf;
-  const renderMutation = CDBVS.renderMutation;
-  const sheetState = CDBVS.sheetState;
-  const viewState = CDBVS.viewState;
+  const renderMutation = services.application.renderMutation;
+  const sheetState = services.sheetState;
+  const viewState = services.viewState;
   const getFilter = viewState.getFilter;
   const setFilter = viewState.setFilter;
 
@@ -81,5 +82,6 @@
     renderMutation();
   }
 
+  CDBVS.capabilities.views.renderViewSummary = renderViewSummary;
   Object.assign(CDBVS, { activeViewItems, renderViewSummary, cycleColumnSort });
 })(window);

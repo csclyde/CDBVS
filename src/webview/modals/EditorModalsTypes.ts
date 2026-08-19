@@ -1,9 +1,9 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
+  const commitMutation = CDBVS.services.application.commitMutation;
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
-  const commitMutation = CDBVS.commitMutation;
   const updateCustomTypes = CDBVS.updateCustomTypes;
   const hasDocument = CDBVS.hasDocument;
   const currentCustomTypes = CDBVS.currentCustomTypes;

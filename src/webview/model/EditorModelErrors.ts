@@ -1,7 +1,7 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
-  const sheetState = CDBVS.sheetState;
+  const sheetState = CDBVS.services.sheetState;
 
   function cellErrorKey(rowIndex, columnName) {
     return `${rowIndex}\u0000${columnName}`;

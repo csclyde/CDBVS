@@ -1,7 +1,7 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
-  const documentModel = CDBVS.documentModel;
+  const documentModel = CDBVS.services.document;
   const typeOf = CDBVS.typeOf;
   const idColumn = CDBVS.idColumn;
   let referenceOptionsCache = new Map();

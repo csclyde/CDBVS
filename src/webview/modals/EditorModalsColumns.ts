@@ -1,12 +1,13 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
+  const application = CDBVS.services.application;
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
-  const commitMutation = CDBVS.commitMutation;
+  const commitMutation = application.commitMutation;
   const typeOf = CDBVS.typeOf;
   const moveColumn = CDBVS.moveColumn;
-  const deleteColumnAt = CDBVS.deleteColumnAt;
+  const deleteColumnAt = CDBVS.services.application.columnActions.deleteColumn;
   const applyColumnEdit = CDBVS.applyColumnEdit;
   const createModal = CDBVS.createModal;
   const modalField = CDBVS.modalField;

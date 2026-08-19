@@ -1,9 +1,10 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
+  const application = CDBVS.services.application;
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
-  const commitMutation = CDBVS.commitMutation;
+  const commitMutation = application.commitMutation;
   const allSheets = CDBVS.allSheets;
   const createSheet = CDBVS.createSheet;
   const setRawMode = CDBVS.viewState.setRawMode;

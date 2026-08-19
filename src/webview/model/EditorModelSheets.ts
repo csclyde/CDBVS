@@ -1,10 +1,8 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
-  const documentModel = CDBVS.documentModel;
-  const renameSheetState = CDBVS.sheetState.renameSheet;
-  const removeSheetState = CDBVS.sheetState.removeSheet;
-  const setSheetIndex = CDBVS.sheetState.setActiveIndex;
+  const services = CDBVS.services;
+  const documentModel = services.document;
   const allSheets = CDBVS.allSheets;
 
   function renameSheet(sheet, newName) {
@@ -22,7 +20,6 @@
     documentModel.sheets().forEach((item) => {
       if (item.name === oldName || item.name.startsWith(`${oldName}@`)) item.name = `${newName}${item.name.slice(oldName.length)}`;
     });
-    renameSheetState(oldName, newName);
     return true;
   }
 
@@ -36,9 +33,6 @@
     }
     const sheet = { name: nextName, columns: [], lines: [], separators: [], props: {} };
     sheets.push(sheet);
-    const visible = CDBVS.sheetViewModel.visibleSheets();
-    const index = visible.indexOf(sheet);
-    if (index >= 0) setSheetIndex(index);
     return { ok: true, sheet };
   }
 
@@ -58,11 +52,8 @@
   function deleteSheetAt(sheet) {
     if (!sheet || !documentModel.has()) return false;
     const oldName = sheet.name;
-    const sheetsBefore = CDBVS.sheetViewModel.visibleSheets();
-    const currentBefore = CDBVS.sheetViewModel.currentSheet();
     const deletedSheets = new Set(CDBVS.sheetBlock(sheet));
     if (!deletedSheets.size) deletedSheets.add(sheet);
-    const deletedIndex = sheetsBefore.indexOf(sheet);
     CDBVS.mapTypeStrings((raw) => {
       const separator = raw.indexOf(":");
       if (separator < 0) return raw;
@@ -72,13 +63,6 @@
     });
     const remaining = documentModel.sheets().filter((item) => !deletedSheets.has(item));
     documentModel.mutate((document) => { document.sheets = remaining; });
-    removeSheetState(oldName);
-    const sheetsAfter = CDBVS.sheetViewModel.visibleSheets();
-    if (currentBefore && !deletedSheets.has(currentBefore)) {
-      setSheetIndex(Math.max(0, sheetsAfter.indexOf(currentBefore)));
-    } else {
-      setSheetIndex(Math.max(0, Math.min(deletedIndex < 0 ? 0 : deletedIndex, sheetsAfter.length - 1)));
-    }
     return true;
   }
 

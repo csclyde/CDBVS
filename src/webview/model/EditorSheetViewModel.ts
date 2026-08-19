@@ -1,9 +1,10 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
-  const documentModel = CDBVS.documentModel;
-  const sheetState = CDBVS.sheetState;
-  const viewState = CDBVS.viewState;
+  const services = CDBVS.services;
+  const documentModel = services.document;
+  const sheetState = services.sheetState;
+  const viewState = services.viewState;
   const typeOf = CDBVS.typeOf;
   const valueText = CDBVS.valueText;
   const colorText = CDBVS.colorText;
@@ -85,6 +86,8 @@
     return rows;
   }
 
-  const sheetViewModel = { visibleSheets, currentSheet, viewForSheet, filterMatches, rowsForView };
+  const sheetViewModel = services.sheetView;
+  Object.assign(sheetViewModel, { visibleSheets, currentSheet, viewForSheet, filterMatches, rowsForView });
+  Object.freeze(sheetViewModel);
   Object.assign(CDBVS, { sheetViewModel, visibleSheets, currentSheet, viewForSheet, filterMatches, rowsForView });
 })(window);

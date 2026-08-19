@@ -1,7 +1,7 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
-  const sheetViewModel = CDBVS.sheetViewModel;
+  const sheetViewModel = CDBVS.services.sheetView;
   let installed = false;
 
   function selectOpenListAbove(sheet, selection) {

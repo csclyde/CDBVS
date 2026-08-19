@@ -1,7 +1,8 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
-  const commitMutation = CDBVS.commitMutation;
+  const services = CDBVS.services;
+  const commitMutation = services.application.commitMutation;
   const selectedRowIndex = CDBVS.selectedRowIndex;
   const selectedRowIndices = CDBVS.selectedRowIndices;
   const selectedCell = CDBVS.selectedCell;
@@ -11,7 +12,7 @@
   const deleteRowAt = CDBVS.deleteRowAt;
   const clearCellValue = CDBVS.clearCellValue;
   const setCellValue = CDBVS.setCellValue;
-  const clipboardState = CDBVS.clipboardState;
+  const clipboardState = services.clipboard;
 
   function cloneRow(row) {
     return CDBVS.cloneValue(row);
@@ -82,7 +83,7 @@
     const selected = selectedRowIndex(sheet);
     const index = selected === null ? (Array.isArray(sheet.lines) ? sheet.lines.length : 0) : selected + 1;
     commitMutation(() => {
-      rows.forEach((row, offset) => insertRowAt(sheet, index + offset, cloneRow(row), false));
+      rows.forEach((row, offset) => insertRowAt(sheet, index + offset, cloneRow(row)));
       selectRows(sheet, rows.map((_, offset) => index + offset), index + rows.length - 1);
     });
     return true;

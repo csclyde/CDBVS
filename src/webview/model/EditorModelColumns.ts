@@ -2,10 +2,8 @@
 (function (global) {
   const CDBVS = global.CDBVS;
   const typeOf = CDBVS.typeOf;
-  const renameViewColumn = CDBVS.sheetState.renameColumn;
   const mapTypeStrings = CDBVS.mapTypeStrings;
   const setPrimaryColumn = CDBVS.setPrimaryColumn;
-  const clearListState = CDBVS.sheetState.clearList;
   const isNestedType = CDBVS.isNestedType;
   const prepareColumnTypeChange = CDBVS.prepareColumnTypeChange;
   const ensureNestedSheet = CDBVS.ensureNestedSheet;
@@ -59,8 +57,6 @@
       });
       if (sheet.props && sheet.props.displayColumn === oldName) sheet.props.displayColumn = newName;
       if (sheet.props && sheet.props.displayIcon === oldName) sheet.props.displayIcon = newName;
-      renameViewColumn(sheet.name, oldName, newName);
-      clearListState();
     }
     column.name = newName;
     CDBVS.setColumnTypeString(column, typeString);
@@ -78,7 +74,7 @@
     if (isNew) sheet.columns.splice(Math.min(columnIndex, sheet.columns.length), 0, column);
     if (typeOf(column).code === 0) setPrimaryColumn(sheet, column.name);
     const newNested = isNestedType(typeOf(column));
-    if (oldNested && !newNested) removeNestedSheet(sheet, newName);
+    if (oldNested && !newNested) removeNestedSheet(sheet, oldName);
     else if (newNested) ensureNestedSheet(sheet, column);
     return { ok: true };
   }

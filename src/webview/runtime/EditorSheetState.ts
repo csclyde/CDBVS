@@ -42,6 +42,36 @@
       }
       return sort;
     },
+    collapsedSeparators(sheetName) {
+      return this.forSheet("collapsedSeparators", sheetName, () => ({}));
+    },
+    isSeparatorCollapsed(sheetName, index) {
+      const collapsed = this.readCollapsedSeparators(sheetName);
+      return !!(collapsed && collapsed[String(index)] === true);
+    },
+    readCollapsedSeparators(sheetName) {
+      return this.map("collapsedSeparators")[sheetName] || null;
+    },
+    toggleSeparatorCollapsed(sheetName, index) {
+      const collapsed = this.collapsedSeparators(sheetName);
+      const key = String(index);
+      collapsed[key] = !this.isSeparatorCollapsed(sheetName, index);
+      return collapsed[key];
+    },
+    shiftCollapsedSeparators(sheetName, change) {
+      const collapsed = this.readCollapsedSeparators(sheetName);
+      if (!collapsed || typeof change !== "function") return;
+      const shifted = {};
+      Object.keys(collapsed).forEach((key) => {
+        const next = change(Number.parseInt(key, 10));
+        if (next !== null && next !== undefined) shifted[String(next)] = collapsed[key];
+      });
+      this.map("collapsedSeparators")[sheetName] = shifted;
+    },
+    removeCollapsedSeparator(sheetName, index) {
+      const collapsed = this.readCollapsedSeparators(sheetName);
+      if (collapsed) delete collapsed[String(index)];
+    },
     setFilters: CDBVS.setColumnFilters,
     renameColumn: CDBVS.renameViewColumn,
     removeColumn: CDBVS.removeViewColumn,
@@ -82,4 +112,8 @@
   };
 
   CDBVS.sheetState = sheetState;
+  Object.assign(CDBVS, {
+    isSeparatorCollapsed: (sheet, index) => sheetState.isSeparatorCollapsed(sheet && sheet.name, index),
+    toggleSeparatorCollapsed: (sheet, index) => sheetState.toggleSeparatorCollapsed(sheet && sheet.name, index)
+  });
 })(window);

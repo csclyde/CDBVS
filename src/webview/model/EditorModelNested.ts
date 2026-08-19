@@ -1,7 +1,8 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
-  const documentModel = CDBVS.documentModel;
+  const services = CDBVS.services;
+  const documentModel = services.document;
 
   function isNestedType(type) {
     const code = typeof type === "number" ? type : (type && type.code);
@@ -63,7 +64,6 @@
     const sheets = documentModel.sheets();
     const remaining = sheets.filter((item) => !block.includes(item));
     documentModel.mutate((document) => { document.sheets = remaining; });
-    if (CDBVS.sheetState && typeof CDBVS.sheetState.removeSheet === "function") CDBVS.sheetState.removeSheet(prefix);
     return true;
   }
 
