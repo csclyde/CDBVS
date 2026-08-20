@@ -37,7 +37,9 @@
   function commitCellMutation(mutator, refresh) {
     const result = persistMutation(mutator);
     if (typeof refresh === "function") refresh();
-    else render();
+    // Cell mutations must never fall back to the document renderer. The
+    // editor control already reflects primitive changes, and complex cells
+    // provide their own local refresh callback.
     return result;
   }
 

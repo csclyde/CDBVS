@@ -338,8 +338,7 @@ test("custom editor does not echo a successful self-applied update", async () =>
   let document;
   const env = makeProviderVscode({
     onApplyEdit: (edit) => {
-      text = edit.text;
-      env.hooks.documentChange({ document, contentChanges: [] });
+      text = edit.text.replace(/\n/g, "\r\n");
     }
   });
   const { CdbEditorProvider } = loadTsModule(source("src/host/CdbEditorProvider.ts"), env.vscode);
@@ -350,8 +349,10 @@ test("custom editor does not echo a successful self-applied update", async () =>
   await env.hooks.message({ type: "ready" });
   const postedBeforeUpdate = env.posted.length;
 
-  await env.hooks.message({ type: "update", text: validText("Pasted") });
+  const pastedText = `${JSON.stringify(JSON.parse(validText("Pasted")), null, "\t")}\n`;
+  await env.hooks.message({ type: "update", text: pastedText });
   assert.equal(env.edits.length, 1);
+  env.hooks.documentChange({ document, contentChanges: [] });
   assert.equal(env.posted.length, postedBeforeUpdate);
 
   text = validText("External");

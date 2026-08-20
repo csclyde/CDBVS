@@ -12,7 +12,6 @@
   const valueText = CDBVS.valueText;
   const colorText = CDBVS.colorText;
   const referenceOptions = CDBVS.referenceOptions;
-  const renderMutation = application.renderMutation;
   const commitCellMutation = application.commitCellMutation;
   const scheduleCellMutation = application.scheduleCellMutation;
   const setCellValue = model.values.setCell;
@@ -130,7 +129,7 @@
           ? cellContext.sheet.columns.indexOf(column)
           : -1;
         CDBVS.refreshRenderedCell(cellContext.sheet, cellContext.rowIndex, columnIndex);
-      } else renderMutation();
+      }
     };
     if (type.code === 10 && type.values.length) {
       const flags = makeElement("div", null, "flags-input");

@@ -427,6 +427,9 @@ test("cells select first and activate on the second click or Enter", () => {
   loadScript(harness.context, "EditorCells.js");
   loadScript(harness.context, "EditorView.js");
   harness.CDBVS.render();
+  let renderCount = 0;
+  const render = harness.CDBVS.render;
+  harness.CDBVS.render = () => { renderCount += 1; render(); };
 
   const titleCell = harness.CDBVS.app.querySelectorAll("td").find((cell) => cell.dataset.columnIndex === "0");
   const titleInput = titleCell.querySelector("input");
@@ -493,6 +496,7 @@ test("cells select first and activate on the second click or Enter", () => {
   assert.equal(harness.document.querySelector(".cell-select-menu"), null);
   assert.equal(select.value, "1");
   assert.equal(harness.CDBVS.activeCell(target), null);
+  assert.equal(renderCount, 0);
 
   harness.document.dispatchEvent({ type: "keydown", key: "Enter", target: select, preventDefault() {} });
   const currentMenu = harness.document.querySelector(".cell-select-menu");
@@ -1465,6 +1469,35 @@ test("pasting a cell updates only that cell and preserves the sheet viewport", (
   assert.equal(targetCell.querySelector("input").value, "Cara");
   assert.equal(tableWrap.scrollLeft, 37);
   assert.equal(tableWrap.scrollTop, 91);
+});
+
+test("single-cell clear and cut persist without rebuilding the sheet", () => {
+  const target = sheet("Players");
+  target.columns = [{ name: "name", typeStr: "1" }];
+  target.lines = [{ name: "Alice" }];
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target] });
+  harness.context.innerWidth = 1200;
+  harness.context.innerHeight = 800;
+  harness.CDBVS.app = harness.document.createElement("div");
+  loadScript(harness.context, "EditorCells.js");
+  loadScript(harness.context, "EditorView.js");
+  harness.CDBVS.render();
+  let renderCount = 0;
+  const render = harness.CDBVS.render;
+  harness.CDBVS.render = () => { renderCount += 1; render(); };
+
+  const cell = harness.CDBVS.findRenderedCell(0, 0);
+  harness.CDBVS.selectCell(target, 0, 0);
+  assert.equal(harness.CDBVS.deleteSelectedCell(target), true);
+  assert.equal(target.lines[0].name, null);
+  assert.equal(renderCount, 0);
+  assert.strictEqual(harness.CDBVS.findRenderedCell(0, 0), cell);
+
+  target.lines[0].name = "Bob";
+  assert.equal(harness.CDBVS.copySelectedRow(target, true, false), true);
+  assert.equal(target.lines[0].name, null);
+  assert.equal(renderCount, 0);
+  assert.strictEqual(harness.CDBVS.findRenderedCell(0, 0), cell);
 });
 
 test("row-only clipboard commands bypass an active cell selection", () => {

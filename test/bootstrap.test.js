@@ -83,19 +83,26 @@ test("production webview accepts document and error messages through the real bo
   harness.context.dispatchMessage = (data) => {
     harness.listeners.message[0]({ data });
   };
-  harness.context.dispatchMessage({
+  const documentMessage = {
     type: "document",
-    text: "document text",
+    text: "document\ntext",
     data: validData,
     issues: ["warning"],
     rawMode: false,
     showHiddenSheets: true
-  });
-  assert.equal(harness.context.CDBVS.documentText(), "document text");
+  };
+  harness.context.dispatchMessage(documentMessage);
+  assert.equal(harness.context.CDBVS.documentText(), "document\ntext");
   assert.strictEqual(harness.context.CDBVS.documentModel.get(), validData);
   assert.deepEqual(Array.from(harness.context.CDBVS.documentIssues()), ["warning"]);
   assert.equal(harness.context.CDBVS.state.showHiddenSheets, true);
   assert.equal(harness.app.querySelector(".status").textContent, "warning");
+
+  let renderCount = 0;
+  const render = harness.context.CDBVS.render;
+  harness.context.CDBVS.render = () => { renderCount += 1; render(); };
+  harness.context.dispatchMessage(Object.assign({}, documentMessage, { text: "document\r\ntext" }));
+  assert.equal(renderCount, 0);
 
   harness.context.dispatchMessage({ type: "error", message: "Could not save" });
   const status = harness.app.querySelector(".status");

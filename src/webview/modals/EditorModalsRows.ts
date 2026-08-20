@@ -3,6 +3,7 @@
   const CDBVS = global.CDBVS;
   const model = CDBVS.services.document.operations;
   const commitMutation = CDBVS.services.application.commitMutation;
+  const commitCellMutation = CDBVS.services.application.commitCellMutation;
   const makeElement = CDBVS.makeElement;
   const appendModalActions = CDBVS.appendModalActions;
   const createModal = CDBVS.createModal;
@@ -56,7 +57,7 @@
     textarea.spellcheck = false;
     const save = () => {
       close();
-      commitMutation(() => {
+      commitCellMutation(() => {
         setCellValue(row, column, textarea.value);
         input.value = textarea.value;
       });

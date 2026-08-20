@@ -51,7 +51,9 @@
     clipboardState.setCell(cell);
     writeCellClipboard(cell);
     if (!cut) return true;
-    commitMutation(() => clearCellValue(row, selection.column));
+    commitCellMutation(() => clearCellValue(row, selection.column), () => {
+      refreshCellValue(sheet, selection);
+    });
     return true;
   }
 
@@ -76,7 +78,9 @@
   function deleteSelectedCell(sheet) {
     const selection = selectedCell(sheet);
     if (!selection || !sheet.lines[selection.rowIndex]) return false;
-    commitMutation(() => clearCellValue(sheet.lines[selection.rowIndex], selection.column));
+    commitCellMutation(() => clearCellValue(sheet.lines[selection.rowIndex], selection.column), () => {
+      refreshCellValue(sheet, selection);
+    });
     return true;
   }
 
@@ -117,7 +121,9 @@
     }
   }
 
-  function refreshPastedCell(sheet, rowIndex, columnIndex) {
+  function refreshCellValue(sheet, selection) {
+    const rowIndex = selection && selection.rowIndex;
+    const columnIndex = selection && selection.columnIndex;
     const currentSheet = CDBVS.services && CDBVS.services.sheetView
       && typeof CDBVS.services.sheetView.currentSheet === "function"
       ? CDBVS.services.sheetView.currentSheet()
@@ -152,7 +158,7 @@
       if (cell.hasValue) setCellValue(row, selection.column, cloneValue(cell.value));
       else clearCellValue(row, selection.column);
     }, () => {
-      refreshPastedCell(sheet, selection.rowIndex, selection.columnIndex);
+      refreshCellValue(sheet, selection);
     });
     return true;
   }

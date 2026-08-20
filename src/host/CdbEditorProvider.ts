@@ -9,6 +9,10 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+function normalizedDocumentText(text: string): string {
+  return text.replace(/\r\n?/g, "\n");
+}
+
 export class CdbEditorProvider implements vscode.CustomTextEditorProvider {
   private readonly context: vscode.ExtensionContext;
   public activeDocumentUri: vscode.Uri | null = null;
@@ -35,6 +39,7 @@ export class CdbEditorProvider implements vscode.CustomTextEditorProvider {
     let disposed = false;
     let applyingEdit = false;
     let pendingDocumentRefresh = false;
+    const selfAppliedTexts = new Set<string>();
     const updateQueue = new DocumentUpdateQueue();
     const markActive = () => {
       if (webviewPanel.active) this.activeDocumentUri = document.uri;
@@ -60,6 +65,7 @@ export class CdbEditorProvider implements vscode.CustomTextEditorProvider {
     const changeSubscription = vscode.workspace.onDidChangeTextDocument((event) => {
       if (event.document.uri.toString() !== document.uri.toString()) return;
       if (applyingEdit) pendingDocumentRefresh = true;
+      else if (selfAppliedTexts.delete(normalizedDocumentText(document.getText()))) return;
       else sendDocument();
     });
     const configurationSubscription = vscode.workspace.onDidChangeConfiguration((event) => {
@@ -73,16 +79,20 @@ export class CdbEditorProvider implements vscode.CustomTextEditorProvider {
       }
       if (message.type === "update") {
         await updateQueue.enqueue(async () => {
-          if (message.text === document.getText()) return;
+          if (normalizedDocumentText(message.text) === normalizedDocumentText(document.getText())) return;
           const parsed = parseEditableCdb(message.text);
           if (!parsed.valid) {
             if (!disposed) void webview.postMessage({ type: "error", message: parsed.issues.join("\n") });
             return;
           }
           applyingEdit = true;
+          const normalizedMessageText = normalizedDocumentText(message.text);
+          selfAppliedTexts.add(normalizedMessageText);
+          let applied = false;
           try {
-            const applied = await replaceDocument(vscode, document, message.text);
+            applied = await replaceDocument(vscode, document, message.text);
             if (!applied) {
+              selfAppliedTexts.delete(normalizedMessageText);
               if (!disposed) void webview.postMessage({ type: "error", message: "CDBVS could not apply the document update." });
               sendDocument();
             }
@@ -94,10 +104,15 @@ export class CdbEditorProvider implements vscode.CustomTextEditorProvider {
               // not echo that self-originated change back through the full
               // document renderer; only refresh if another change left the
               // document with different text while the edit was applying.
-              if (document.getText() !== message.text) sendDocument();
+              if (applied && normalizedDocumentText(document.getText()) === normalizedMessageText) selfAppliedTexts.delete(normalizedMessageText);
+              else {
+                selfAppliedTexts.delete(normalizedMessageText);
+                sendDocument();
+              }
             }
           }
         }).catch((error: unknown) => {
+          selfAppliedTexts.delete(normalizedDocumentText(message.text));
           if (!disposed) void webview.postMessage({ type: "error", message: `CDBVS could not apply the document update: ${errorMessage(error)}` });
           sendDocument();
         });

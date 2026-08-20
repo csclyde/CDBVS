@@ -5,7 +5,7 @@
   const model = services.document.operations;
   const clipboardState = services.clipboard;
   const setCellValue = model.values.setCell;
-  const commitMutation = services.application.commitMutation;
+  const commitCellMutation = services.application.commitCellMutation;
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
   const createModal = CDBVS.createModal;
@@ -567,8 +567,10 @@
         close();
         return;
       }
-      close();
-      commitMutation(() => setCellValue(parentRow, parentColumn, value));
+      commitCellMutation(() => setCellValue(parentRow, parentColumn, value), () => {
+        close();
+        if (typeof config.onDraftChange === "function") config.onDraftChange();
+      });
     }
 
     const toolbar = makeElement("div", null, "list-modal-toolbar");

@@ -67,9 +67,11 @@ test("list modal keeps edits draft-only and supports add/delete buttons", () => 
   const input = dialog.querySelector(".list-modal-table tbody tr input");
   input.value = "Bea";
   input.dispatchEvent({ type: "change", target: input });
+  harness.renders.length = 0;
   click(dialog.querySelectorAll("button").find((button) => button.textContent === "Save"));
   assert.equal(parent.lines[0].members[0].name, "Bea");
   assert.equal(harness.updates.length, 1);
+  assert.equal(harness.renders.length, 0);
 });
 
 test("list modal keyboard navigation and row context menu use the modal grid", () => {

@@ -170,11 +170,16 @@ test("row editor keeps a draft until Save and text editor supports cancel and sa
   overlay.querySelector("textarea").value = "Final";
   click(buttonByText(overlay, "Cancel"));
   assert.equal(target.lines[0].name, "Changed");
+  let renderCount = 0;
+  const render = harness.CDBVS.render;
+  harness.CDBVS.render = () => { renderCount += 1; render(); };
   harness.CDBVS.openTextEditor(target.lines[0], target.columns[1], input);
   overlay = harness.document.querySelector(".text-modal");
   overlay.querySelector("textarea").value = "Final";
   click(buttonByText(overlay, "Save"));
   assert.equal(target.lines[0].name, "Final");
+  assert.equal(input.value, "Final");
+  assert.equal(renderCount, 0);
 });
 
 test("filter modal renders all specialized controls and applies a draft atomically", () => {

@@ -7,8 +7,9 @@ The first working editor baseline is in place. The repository now contains a des
 ## Cell clipboard locality (2026-08-20)
 
 - Cell paste now persists the changed value and refreshes only the target cell, preserving the table DOM and its horizontal/vertical scroll position.
-- The host suppresses the redundant document message caused by the webview's own successful edit; genuine external document changes still refresh the webview.
-- Added regression coverage for target-cell-only paste updates, viewport preservation, and self-applied host updates.
+- The host suppresses the redundant document message caused by the webview's own successful edit, including delayed VS Code change events and Windows LF/CRLF normalization; the webview also ignores equivalent document messages defensively. Genuine external document changes still refresh the webview.
+- Audited every direct cell mutation path: primitive/flag/reference/enum edits, the larger text editor, properties, list saves, clear, cut, and paste now persist through the cell mutation boundary and never fall back to the full document renderer. Whole-row editing remains a deliberate row-level operation.
+- Added regression coverage for target-cell-only paste updates, viewport preservation, self-applied host updates, equivalent-message no-op rendering, dropdown changes, clear/cut, list saves, and larger text-editor saves without a full render.
 
 ## Dropdown viewport placement (2026-08-20)
 
