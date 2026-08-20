@@ -4,6 +4,17 @@
 
 The first working editor baseline is in place. The repository now contains a desktop VS Code extension with a custom `.cdb` editor, a spreadsheet-style webview, schema-aware primitive/reference controls, row/column/sheet editing, quick search, per-column filtering and sorting, and a raw JSON fallback. The reusable CastleDB Haxe `cdb` sources from `Cursemark\.haxelib\castle\git` are vendored under `vendor/castledb/cdb`, while the legacy level-editor sources are intentionally excluded. Marketplace release metadata and packaging exclusions are also prepared; publisher registration, authentication, and final VSIX validation remain external steps.
 
+## Cell clipboard locality (2026-08-20)
+
+- Cell paste now persists the changed value and refreshes only the target cell, preserving the table DOM and its horizontal/vertical scroll position.
+- The host suppresses the redundant document message caused by the webview's own successful edit; genuine external document changes still refresh the webview.
+- Added regression coverage for target-cell-only paste updates, viewport preservation, and self-applied host updates.
+
+## Dropdown viewport placement (2026-08-20)
+
+- Custom dropdown menus now flip above their control when the measured menu would extend past the bottom viewport edge, with clamping for very small viewports.
+- Added regression coverage for normal downward placement and bottom-edge upward placement.
+
 ## Viewport preservation hardening (2026-08-19)
 
 - Made the webview observe table and raw-editor scroll events continuously instead of only sampling the viewport when a render begins.

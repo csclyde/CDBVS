@@ -499,11 +499,15 @@ test("cells select first and activate on the second click or Enter", () => {
   assert.ok(currentMenu);
   assert.equal(currentMenu.querySelectorAll(".cell-select-option").length, 3);
   assert.equal(harness.CDBVS.activeCell(target).columnIndex, 1);
-  select.getBoundingClientRect = () => ({ left: 240, bottom: 176, width: 205 });
+  select.getBoundingClientRect = () => ({ left: 240, top: 120, bottom: 176, width: 205 });
   harness.document.dispatchEvent({ type: "scroll", target: harness.document });
   assert.equal(currentMenu.style.left, "240px");
   assert.equal(currentMenu.style.top, "176px");
   assert.equal(currentMenu.style.minWidth, "205px");
+  currentMenu.offsetHeight = 200;
+  select.getBoundingClientRect = () => ({ left: 240, top: 650, bottom: 700, width: 205 });
+  harness.document.dispatchEvent({ type: "scroll", target: harness.document });
+  assert.equal(currentMenu.style.top, "450px");
   const menuOptions = currentMenu.querySelectorAll(".cell-select-option");
   let scrollCalls = 0;
   menuOptions[2].scrollIntoView = () => { scrollCalls += 1; };
@@ -1426,6 +1430,41 @@ test("pasting multiple rows emits one document update", () => {
   assert.equal(harness.CDBVS.pasteSelectedRow(target), true);
   assert.deepEqual(target.lines.map((row) => row.id), ["a", "b", "c"]);
   assert.equal(harness.updates.length, 1);
+});
+
+test("pasting a cell updates only that cell and preserves the sheet viewport", () => {
+  const target = sheet("Players");
+  target.columns = [{ name: "id", typeStr: "0" }, { name: "name", typeStr: "1" }];
+  target.lines = [{ id: "p1", name: "Alice" }, { id: "p2", name: "Bea" }];
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target] });
+  harness.context.innerWidth = 1200;
+  harness.context.innerHeight = 800;
+  harness.CDBVS.app = harness.document.createElement("div");
+  loadScript(harness.context, "EditorCells.js");
+  loadScript(harness.context, "EditorView.js");
+  harness.CDBVS.render();
+
+  const tableWrap = harness.CDBVS.app.querySelector(".table-wrap");
+  const targetCell = harness.CDBVS.findRenderedCell(1, 1);
+  const untouchedCell = harness.CDBVS.findRenderedCell(0, 0);
+  tableWrap.scrollLeft = 37;
+  tableWrap.scrollTop = 91;
+  harness.CDBVS.selectCell(target, 1, 1);
+  harness.state.cellClipboard = { sheetName: target.name, columnName: "name", hasValue: true, value: "Cara" };
+
+  let renderCount = 0;
+  const render = harness.CDBVS.render;
+  harness.CDBVS.render = () => { renderCount += 1; render(); };
+
+  assert.equal(harness.CDBVS.pasteSelectedRow(target), true);
+  assert.equal(target.lines[1].name, "Cara");
+  assert.equal(renderCount, 0);
+  assert.strictEqual(harness.CDBVS.app.querySelector(".table-wrap"), tableWrap);
+  assert.strictEqual(harness.CDBVS.findRenderedCell(1, 1), targetCell);
+  assert.strictEqual(harness.CDBVS.findRenderedCell(0, 0), untouchedCell);
+  assert.equal(targetCell.querySelector("input").value, "Cara");
+  assert.equal(tableWrap.scrollLeft, 37);
+  assert.equal(tableWrap.scrollTop, 91);
 });
 
 test("row-only clipboard commands bypass an active cell selection", () => {

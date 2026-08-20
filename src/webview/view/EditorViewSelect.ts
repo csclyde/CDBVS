@@ -129,8 +129,21 @@
     const reposition = () => {
       const rect = typeof control.getBoundingClientRect === "function" ? control.getBoundingClientRect() : null;
       if (!rect || !menu.style) return;
+      const viewportHeight = Number(global.innerHeight)
+        || (document.documentElement && Number(document.documentElement.clientHeight))
+        || 0;
+      const menuRect = typeof menu.getBoundingClientRect === "function" ? menu.getBoundingClientRect() : null;
+      const menuHeight = Number(menu.offsetHeight) || (menuRect && Number(menuRect.height)) || 0;
+      const margin = 8;
+      const controlTop = Number.isFinite(Number(rect.top)) ? Number(rect.top) : Number(rect.bottom);
+      let top = Number(rect.bottom);
+      if (viewportHeight > 0 && menuHeight > 0 && top + menuHeight > viewportHeight - margin) {
+        const aboveTop = controlTop - menuHeight;
+        if (aboveTop >= margin) top = aboveTop;
+        else top = Math.max(margin, viewportHeight - menuHeight - margin);
+      }
       menu.style.left = `${rect.left}px`;
-      menu.style.top = `${rect.bottom}px`;
+      menu.style.top = `${top}px`;
       menu.style.minWidth = `${Math.max(rect.width || 0, 120)}px`;
     };
     const listeners = [];

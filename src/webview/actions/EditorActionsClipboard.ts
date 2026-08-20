@@ -4,6 +4,7 @@
   const services = CDBVS.services;
   const model = services.document.operations;
   const commitMutation = services.application.commitMutation;
+  const commitCellMutation = services.application.commitCellMutation;
   const selectedRowIndex = CDBVS.selectedRowIndex;
   const selectedRowIndices = CDBVS.selectedRowIndices;
   const selectedCell = CDBVS.selectedCell;
@@ -116,22 +117,51 @@
     }
   }
 
-  function pasteCellData(sheet, cell) {
-    const selection = selectedCell(sheet);
+  function refreshPastedCell(sheet, rowIndex, columnIndex) {
+    const currentSheet = CDBVS.services && CDBVS.services.sheetView
+      && typeof CDBVS.services.sheetView.currentSheet === "function"
+      ? CDBVS.services.sheetView.currentSheet()
+      : sheet;
+    if (currentSheet !== sheet) return false;
+    const cell = typeof CDBVS.findRenderedCell === "function"
+      ? CDBVS.findRenderedCell(rowIndex, columnIndex)
+      : null;
+    const column = sheet && Array.isArray(sheet.columns) ? sheet.columns[columnIndex] : null;
+    const row = sheet && Array.isArray(sheet.lines) ? sheet.lines[rowIndex] : null;
+    if (!cell || !column || !row || typeof CDBVS.refreshCell !== "function") return false;
+    CDBVS.refreshCell(cell, () => {
+      CDBVS.makeCellEditor(cell, row, column, {
+        sheet,
+        rowIndex,
+        path: `${sheet.name}/${rowIndex}`,
+        lazy: true
+      });
+    });
+    if (typeof CDBVS.refreshRenderedCell === "function") {
+      CDBVS.refreshRenderedCell(sheet, rowIndex, columnIndex);
+    }
+    return true;
+  }
+
+  function pasteCellData(sheet, cell, targetSelection) {
+    const selection = targetSelection || selectedCell(sheet);
     if (!selection || !cell || typeof cell !== "object") return false;
     const row = sheet.lines[selection.rowIndex];
     if (!row) return false;
-    commitMutation(() => {
+    commitCellMutation(() => {
       if (cell.hasValue) setCellValue(row, selection.column, cloneValue(cell.value));
       else clearCellValue(row, selection.column);
+    }, () => {
+      refreshPastedCell(sheet, selection.rowIndex, selection.columnIndex);
     });
     return true;
   }
 
   function pasteSelectedCell(sheet) {
-    if (!sheet || !selectedCell(sheet)) return false;
+    const targetSelection = selectedCell(sheet);
+    if (!sheet || !targetSelection) return false;
     const clipboard = clipboardState.getCell();
-    if (clipboard) return pasteCellData(sheet, clipboard);
+    if (clipboard) return pasteCellData(sheet, clipboard, targetSelection);
     if (typeof navigator === "undefined" || !navigator.clipboard || typeof navigator.clipboard.readText !== "function") return false;
     try {
       navigator.clipboard.readText().then((text) => {
@@ -141,7 +171,7 @@
           return;
         }
         clipboardState.setCell(cell);
-        pasteCellData(sheet, cell);
+        pasteCellData(sheet, cell, targetSelection);
       }).catch(() => CDBVS.setStatus("Unable to read the clipboard.", true));
       return true;
     } catch (_) {

@@ -252,7 +252,11 @@ function makeProviderVscode(options = {}) {
       onDidChangeTextDocument(handler) { hooks.documentChange = handler; return { dispose() { hooks.documentChange = null; } }; },
       onDidChangeConfiguration(handler) { hooks.configuration = handler; return { dispose() { hooks.configuration = null; } }; },
       getConfiguration() { return { get: () => options.showHidden === true }; },
-      applyEdit: async (edit) => { edits.push(edit); return options.applyEditResult !== false; }
+      applyEdit: async (edit) => {
+        edits.push(edit);
+        if (typeof options.onApplyEdit === "function") options.onApplyEdit(edit);
+        return options.applyEditResult !== false;
+      }
     }
   };
   const webview = {
@@ -326,5 +330,32 @@ test("custom editor reports failed applications and ignores redundant or malform
   await env.hooks.message({ type: "update", text: validText("Changed") });
   assert.equal(env.edits.length, 1);
   assert.equal(env.posted.at(-2).type, "error");
+  assert.equal(env.posted.at(-1).type, "document");
+});
+
+test("custom editor does not echo a successful self-applied update", async () => {
+  let text = validText();
+  let document;
+  const env = makeProviderVscode({
+    onApplyEdit: (edit) => {
+      text = edit.text;
+      env.hooks.documentChange({ document, contentChanges: [] });
+    }
+  });
+  const { CdbEditorProvider } = loadTsModule(source("src/host/CdbEditorProvider.ts"), env.vscode);
+  const uri = new env.Uri("file:///players.cdb");
+  document = { uri, getText: () => text, positionAt: (offset) => offset, save: async () => true };
+  const provider = new CdbEditorProvider({ extensionUri: "extension" });
+  await provider.resolveCustomTextEditor(document, env.panel);
+  await env.hooks.message({ type: "ready" });
+  const postedBeforeUpdate = env.posted.length;
+
+  await env.hooks.message({ type: "update", text: validText("Pasted") });
+  assert.equal(env.edits.length, 1);
+  assert.equal(env.posted.length, postedBeforeUpdate);
+
+  text = validText("External");
+  env.hooks.documentChange({ document, contentChanges: [] });
+  assert.equal(env.posted.length, postedBeforeUpdate + 1);
   assert.equal(env.posted.at(-1).type, "document");
 });

@@ -90,7 +90,11 @@ export class CdbEditorProvider implements vscode.CustomTextEditorProvider {
             applyingEdit = false;
             if (pendingDocumentRefresh) {
               pendingDocumentRefresh = false;
-              sendDocument();
+              // The webview already has the exact text it just submitted. Do
+              // not echo that self-originated change back through the full
+              // document renderer; only refresh if another change left the
+              // document with different text while the edit was applying.
+              if (document.getText() !== message.text) sendDocument();
             }
           }
         }).catch((error: unknown) => {
