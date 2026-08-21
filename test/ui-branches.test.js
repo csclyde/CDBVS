@@ -195,6 +195,7 @@ test("filter modal renders all specialized controls and applies a draft atomical
   const refs = { name: "Targets", columns: [{ name: "id", typeStr: "0" }], lines: [{ id: "one" }] };
   target.columns.splice(6, 0, { name: "target", typeStr: "6:Targets" });
   const harness = createWebviewHarness({ customTypes: [], sheets: [target, refs] });
+  harness.state.columnFilters.Players = { kind: { value: "9" }, target: { value: "missing" } };
   harness.CDBVS.openFilterModal(target);
   const overlay = harness.document.querySelector(".filter-modal");
   const fields = overlay.querySelectorAll(".filter-field");
@@ -210,9 +211,13 @@ test("filter modal renders all specialized controls and applies a draft atomical
   scoreInputs[1].value = "8";
   scoreInputs[1].dispatchEvent({ type: "input" });
   const enumSelect = fields.find((field) => field.textContent.includes("kind")).querySelector("select");
+  assert.equal(enumSelect.value, "9");
+  assert.equal(enumSelect.querySelectorAll("option").some((option) => option.textContent === "Missing value: 9"), true);
   enumSelect.value = "1";
   enumSelect.dispatchEvent({ type: "change" });
   const refSelect = fields.find((field) => field.textContent.includes("target")).querySelector("select");
+  assert.equal(refSelect.value, "missing");
+  assert.equal(refSelect.querySelectorAll("option").some((option) => option.textContent === "Missing value: missing"), true);
   refSelect.value = "one";
   refSelect.dispatchEvent({ type: "change" });
   const flags = fields.find((field) => field.textContent.includes("flags"));
@@ -223,7 +228,7 @@ test("filter modal renders all specialized controls and applies a draft atomical
   const genericInput = generic.querySelector("input");
   genericInput.value = "Alice";
   genericInput.dispatchEvent({ type: "input" });
-  assert.deepEqual(JSON.parse(JSON.stringify(harness.state.columnFilters.Players)), {});
+  assert.deepEqual(JSON.parse(JSON.stringify(harness.state.columnFilters.Players)), { kind: { value: "9" }, target: { value: "missing" } });
   click(buttonByText(overlay, "Apply"));
   assert.equal(harness.state.columnFilters.Players.enabled.value, "true");
   assert.equal(harness.state.columnFilters.Players.score.min, "3");

@@ -49,7 +49,10 @@
       const query = String(rule.value).toLowerCase();
       return colorText(value).toLowerCase().includes(query) || String(value).toLowerCase().includes(query);
     }
-    if (type.code === 5) return !rule.value || String(value) === String(rule.value);
+    if (type.code === 5) {
+      if (rule.value === undefined || rule.value === null || String(rule.value) === "") return true;
+      return String(value) === String(rule.value);
+    }
     if (type.code === 10) {
       const mask = Number(rule.mask) || 0;
       return !mask || ((Number(value) || 0) & mask) === mask;

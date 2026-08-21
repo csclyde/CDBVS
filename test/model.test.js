@@ -198,6 +198,8 @@ test("sheet view filtering, sorting, hidden sheets, and filter modes remain dete
 
   harness.CDBVS.sheetState.view.setFilters("Players", { enabled: { value: "true" }, score: { min: "4", max: "6" }, kind: { value: "1" }, flags: { mask: 1 }, color: { value: "#ff" } });
   assert.deepEqual(harness.CDBVS.rowsForView(visible).map((item) => item.row.id), ["a"]);
+  harness.CDBVS.sheetState.view.setFilters("Players", { kind: { value: 0 } });
+  assert.deepEqual(harness.CDBVS.rowsForView(visible).map((item) => item.row.id), ["b", "c"]);
   harness.CDBVS.sheetState.view.setFilters("Players", { name: { value: "mm" } });
   assert.deepEqual(harness.CDBVS.rowsForView(visible).map((item) => item.row.id), ["c"]);
   harness.CDBVS.sheetState.view.setFilters("Players", {});

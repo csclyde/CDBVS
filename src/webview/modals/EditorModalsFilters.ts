@@ -79,8 +79,14 @@
       } else if (type.code === 5) {
         const select = document.createElement("select");
         select.add(new Option("Any", ""));
-        type.values.forEach((value, index) => select.add(new Option(value, String(index))));
-        select.value = rule.value === undefined ? "" : String(rule.value);
+        const values = type.values.length ? type.values : ["0"];
+        values.forEach((value, index) => select.add(new Option(value, String(index))));
+        const currentValue = rule.value === undefined ? "" : String(rule.value);
+        const currentIndex = Number(currentValue);
+        if (currentValue !== "" && (!Number.isInteger(currentIndex) || currentIndex < 0 || currentIndex >= values.length || String(currentIndex) !== currentValue)) {
+          select.add(new Option(`Missing value: ${currentValue}`, currentValue));
+        }
+        select.value = currentValue;
         select.addEventListener("change", () => {
           if (select.value === "") delete draftFilters[column.name];
           else draftFilters[column.name] = { value: select.value };
@@ -89,8 +95,13 @@
       } else if (type.code === 6 && referenceOptions(column)) {
         const select = document.createElement("select");
         select.add(new Option("Any", ""));
-        referenceOptions(column).forEach((value) => select.add(new Option(String(value), String(value))));
-        select.value = rule.value === undefined ? "" : String(rule.value);
+        const references = referenceOptions(column);
+        references.forEach((value) => select.add(new Option(String(value), String(value))));
+        const currentValue = rule.value === undefined ? "" : String(rule.value);
+        if (currentValue !== "" && !references.some((value) => String(value) === currentValue)) {
+          select.add(new Option(`Missing value: ${currentValue}`, currentValue));
+        }
+        select.value = currentValue;
         select.addEventListener("change", () => {
           if (select.value === "") delete draftFilters[column.name];
           else draftFilters[column.name] = { value: select.value };

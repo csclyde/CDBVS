@@ -680,10 +680,27 @@ test("dropdowns preserve missing values and invalidate reference options after I
     lazy: true
   });
   const lazy = cell.querySelector("select");
+  assert.equal(lazy.querySelectorAll("option").some((option) => option.textContent === "missing"), true);
+  assert.equal(lazy.querySelectorAll("option").some((option) => option.textContent === "Missing value: missing"), false);
   lazy._cdbvsActivateLazyEditor();
   const full = cell.querySelector("select");
   assert.equal(full.value, "missing");
   assert.equal(full.querySelectorAll("option").some((option) => option.textContent === "Missing value: missing"), true);
+
+  const validCell = harness.document.createElement("td");
+  harness.CDBVS.makeCellEditor(validCell, { ref: "known" }, source.columns[0], {
+    sheet: source,
+    rowIndex: 1,
+    path: "Source/1",
+    lazy: true
+  });
+  const validLazy = validCell.querySelector("select");
+  assert.equal(validLazy.querySelectorAll("option").some((option) => option.textContent === "known"), true);
+  assert.equal(validLazy.querySelectorAll("option").some((option) => option.textContent === "Missing value: known"), false);
+  validLazy._cdbvsActivateLazyEditor();
+  const validFull = validCell.querySelector("select");
+  assert.equal(validFull.querySelectorAll("option").some((option) => option.textContent === "known"), true);
+  assert.equal(validFull.querySelectorAll("option").some((option) => option.textContent === "Missing value: known"), false);
 
   assert.deepEqual(harness.CDBVS.referenceOptions(source.columns[0]), ["known"]);
   harness.CDBVS.setCellValue(refs.lines[0], refs.columns[0], "renamed");
@@ -1034,6 +1051,15 @@ test("table choice editors defer large option and flag control construction", ()
   assert.equal(cells[1].querySelectorAll("option").length, 1);
   assert.equal(cells[2].querySelectorAll("input").length, 0);
   assert.ok(cells[2].querySelector(".flags-preview"));
+
+  const malformedEnumCell = harness.document.createElement("td");
+  harness.CDBVS.makeCellEditor(malformedEnumCell, { kind: "1.0" }, target.columns[1], {
+    sheet: target,
+    rowIndex: 1,
+    path: "Players/1",
+    lazy: true
+  });
+  assert.equal(malformedEnumCell.querySelector("select").querySelector("option").textContent, "Missing value: 1.0");
 
   harness.CDBVS.selectCell(target, 0, 0);
   harness.CDBVS.activateRenderedCell(target, 0, 0, { target: cells[0] });

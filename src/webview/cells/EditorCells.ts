@@ -34,8 +34,12 @@
     return value === undefined || value === null ? "" : String(value);
   }
 
+  function enumValues(type) {
+    return type.values.length ? type.values : ["0"];
+  }
+
   function addEnumOptions(input, type, value) {
-    const values = type.values.length ? type.values : ["0"];
+    const values = enumValues(type);
     const current = choiceValue(value);
     if (current === "") input.add(new Option("None", ""));
     values.forEach((label, index) => input.add(new Option(label, String(index))));
@@ -45,12 +49,16 @@
     input.value = current;
   }
 
-  function addReferenceOptions(input, references, value) {
+  function addReferenceOptions(input, references, value, referencesKnown = true) {
     const current = choiceValue(value);
     input.add(new Option("", ""));
-    (references || []).forEach((item) => input.add(new Option(String(item), String(item))));
-    if (current !== "" && !(references || []).some((item) => String(item) === current)) {
-      input.add(new Option(`Missing value: ${current}`, current));
+    const values = references || [];
+    values.forEach((item) => input.add(new Option(String(item), String(item))));
+    if (current !== "" && !values.some((item) => String(item) === current)) {
+      // A lazy preview has not loaded the target sheet yet. Preserve the raw
+      // reference there; only a fully materialized editor can call it missing.
+      const label = referencesKnown ? `Missing value: ${current}` : current;
+      input.add(new Option(label, current));
     }
     input.value = current;
   }
@@ -62,12 +70,15 @@
     const value = row[column.name];
     if (type.code === 5) {
       const current = choiceValue(value);
-      const index = Number.isInteger(Number(value)) ? Number(value) : -1;
-      const label = current === "" ? "None" : (type.values[index] || `Missing value: ${current}`);
+      const values = enumValues(type);
+      const index = Number(value);
+      const validIndex = Number.isInteger(index) && index >= 0 && index < values.length && String(index) === current;
+      const label = current === "" ? "None"
+        : (validIndex ? values[index] : `Missing value: ${current}`);
       input.add(new Option(label, current));
       input.value = current;
     } else {
-      addReferenceOptions(input, [], value);
+      addReferenceOptions(input, [], value, false);
     }
     input._cdbvsActivateLazyEditor = () => materializeCellEditor(cell, row, column, Object.assign({}, context, { existingInput: input }));
     cell.appendChild(input);

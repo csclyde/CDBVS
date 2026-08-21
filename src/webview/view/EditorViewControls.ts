@@ -36,7 +36,10 @@
       } else if (type.code === 2) {
         label = `${columnName} = ${rule.value === "true" ? "True" : "False"}`;
       } else if (type.code === 5 && rule.value !== undefined) {
-        label = `${columnName} = ${type.values[Number(rule.value)] || rule.value}`;
+        const values = type.values.length ? type.values : ["0"];
+        const index = Number(rule.value);
+        const validIndex = Number.isInteger(index) && index >= 0 && index < values.length && String(index) === String(rule.value);
+        label = `${columnName} = ${validIndex ? values[index] : `Missing value: ${rule.value}`}`;
       } else if (type.code === 10 && rule.mask !== undefined) {
         label = `${columnName} flags mask ${rule.mask}`;
       } else if (rule.value !== undefined && String(rule.value) !== "") {
