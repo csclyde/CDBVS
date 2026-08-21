@@ -37,9 +37,12 @@
     if (event.__cdbvsKeyboardHandled) return;
     event.__cdbvsKeyboardHandled = true;
     if (document.querySelector(".text-modal-overlay")) return;
+    if (event.isComposing || event.keyCode === 229) return;
     const sheet = sheetViewModel.currentSheet();
     const key = String(event.key || "").toLowerCase();
-    if (key === "escape" && typeof CDBVS.hasContextMenu === "function" && CDBVS.hasContextMenu()) {
+    const dropdownOpen = typeof CDBVS.hasOpenSelectMenu === "function" && CDBVS.hasOpenSelectMenu();
+    if (key === "escape" && !dropdownOpen
+      && typeof CDBVS.hasContextMenu === "function" && CDBVS.hasContextMenu()) {
       event.preventDefault();
       CDBVS.closeContextMenu();
       return;
@@ -51,10 +54,22 @@
     const arrowKey = key === "arrowup" || key === "arrowdown" || key === "arrowleft" || key === "arrowright";
     const clipboardKey = key === "c" || key === "x" || key === "v";
     const deleteKey = key === "delete" || key === "del";
+    const selectMenu = document.querySelector && document.querySelector(".cell-select-menu");
+    const selectFilter = selectMenu && selectMenu.querySelector && selectMenu.querySelector(".cell-select-filter");
+    const selectFilterTarget = !!(selectFilter && (event.target === selectFilter
+      || (typeof selectFilter.contains === "function" && selectFilter.contains(event.target))));
+    const selectMenuTarget = !!(selectMenu && (event.target === selectMenu
+      || (typeof selectMenu.contains === "function" && selectMenu.contains(event.target))));
     if (!modified && !event.altKey && key === "tab" && cellSelection) {
       const tableTarget = event.target && event.target.closest && event.target.closest("td");
-      const cellSelectMenuTarget = event.target && event.target.closest && event.target.closest(".cell-select-menu");
-      if (tableTarget || cellSelectMenuTarget) {
+      if (tableTarget || selectMenuTarget) {
+        // Tab is a commit-and-advance action for an open dropdown. Close it
+        // through the normal lifecycle before moving the grid selection so the
+        // value is never left dependent on a later blur or render.
+        if (selectMenuTarget && typeof CDBVS.finishSelectMenu === "function"
+          && typeof CDBVS.hasOpenSelectMenu === "function" && CDBVS.hasOpenSelectMenu()) {
+          CDBVS.finishSelectMenu(true);
+        }
         if (moveToTabCell(sheet, cellSelection, event.shiftKey ? -1 : 1)) event.preventDefault();
         else if (activeSelection) CDBVS.exitRenderedCell(sheet, false);
         return;
@@ -62,13 +77,30 @@
     }
     if (modified && key === "s") {
       event.preventDefault();
-      if (editorTarget) CDBVS.commitEditorTarget(editorTarget);
+      if ((selectFilterTarget || selectMenuTarget) && typeof CDBVS.finishSelectMenu === "function") {
+        CDBVS.finishSelectMenu(true);
+        if (typeof CDBVS.flushUpdate === "function") CDBVS.flushUpdate();
+      } else if (editorTarget) CDBVS.commitEditorTarget(editorTarget);
       else if (typeof CDBVS.flushUpdate === "function") CDBVS.flushUpdate();
       if (typeof CDBVS.requestSave === "function") CDBVS.requestSave();
       return;
     }
     const editorCell = editorTarget && editorTarget.closest && editorTarget.closest("td");
     const cellEditorTarget = editorCell && editorCell.closest && editorCell.closest("td") ? editorTarget : null;
+    const opensSelect = (!event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey
+      && (key === " " || key === "f4"))
+      || (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey
+        && (key === "arrowup" || key === "arrowdown"));
+    if (!activeSelection && cellSelection && opensSelect && typeof CDBVS.findRenderedCell === "function") {
+      const selectedCellElement = CDBVS.findRenderedCell(cellSelection.rowIndex, cellSelection.columnIndex);
+      const selectedControl = selectedCellElement && selectedCellElement.querySelector
+        ? selectedCellElement.querySelector("select") : null;
+      if (selectedControl && typeof CDBVS.activateRenderedCell === "function") {
+        event.preventDefault();
+        CDBVS.activateRenderedCell(sheet, cellSelection.rowIndex, cellSelection.columnIndex, event);
+        return;
+      }
+    }
     const directListToggle = event.target && event.target.closest && event.target.closest(".list-toggle");
     const directToggleCell = directListToggle && directListToggle.closest
       ? directListToggle.closest(".list-cell")
@@ -82,8 +114,19 @@
     // Once a cell is active, its editor owns arrow keys so text cursors, number
     // inputs, selects, and nested editors can navigate their own value without
     // moving the grid selection.
+    let selectKeyTarget = event.target;
+    if (!editorTarget && activeSelection && typeof CDBVS.findRenderedCell === "function") {
+      const activeCellElement = CDBVS.findRenderedCell(activeSelection.rowIndex, activeSelection.columnIndex);
+      const activeControl = activeCellElement && activeCellElement.querySelector
+        ? activeCellElement.querySelector("select") : null;
+      if (activeControl) selectKeyTarget = activeControl;
+    }
     if (typeof CDBVS.handleSelectKeydown === "function"
-      && CDBVS.handleSelectKeydown(event.target, event)) return;
+      && CDBVS.handleSelectKeydown(selectKeyTarget, event)) return;
+    // The dropdown filter is a real text input living outside the table cell.
+    // Keep its editing keys and clipboard shortcuts away from grid navigation.
+    if (selectFilterTarget && ((arrowKey || key === "home" || key === "end")
+      || (modified && clipboardKey))) return;
     if (activeSelection && cellEditorTarget && arrowKey) return;
     if (!modified && !event.altKey && arrowKey && (!editorTarget || cellEditorTarget || cellSelection)) {
       if (!cellSelection) {

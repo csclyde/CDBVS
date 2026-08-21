@@ -508,7 +508,20 @@ test("cells select first and activate on the second click or Enter", () => {
   assert.equal(currentMenu.style.left, "240px");
   assert.equal(currentMenu.style.top, "176px");
   assert.equal(currentMenu.style.minWidth, "205px");
+  // When neither side can fit the full menu, use the roomier side and cap
+  // both the outer menu and its scrollable options pane to that space.
+  harness.context.innerHeight = 500;
+  currentMenu.offsetHeight = 320;
+  select.getBoundingClientRect = () => ({ left: 240, top: 200, bottom: 250, width: 205 });
+  harness.document.dispatchEvent({ type: "scroll", target: harness.document });
+  assert.equal(currentMenu.style.top, "250px");
+  assert.equal(currentMenu.style.maxHeight, "240px");
+  assert.ok(Number.parseInt(currentMenu.querySelector(".cell-select-options").style.maxHeight, 10) < 240);
+  harness.context.innerHeight = 800;
   currentMenu.offsetHeight = 200;
+  select.getBoundingClientRect = () => ({ left: 240, top: -100, bottom: -50, width: 205 });
+  harness.document.dispatchEvent({ type: "scroll", target: harness.document });
+  assert.equal(currentMenu.style.top, "8px");
   select.getBoundingClientRect = () => ({ left: 240, top: 650, bottom: 700, width: 205 });
   harness.document.dispatchEvent({ type: "scroll", target: harness.document });
   assert.equal(currentMenu.style.top, "450px");
@@ -551,6 +564,304 @@ test("cells select first and activate on the second click or Enter", () => {
   kindCell.dispatchEvent({ type: "mousedown", button: 0, target: kindCell, preventDefault() {} });
   assert.equal(harness.document.querySelector(".cell-select-menu"), null);
   assert.equal(harness.CDBVS.activeCell(target), null);
+});
+
+test("dropdown teardown commits outside clicks, cancels on Escape, and protects filter editing", () => {
+  const target = sheet("Players");
+  target.columns = [{ name: "kind", typeStr: "5:Basic,Advanced" }];
+  target.lines = [{ kind: 0 }];
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target] });
+  harness.context.innerWidth = 1200;
+  harness.context.innerHeight = 800;
+  harness.context.Event = class { constructor(type) { this.type = type; } };
+  harness.CDBVS.app = harness.document.createElement("div");
+  harness.CDBVS.rememberViewport = () => {};
+  harness.CDBVS.restoreViewport = () => {};
+  loadScript(harness.context, "EditorCells.js");
+  loadScript(harness.context, "EditorView.js");
+  harness.CDBVS.render();
+
+  const cell = harness.CDBVS.app.querySelectorAll("td").find((item) => item.dataset.columnIndex === "0");
+  cell.dispatchEvent({ type: "click", target: cell });
+  cell.dispatchEvent({ type: "click", target: cell });
+  const select = cell.querySelector("select");
+  const filter = harness.document.querySelector(".cell-select-filter");
+  assert.ok(filter);
+
+  let prevented = false;
+  harness.document.dispatchEvent({
+    type: "keydown",
+    key: "ArrowDown",
+    target: filter,
+    preventDefault() { prevented = true; }
+  });
+  assert.equal(prevented, true);
+  assert.equal(select.value, "1");
+  assert.equal(target.lines[0].kind, 0);
+
+  harness.document.dispatchEvent({
+    type: "keydown",
+    key: "Enter",
+    isComposing: true,
+    target: filter,
+    preventDefault() { throw new Error("IME composition must not be intercepted"); }
+  });
+  assert.ok(harness.document.querySelector(".cell-select-menu"));
+
+  prevented = false;
+  harness.document.dispatchEvent({
+    type: "keydown",
+    key: "Escape",
+    target: filter,
+    preventDefault() { prevented = true; }
+  });
+  assert.equal(prevented, true);
+  assert.equal(select.value, "0");
+  assert.equal(target.lines[0].kind, 0);
+  assert.equal(harness.document.querySelector(".cell-select-menu"), null);
+  assert.equal(harness.CDBVS.activeCell(target), null);
+
+  cell.dispatchEvent({ type: "click", target: cell });
+  const secondFilter = harness.document.querySelector(".cell-select-filter");
+  assert.ok(secondFilter);
+  [" ", "Home", "End", "ArrowLeft", "ArrowRight"].forEach((key) => {
+    let keyPrevented = false;
+    harness.document.dispatchEvent({
+      type: "keydown",
+      key,
+      target: secondFilter,
+      preventDefault() { keyPrevented = true; }
+    });
+    assert.equal(keyPrevented, false, `${key} should remain available to the filter input`);
+  });
+  let copied = false;
+  harness.CDBVS.copySelectedRow = () => { copied = true; };
+  harness.document.dispatchEvent({
+    type: "keydown",
+    key: "c",
+    ctrlKey: true,
+    target: secondFilter,
+    preventDefault() { throw new Error("filter clipboard shortcuts must not be intercepted"); }
+  });
+  assert.equal(copied, false);
+
+  harness.document.dispatchEvent({
+    type: "pointerdown",
+    target: harness.document.createElement("button"),
+    preventDefault() {}
+  });
+  assert.equal(harness.document.querySelector(".cell-select-menu"), null);
+  assert.equal(target.lines[0].kind, 0);
+
+  cell.dispatchEvent({ type: "click", target: cell });
+  const thirdFilter = harness.document.querySelector(".cell-select-filter");
+  const thirdSelect = cell.querySelector("select");
+  harness.document.dispatchEvent({ type: "keydown", key: "ArrowDown", target: thirdFilter, preventDefault() {} });
+  harness.document.dispatchEvent({ type: "pointerdown", target: harness.document.createElement("button"), preventDefault() {} });
+  assert.equal(thirdSelect.value, "1");
+  assert.equal(target.lines[0].kind, 1);
+});
+
+test("dropdowns preserve missing values and invalidate reference options after ID edits", () => {
+  const refs = sheet("Refs");
+  refs.columns = [{ name: "id", typeStr: "0" }];
+  refs.lines = [{ id: "known" }];
+  const source = sheet("Source");
+  source.columns = [{ name: "ref", typeStr: "6:Refs" }];
+  source.lines = [{ ref: "missing" }];
+  const harness = createWebviewHarness({ customTypes: [], sheets: [source, refs] });
+  loadScript(harness.context, "EditorCells.js");
+
+  const cell = harness.document.createElement("td");
+  harness.CDBVS.makeCellEditor(cell, source.lines[0], source.columns[0], {
+    sheet: source,
+    rowIndex: 0,
+    path: "Source/0",
+    lazy: true
+  });
+  const lazy = cell.querySelector("select");
+  lazy._cdbvsActivateLazyEditor();
+  const full = cell.querySelector("select");
+  assert.equal(full.value, "missing");
+  assert.equal(full.querySelectorAll("option").some((option) => option.textContent === "Missing value: missing"), true);
+
+  assert.deepEqual(harness.CDBVS.referenceOptions(source.columns[0]), ["known"]);
+  harness.CDBVS.setCellValue(refs.lines[0], refs.columns[0], "renamed");
+  assert.deepEqual(harness.CDBVS.referenceOptions(source.columns[0]), ["renamed"]);
+});
+
+test("dropdowns close when focus leaves and support native closed-select keys", () => {
+  const target = sheet("Players");
+  target.columns = [{ name: "kind", typeStr: "5:Basic,Advanced,Expert" }];
+  target.lines = [{ kind: 1 }];
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target] });
+  harness.context.innerWidth = 1200;
+  harness.context.innerHeight = 800;
+  harness.context.Event = class { constructor(type) { this.type = type; } };
+  harness.CDBVS.app = harness.document.createElement("div");
+  harness.CDBVS.rememberViewport = () => {};
+  harness.CDBVS.restoreViewport = () => {};
+  loadScript(harness.context, "EditorCells.js");
+  loadScript(harness.context, "EditorView.js");
+  harness.CDBVS.render();
+
+  const cell = harness.CDBVS.app.querySelectorAll("td").find((item) => item.dataset.columnIndex === "0");
+  cell.dispatchEvent({ type: "click", target: cell });
+  cell.dispatchEvent({ type: "click", target: cell });
+  const select = cell.querySelector("select");
+  assert.ok(harness.document.querySelector(".cell-select-menu"));
+
+  const outside = harness.document.createElement("button");
+  outside.focus();
+  harness.document.dispatchEvent({ type: "focusin", target: outside });
+  assert.equal(harness.document.querySelector(".cell-select-menu"), null);
+  assert.equal(harness.CDBVS.activeCell(target), null);
+  assert.equal(harness.document.activeElement, outside);
+
+  harness.document.dispatchEvent({
+    type: "keydown",
+    key: " ",
+    target: cell,
+    preventDefault() {}
+  });
+  assert.ok(harness.document.querySelector(".cell-select-menu"));
+  harness.document.dispatchEvent({
+    type: "keydown",
+    key: "Escape",
+    target: harness.document.querySelector(".cell-select-filter"),
+    preventDefault() {}
+  });
+  harness.document.dispatchEvent({
+    type: "keydown",
+    key: "ArrowDown",
+    altKey: true,
+    target: cell,
+    preventDefault() {}
+  });
+  assert.ok(harness.document.querySelector(".cell-select-menu"));
+  harness.document.dispatchEvent({
+    type: "keydown",
+    key: "ArrowDown",
+    altKey: true,
+    target: harness.document.querySelector(".cell-select-filter"),
+    preventDefault() {}
+  });
+  assert.equal(harness.document.querySelector(".cell-select-menu"), null);
+  harness.document.dispatchEvent({ type: "keydown", key: " ", target: cell, preventDefault() {} });
+  assert.ok(harness.document.querySelector(".cell-select-menu"));
+  harness.document.dispatchEvent({
+    type: "keydown",
+    key: "Escape",
+    target: harness.document.querySelector(".cell-select-filter"),
+    preventDefault() {}
+  });
+
+  harness.CDBVS.selectCell(target, 0, 0);
+  harness.CDBVS.activateCell(target, 0, 0);
+  select.focus();
+  let prevented = false;
+  harness.document.dispatchEvent({
+    type: "keydown",
+    key: "Home",
+    target: select,
+    preventDefault() { prevented = true; }
+  });
+  assert.equal(prevented, true);
+  assert.equal(select.value, "0");
+
+  harness.document.dispatchEvent({
+    type: "keydown",
+    key: "ArrowRight",
+    target: select,
+    preventDefault() {}
+  });
+  assert.equal(select.value, "1");
+
+  harness.document.dispatchEvent({
+    type: "keydown",
+    key: "End",
+    target: select,
+    preventDefault() {}
+  });
+  assert.equal(select.value, "2");
+  harness.document.dispatchEvent({
+    type: "keydown",
+    key: "Enter",
+    target: select,
+    preventDefault() {}
+  });
+  const menu = harness.document.querySelector(".cell-select-menu");
+  assert.ok(menu);
+  assert.equal(menu.querySelector(".cell-select-filter").value, "");
+  harness.document.dispatchEvent({
+    type: "keydown",
+    key: "Escape",
+    target: menu.querySelector(".cell-select-filter"),
+    preventDefault() {}
+  });
+  assert.equal(select.value, "2");
+});
+
+test("dropdown Tab commits before advancing and menu-surface keys cannot alter the grid", () => {
+  const target = sheet("Players");
+  target.columns = [{ name: "kind", typeStr: "5:Basic,Advanced" }, { name: "label", typeStr: "1" }];
+  target.lines = [{ kind: 0, label: "ready" }];
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target] });
+  harness.context.innerWidth = 1200;
+  harness.context.innerHeight = 800;
+  harness.context.Event = class { constructor(type) { this.type = type; } };
+  harness.CDBVS.app = harness.document.createElement("div");
+  harness.CDBVS.rememberViewport = () => {};
+  harness.CDBVS.restoreViewport = () => {};
+  loadScript(harness.context, "EditorCells.js");
+  loadScript(harness.context, "EditorView.js");
+  harness.CDBVS.render();
+
+  const cells = harness.CDBVS.app.querySelectorAll("tr")[1].children;
+  const choiceCell = cells[1];
+  const labelCell = cells[2];
+  choiceCell.dispatchEvent({ type: "click", target: choiceCell });
+  choiceCell.dispatchEvent({ type: "click", target: choiceCell });
+  const select = choiceCell.querySelector("select");
+  const filter = harness.document.querySelector(".cell-select-filter");
+  harness.document.dispatchEvent({ type: "keydown", key: "ArrowDown", target: filter, preventDefault() {} });
+  const option = harness.document.querySelector(".cell-select-option");
+  let menuKeyPrevented = false;
+  harness.document.dispatchEvent({
+    type: "keydown",
+    key: "Delete",
+    target: option,
+    preventDefault() { menuKeyPrevented = true; }
+  });
+  assert.equal(menuKeyPrevented, true);
+  assert.ok(harness.document.querySelector(".cell-select-menu"));
+
+  // A live schema/reference refresh must not let a stale keyboard event act
+  // on an option node that no longer matches the open menu snapshot.
+  select.querySelectorAll("option")[1].textContent = "Changed";
+  harness.document.dispatchEvent({ type: "keydown", key: "Enter", target: filter, preventDefault() {} });
+  assert.equal(harness.document.querySelector(".cell-select-menu"), null);
+
+  choiceCell.dispatchEvent({ type: "click", target: choiceCell });
+  const reopenedFilter = harness.document.querySelector(".cell-select-filter");
+  assert.ok(reopenedFilter);
+  select.querySelectorAll("option")[0].disabled = true;
+  const disabledOption = harness.document.querySelectorAll(".cell-select-option")[0];
+  disabledOption.dispatchEvent({ type: "click", preventDefault() {} });
+  assert.ok(harness.document.querySelector(".cell-select-menu"));
+
+  let tabPrevented = false;
+  harness.document.dispatchEvent({
+    type: "keydown",
+    key: "Tab",
+    target: reopenedFilter,
+    preventDefault() { tabPrevented = true; }
+  });
+  assert.equal(tabPrevented, true);
+  assert.equal(harness.document.querySelector(".cell-select-menu"), null);
+  assert.equal(target.lines[0].kind, 1);
+  assert.equal(harness.CDBVS.activeCell(target).columnIndex, 1);
+  assert.equal(harness.document.activeElement, labelCell.querySelector("input"));
 });
 
 test("Tab exits the current editor and activates the next cell", () => {

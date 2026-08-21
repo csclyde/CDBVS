@@ -26,6 +26,7 @@
   function render() {
     if (typeof cancelActiveTableRender === "function") cancelActiveTableRender();
     cancelActiveTableRender = null;
+    if (typeof CDBVS.finishSelectMenu === "function") CDBVS.finishSelectMenu(true);
     CDBVS.clearReferenceOptionsCache();
     sheetState.clearMap("activeCells");
     CDBVS.closeContextMenu();

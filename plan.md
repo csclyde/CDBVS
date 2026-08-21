@@ -16,6 +16,25 @@ The first working editor baseline is in place. The repository now contains a des
 - Custom dropdown menus now flip above their control when the measured menu would extend past the bottom viewport edge, with clamping for very small viewports.
 - Added regression coverage for normal downward placement and bottom-edge upward placement.
 
+## Dropdown behavioral deep dive (2026-08-20)
+
+- The happy path is covered, but the custom menu still needs outside-click/lifecycle cleanup: `render()` and modal close paths do not close a menu appended directly to `document.body`, so a stale menu can remain above a new sheet or modal and retain scroll listeners.
+- The filter input does not yet behave like a normal text input in the main grid: Space is suppressed, Home/End are treated as option navigation, and Left/Right can fall through to grid navigation. Main-grid Ctrl/Cmd+C/X/V/S can also be intercepted while the filter has focus.
+- List-modal Enter/Escape closes the menu without clearing its active-cell state; the table path exits the active cell through its outer keyboard handler, but the list-modal path returns early.
+- Escape currently commits the live dropdown value through the normal active-cell exit path rather than restoring the value present when the menu opened; this differs from common native dropdown cancellation behavior and needs an explicit product decision.
+- Current-value preservation is incomplete for malformed data: materializing a reference select removes an invalid current ID from the option set, and opening/closing can clear it; null/invalid enum values can likewise normalize on exit. A missing-value option or raw recovery path is needed before treating this as lossless editing.
+- Reference options are cached until a full render. In-place primary-ID edits do not clear that cache, so a reference dropdown can show old IDs until another render/sheet switch.
+- The menu has no horizontal viewport clamp, no no-results affordance, and creates every option DOM node when opened. Large reference sheets therefore remain expensive despite lazy table-cell controls.
+- Accessibility semantics are partial: the native select remains the control, but the overlay lacks a complete combobox/listbox focus and active-descendant model, and the filter input is nested inside the listbox role. Real Extension Development Host and screen-reader verification remain outstanding.
+
+## Dropdown hardening pass (2026-08-20)
+
+- Added centralized dropdown teardown for outside pointer/mouse interaction, window blur, sheet renders, modal creation/close, and replacement by another dropdown. Normal dismissal commits once; Escape restores the value from before opening.
+- Kept filter text-editing and clipboard shortcuts native, including Space, Home/End, Left/Right, and Ctrl/Cmd+C/X/V; Ctrl/Cmd+S now commits the active dropdown before requesting a save.
+- Fixed nested list-modal Enter/Escape state leakage and added explicit regression coverage for both cancellation and filtered Enter selection.
+- Preserved missing enum/reference values as visible `Missing value: ...` options, added a no-results message, improved empty-reference labeling, added active-descendant/listbox semantics, and clamped horizontal menu placement.
+- Primary-ID cell mutations now invalidate cached reference options. Large reference menus still create all option nodes on activation and need a future virtualized result list; real Extension Development Host and screen-reader verification remain outstanding.
+
 ## Viewport preservation hardening (2026-08-19)
 
 - Made the webview observe table and raw-editor scroll events continuously instead of only sampling the viewport when a render begins.
@@ -326,3 +345,9 @@ These are intentionally still open for the next milestone:
 - Tab and Shift+Tab now move through visible grid cells while exiting the prior editor and immediately activating the destination editor; the regression suite passes 59 tests.
 - Focused numeric drafts now avoid debounced rerenders even if active-cell state is stale, and Enter commits/exits that editor; rapid numeric-input regression coverage passes.
 - Ctrl/Cmd+Up and Down now reorder selected expanded-list items without moving their parent sheet row; regression coverage preserves nested selection and parent order.
+- Second dropdown hardening pass: menus now close on focus transfer, preserve the intended destination focus, handle nested-modal Escape ordering safely, support Tab/Shift+Tab through list-modal dropdowns, and ignore IME composition key events.
+- Choice cells now support native-style Space, Enter, F4, Alt+Arrow, Home/End, PageUp/PageDown, Left/Right, closed-select changes, type-ahead filtering, modifier-key passthrough, and safe empty/disabled activation cleanup without changing ordinary select-first grid clicks.
+- Added stale-option snapshot protection, improved combobox/listbox ARIA metadata, selected-versus-active styling, live no-results feedback, tiny-viewport sizing, long-label ellipsis/tooltips, and focus/lifecycle regression coverage. The full suite passes 108 tests with 13 intentional skips; real Extension Development Host and screen-reader verification remain outstanding, and very large opened reference lists still materialize every option node.
+- Third dropdown hardening pass: Tab now commits and tears down open menus before advancing in both the main grid and nested list editors; Alt+Arrow toggles an already-open menu closed; menu-surface key events cannot leak into grid delete/navigation/clipboard actions; closed-select keyboard changes emit native-style input/change events; disabled options are non-selectable; stale option snapshots are rejected before keyboard selection; and menus close when the webview becomes hidden.
+- Added regression coverage for main-grid dropdown Tab commit/focus transfer, menu-surface key isolation, and Alt+Arrow close behavior. Full validation passes: 109 tests, 13 intentional skips, TypeScript/build checks, and `git diff --check`. Real Extension Development Host and screen-reader verification remain outstanding, and very large opened reference lists still materialize every option node.
+- Dropdown geometry pass: placement now measures the natural menu on every scroll/resize, chooses below when it fits, otherwise above when that fits, and otherwise uses the roomier side; the outer menu and options pane are capped to the exact available vertical space, reflow remains stable after previous caps, off-screen anchors stay clamped, and the menu stacking layer is above editor chrome. Geometry regressions and the full 109-pass suite are green.

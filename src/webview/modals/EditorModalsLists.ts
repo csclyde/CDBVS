@@ -170,7 +170,8 @@
         return true;
       }
       if (control.tagName === "SELECT" && typeof CDBVS.openSelectMenu === "function") {
-        CDBVS.openSelectMenu(control, modalSheet, () => exitCell(true));
+        const opened = CDBVS.openSelectMenu(control, modalSheet, () => exitCell(true));
+        if (!opened) exitCell(true);
       } else if (typeof control.focus === "function") {
         control.focus();
         if (typeof control.setSelectionRange === "function") {
@@ -474,6 +475,7 @@
     function handleKeydown(event) {
       if (event.__cdbvsListModalHandled) return;
       event.__cdbvsListModalHandled = true;
+      if (event.isComposing || event.keyCode === 229) return;
       const key = String(event.key || "").toLowerCase();
       const modified = event.ctrlKey || event.metaKey;
       const editorTarget = event.target && event.target.closest
@@ -482,7 +484,37 @@
       if (selectMenu && typeof CDBVS.handleSelectKeydown === "function" && activeCell) {
         const control = activeEditorTarget(findCell(grid, activeCell.rowIndex, activeCell.columnIndex));
         const wasOpen = selectMenu.contains(event.target);
-        if (CDBVS.handleSelectKeydown(control, event) || wasOpen || key === "escape" || key === "enter") return;
+        if (CDBVS.handleSelectKeydown(control, event)) {
+          event.__cdbvsSelectHandled = true;
+          if (typeof event.stopPropagation === "function") event.stopPropagation();
+          return;
+        }
+        if (wasOpen && modified && key === "s") {
+          event.preventDefault();
+          if (typeof CDBVS.finishSelectMenu === "function") CDBVS.finishSelectMenu(true);
+          save();
+          return;
+        }
+        if (wasOpen && !modified && !event.altKey && key === "tab") {
+          if (typeof CDBVS.finishSelectMenu === "function") CDBVS.finishSelectMenu(true);
+          if (moveTab(event.shiftKey ? -1 : 1)) event.preventDefault();
+          else focusSelectedCell();
+          return;
+        }
+        if (wasOpen || key === "escape" || key === "enter") return;
+      }
+      const opensSelect = (!event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey
+        && (key === " " || key === "f4"))
+        || (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey
+          && (key === "arrowup" || key === "arrowdown"));
+      if (!activeCell && !modified && opensSelect && selectedCell) {
+        const cell = findCell(grid, selectedCell.rowIndex, selectedCell.columnIndex);
+        const control = activeEditorTarget(cell);
+        if (control && control.tagName === "SELECT") {
+          event.preventDefault();
+          activateCell(cell, selectedCell.rowIndex, selectedCell.columnIndex, event);
+          return;
+        }
       }
       if (key === "escape") {
         if (typeof CDBVS.hasContextMenu === "function" && CDBVS.hasContextMenu()) {

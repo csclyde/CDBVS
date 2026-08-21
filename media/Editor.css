@@ -36,10 +36,11 @@ select option {
 }
 .cell-select-menu {
   position: fixed;
-  z-index: 1000;
-  min-width: 140px;
-  max-height: min(320px, 50vh);
-  overflow-y: auto;
+  z-index: 1100;
+  min-width: min(140px, calc(100vw - 16px));
+  max-width: min(420px, calc(100vw - 16px));
+  max-height: min(320px, max(48px, 50vh));
+  overflow: hidden;
   border: 1px solid var(--vscode-dropdown-border, var(--input-border));
   background: var(--vscode-dropdown-background, var(--input-bg));
   color: var(--vscode-dropdown-foreground, var(--input-fg));
@@ -56,17 +57,23 @@ select option {
   color: var(--vscode-input-foreground, var(--input-fg));
 }
 .cell-select-filter:focus { outline: 1px solid var(--vscode-focusBorder); outline-offset: -1px; }
-.cell-select-options { max-height: min(270px, 45vh); overflow-y: auto; }
+.cell-select-options { max-height: min(270px, max(32px, calc(50vh - 42px))); overflow-y: auto; }
 .cell-select-option {
   padding: 4px 8px;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   cursor: default;
 }
 .cell-select-option.selected,
+.cell-select-option.active,
 .cell-select-option:hover {
   background: var(--vscode-list-activeSelectionBackground, var(--selection-bg));
   color: var(--vscode-list-activeSelectionForeground, var(--selection-fg));
 }
+.cell-select-option.selected:not(.active) { font-weight: 600; }
+.cell-select-option.disabled { color: var(--muted); cursor: default; opacity: .65; }
+.cell-select-empty { padding: 7px 8px; color: var(--muted); font-style: italic; }
 button { cursor: pointer; }
 button:disabled { cursor: default; opacity: .45; }
 .toolbar {

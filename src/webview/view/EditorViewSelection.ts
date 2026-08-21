@@ -97,7 +97,8 @@
       && event.target.closest(".list-toggle"));
     if (typeof control.focus === "function") control.focus();
     if (control.tagName === "SELECT") {
-      CDBVS.openSelectMenu(control, sheet, onClose);
+      const opened = CDBVS.openSelectMenu(control, sheet, onClose);
+      if (!opened && typeof CDBVS.exitRenderedCell === "function") CDBVS.exitRenderedCell(sheet);
     } else if (control.classList && control.classList.contains("list-toggle") && !directListToggleClick) {
       if (typeof cell._cdbvsToggleList === "function") cell._cdbvsToggleList();
       else CDBVS.clickControl(control);

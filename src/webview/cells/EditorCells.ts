@@ -30,19 +30,44 @@
     makeCellEditor(cell, row, column, Object.assign({}, context || {}, { lazy: false, existingInput }));
   }
 
+  function choiceValue(value) {
+    return value === undefined || value === null ? "" : String(value);
+  }
+
+  function addEnumOptions(input, type, value) {
+    const values = type.values.length ? type.values : ["0"];
+    const current = choiceValue(value);
+    if (current === "") input.add(new Option("None", ""));
+    values.forEach((label, index) => input.add(new Option(label, String(index))));
+    if (current !== "" && !values.some((_, index) => String(index) === current)) {
+      input.add(new Option(`Missing value: ${current}`, current));
+    }
+    input.value = current;
+  }
+
+  function addReferenceOptions(input, references, value) {
+    const current = choiceValue(value);
+    input.add(new Option("", ""));
+    (references || []).forEach((item) => input.add(new Option(String(item), String(item))));
+    if (current !== "" && !(references || []).some((item) => String(item) === current)) {
+      input.add(new Option(`Missing value: ${current}`, current));
+    }
+    input.value = current;
+  }
+
   function lazyChoiceEditor(cell, row, column, context, type) {
     const input = document.createElement("select");
     input.className = "lazy-cell-editor";
     input.title = `${column.name} (${type.name})`;
     const value = row[column.name];
     if (type.code === 5) {
-      const index = Number.isInteger(Number(value)) ? Number(value) : 0;
-      input.add(new Option(type.values[index] || String(value ?? ""), String(value ?? 0)));
-      input.value = String(value ?? 0);
+      const current = choiceValue(value);
+      const index = Number.isInteger(Number(value)) ? Number(value) : -1;
+      const label = current === "" ? "None" : (type.values[index] || `Missing value: ${current}`);
+      input.add(new Option(label, current));
+      input.value = current;
     } else {
-      input.add(new Option("", ""));
-      if (value !== undefined && value !== null && value !== "") input.add(new Option(String(value), String(value)));
-      input.value = String(value ?? "");
+      addReferenceOptions(input, [], value);
     }
     input._cdbvsActivateLazyEditor = () => materializeCellEditor(cell, row, column, Object.assign({}, context, { existingInput: input }));
     cell.appendChild(input);
@@ -173,15 +198,11 @@
     } else if (type.code === 5) {
       input = existingInput && existingInput.tagName === "SELECT" ? existingInput : document.createElement("select");
       input.replaceChildren();
-      const values = type.values.length ? type.values : ["0"];
-      values.forEach((label, index) => input.add(new Option(label, String(index))));
-      input.value = String(value ?? 0);
+      addEnumOptions(input, type, value);
     } else if (type.code === 6 && references) {
       input = existingInput && existingInput.tagName === "SELECT" ? existingInput : document.createElement("select");
       input.replaceChildren();
-      input.add(new Option("", ""));
-      references.forEach((item) => input.add(new Option(String(item), String(item))));
-      input.value = String(value ?? "");
+      addReferenceOptions(input, references, value);
     } else {
       input = document.createElement("input");
       input.type = type.code === 11 ? "color" : ((type.code === 3 || type.code === 4 || type.code === 10) ? "number" : "text");
@@ -252,6 +273,7 @@
         return true;
       };
     }
+    if (existingInput && existingInput !== input && existingInput.parentNode === cell) cell.removeChild(existingInput);
     cell.appendChild(input);
   }
 

@@ -6,11 +6,13 @@
   const modalState = CDBVS.modalState || (CDBVS.modalState = { active: null });
 
   function closeActiveModal() {
+    if (typeof CDBVS.finishSelectMenu === "function") CDBVS.finishSelectMenu(true);
     if (modalState.active) modalState.active.remove();
     modalState.active = null;
   }
 
   function closeModal(overlay) {
+    if (typeof CDBVS.finishSelectMenu === "function") CDBVS.finishSelectMenu(true);
     if (modalState.active === overlay) modalState.active = null;
     if (overlay) overlay.remove();
   }
@@ -36,6 +38,7 @@
 
   function createModal(options) {
     const config = options || {};
+    if (typeof CDBVS.finishSelectMenu === "function") CDBVS.finishSelectMenu(true);
     const previous = config.restorePrevious ? modalState.active : null;
     closeActiveModal();
     const overlay = makeElement("div", null, "text-modal-overlay");
@@ -64,7 +67,10 @@
       if (event.target === overlay) close();
     });
     overlay.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") close();
+      const inSelectMenu = event.target && event.target.closest
+        && event.target.closest(".cell-select-menu");
+      const dropdownOpen = typeof CDBVS.hasOpenSelectMenu === "function" && CDBVS.hasOpenSelectMenu();
+      if (event.key === "Escape" && !inSelectMenu && !event.__cdbvsSelectHandled && !dropdownOpen) close();
     });
     document.body.appendChild(overlay);
     setActiveModal(overlay);

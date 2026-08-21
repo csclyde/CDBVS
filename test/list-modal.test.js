@@ -113,3 +113,99 @@ test("nested list modal restores its parent after save", () => {
   assert.equal(harness.document.querySelectorAll(".text-modal-overlay").length, 1);
   assert.equal(harness.document.querySelector(".list-modal"), parentDialog);
 });
+
+test("list-modal dropdown Enter and Escape close editing without leaking active state", () => {
+  const parent = {
+    name: "Parent",
+    columns: [{ name: "items", typeStr: "8:Parent@items" }],
+    lines: [{ items: [{ kind: 0 }] }],
+    separators: [],
+    props: {}
+  };
+  const child = {
+    name: "Parent@items",
+    columns: [{ name: "kind", typeStr: "5:Basic,Advanced" }],
+    lines: [],
+    separators: [],
+    props: {}
+  };
+  const harness = createWebviewHarness({ customTypes: [], sheets: [parent, child] });
+  loadScript(harness.context, "EditorCells.js");
+  loadScript(harness.context, "EditorViewTableCells.js");
+  harness.CDBVS.openListEditor(parent, parent.lines[0], parent.columns[0], child);
+  const overlay = harness.document.querySelector(".text-modal-overlay");
+  const dialog = overlay.querySelector(".list-modal");
+  const cell = dialog.querySelectorAll("td").find((item) => item.dataset.columnIndex === "0");
+  cell.dispatchEvent({ type: "mousedown", button: 0, target: cell, preventDefault() {} });
+  cell.dispatchEvent({ type: "click", target: cell });
+  const menu = harness.document.querySelector(".cell-select-menu");
+  const filter = menu.querySelector(".cell-select-filter");
+  overlay.dispatchEvent({ type: "keydown", key: "ArrowDown", target: filter, preventDefault() {} });
+  overlay.dispatchEvent({ type: "keydown", key: "Escape", target: filter, preventDefault() {} });
+  assert.equal(harness.document.querySelector(".cell-select-menu"), null);
+  assert.equal(cell.classList.contains("cell-active"), false);
+  assert.equal(dialog.querySelector("select").value, "0");
+
+  cell.dispatchEvent({ type: "click", target: cell });
+  assert.ok(harness.document.querySelector(".cell-select-menu"));
+  overlay.dispatchEvent({
+    type: "keydown",
+    key: "Escape",
+    target: harness.document,
+    preventDefault() {},
+    stopPropagation() {}
+  });
+  assert.equal(harness.document.querySelector(".cell-select-menu"), null);
+  assert.ok(harness.document.querySelector(".text-modal-overlay"));
+
+  cell.dispatchEvent({ type: "click", target: cell });
+  const enterMenu = harness.document.querySelector(".cell-select-menu");
+  const enterFilter = enterMenu.querySelector(".cell-select-filter");
+  enterFilter.value = "advanced";
+  enterFilter.dispatchEvent({ type: "input", target: enterFilter });
+  overlay.dispatchEvent({ type: "keydown", key: "Enter", target: enterFilter, preventDefault() {} });
+  assert.equal(harness.document.querySelector(".cell-select-menu"), null);
+  assert.equal(cell.classList.contains("cell-active"), false);
+  assert.equal(dialog.querySelector("select").value, "1");
+});
+
+test("list-modal dropdown Tab commits and advances instead of escaping the menu", () => {
+  const parent = {
+    name: "Parent",
+    columns: [{ name: "items", typeStr: "8:Parent@items" }],
+    lines: [{ items: [{ kind: 0 }, { kind: 1 }] }],
+    separators: [],
+    props: {}
+  };
+  const child = {
+    name: "Parent@items",
+    columns: [{ name: "kind", typeStr: "5:Basic,Advanced" }],
+    lines: [],
+    separators: [],
+    props: {}
+  };
+  const harness = createWebviewHarness({ customTypes: [], sheets: [parent, child] });
+  loadScript(harness.context, "EditorCells.js");
+  loadScript(harness.context, "EditorViewTableCells.js");
+  harness.CDBVS.openListEditor(parent, parent.lines[0], parent.columns[0], child);
+  const overlay = harness.document.querySelector(".text-modal-overlay");
+  const dialog = overlay.querySelector(".list-modal");
+  const firstCell = dialog.querySelectorAll("td").find((item) => item.dataset.rowIndex === "0" && item.dataset.columnIndex === "0");
+  firstCell.dispatchEvent({ type: "mousedown", button: 0, target: firstCell, preventDefault() {} });
+  firstCell.dispatchEvent({ type: "click", target: firstCell });
+  const filter = harness.document.querySelector(".cell-select-filter");
+  assert.ok(filter);
+
+  let prevented = false;
+  overlay.dispatchEvent({
+    type: "keydown",
+    key: "Tab",
+    target: filter,
+    preventDefault() { prevented = true; }
+  });
+  assert.equal(prevented, true);
+  assert.equal(harness.document.querySelector(".cell-select-menu"), null);
+  assert.equal(dialog.querySelectorAll("td").filter((cell) => cell.classList.contains("cell-selected"))
+    .some((cell) => cell.dataset.rowIndex === "1"), true);
+  assert.equal(dialog.querySelectorAll("td").some((cell) => cell.classList.contains("cell-active")), false);
+});
