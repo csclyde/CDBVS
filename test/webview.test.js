@@ -1287,6 +1287,79 @@ test("row mutations clamp indexes and keep separator state aligned", () => {
   assert.equal(target.lines.length, 3);
 });
 
+test("insert and delete row actions refresh the table body without rebuilding the screen", () => {
+  const target = sheet();
+  target.columns = [{ name: "id", typeStr: "0" }, { name: "name", typeStr: "1" }];
+  target.lines = [{ id: "a", name: "Alice" }, { id: "b", name: "Bob" }];
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target] });
+  harness.context.innerWidth = 1200;
+  harness.context.innerHeight = 800;
+  harness.context.Event = class { constructor(type) { this.type = type; } };
+  harness.CDBVS.app = harness.document.createElement("div");
+  harness.CDBVS.rememberViewport = () => {};
+  harness.CDBVS.restoreViewport = () => {};
+  loadScript(harness.context, "EditorCells.js");
+  loadScript(harness.context, "EditorView.js");
+  harness.CDBVS.render();
+  let renderCount = 0;
+  const render = harness.CDBVS.render;
+  harness.CDBVS.render = () => { renderCount += 1; render(); };
+
+  const tableWrap = harness.CDBVS.app.querySelector(".table-wrap");
+  tableWrap.scrollTop = 120;
+  tableWrap.scrollLeft = 45;
+  harness.CDBVS.selectRow(target, 0);
+  harness.CDBVS.insertSelectedRow(target);
+
+  assert.equal(renderCount, 0);
+  assert.strictEqual(harness.CDBVS.app.querySelector(".table-wrap"), tableWrap);
+  assert.equal(tableWrap.scrollTop, 120);
+  assert.equal(tableWrap.scrollLeft, 45);
+  assert.equal(tableWrap.querySelectorAll("tbody tr").filter((row) => row.dataset.rowIndex !== undefined).length, 3);
+  assert.equal(tableWrap.querySelectorAll("tr").some((row) => row.dataset.rowIndex === "1" && row.classList.contains("row-selected")), true);
+
+  harness.CDBVS.deleteSelectedRow(target);
+  assert.equal(renderCount, 0);
+  assert.strictEqual(harness.CDBVS.app.querySelector(".table-wrap"), tableWrap);
+  assert.equal(tableWrap.scrollTop, 120);
+  assert.equal(tableWrap.scrollLeft, 45);
+  assert.equal(tableWrap.querySelectorAll("tbody tr").filter((row) => row.dataset.rowIndex !== undefined).length, 2);
+});
+
+test("Insert adds a row without propagating into insert-mode shortcuts", () => {
+  const target = sheet();
+  target.columns = [{ name: "id", typeStr: "0" }];
+  target.lines = [{ id: "a" }];
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target] });
+  harness.context.innerWidth = 1200;
+  harness.context.innerHeight = 800;
+  harness.context.Event = class { constructor(type) { this.type = type; } };
+  harness.CDBVS.app = harness.document.createElement("div");
+  harness.CDBVS.rememberViewport = () => {};
+  harness.CDBVS.restoreViewport = () => {};
+  loadScript(harness.context, "EditorCells.js");
+  loadScript(harness.context, "EditorView.js");
+  harness.CDBVS.render();
+
+  const row = harness.CDBVS.app.querySelector("tbody tr");
+  const rowNumber = row.querySelector(".row-number");
+  rowNumber.dispatchEvent({ type: "click", target: rowNumber });
+  let prevented = false;
+  let stopped = false;
+  harness.document.dispatchEvent({
+    type: "keydown",
+    key: "Insert",
+    target: rowNumber,
+    preventDefault() { prevented = true; },
+    stopPropagation() { stopped = true; },
+    stopImmediatePropagation() { stopped = true; }
+  });
+
+  assert.equal(prevented, true);
+  assert.equal(stopped, true);
+  assert.equal(target.lines.length, 2);
+});
+
 test("deleting a separator row keeps separator titles aligned", () => {
   const target = sheet();
   target.lines = [{ id: "a" }, { id: "b" }, { id: "c" }];

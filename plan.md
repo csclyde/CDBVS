@@ -4,6 +4,17 @@
 
 The first working editor baseline is in place. The repository now contains a desktop VS Code extension with a custom `.cdb` editor, a spreadsheet-style webview, schema-aware primitive/reference controls, row/column/sheet editing, quick search, per-column filtering and sorting, and a raw JSON fallback. The reusable CastleDB Haxe `cdb` sources from `Cursemark\.haxelib\castle\git` are vendored under `vendor/castledb/cdb`, while the legacy level-editor sources are intentionally excluded. Marketplace release metadata and packaging exclusions are also prepared; publisher registration, authentication, and final VSIX validation remain external steps.
 
+## Smooth row mutations (2026-08-22)
+
+- Insert, append, and delete row actions now persist through the normal mutation boundary but refresh only the existing table body, avoiding full-app replacement and the transient loading overlay.
+- The table shell and current horizontal/vertical viewport remain in place during row changes; full rendering remains the fallback when the active table is unavailable.
+- Added regression coverage for Insert/Delete row actions, table identity, viewport preservation, row counts, and selection.
+- The main-grid Insert key is fully consumed after adding a row so it does not also trigger the host editor's insert/overtype mode shortcut.
+
+## Wide text-cell editors (2026-08-22)
+
+- Removed the table text-input max-width cap so text editors expand to the available width of wide columns; compact numeric and choice controls retain their existing limits.
+
 ## Type-to-edit cell entry (2026-08-22)
 
 - Printable, unmodified input now starts editing for a selected text-like cell, replaces the existing value with the first key, and places the caret after that key.

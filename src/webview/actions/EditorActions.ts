@@ -21,6 +21,16 @@
   const deleteSheetAction = CDBVS.services.application.sheetActions.deleteSheet;
   const ensureSheetColumns = model.columns.ensure;
 
+  function commitRowMutation(sheet, mutator) {
+    return commitMutation(mutator, {
+      render: () => {
+        if (typeof CDBVS.refreshTableBody !== "function" || !CDBVS.refreshTableBody(sheet)) {
+          CDBVS.renderNow();
+        }
+      }
+    });
+  }
+
   function addSheet() {
     if (typeof CDBVS.openNewSheetEditor === "function") {
       CDBVS.openNewSheetEditor();
@@ -53,7 +63,7 @@
 
   function addRow(sheet) {
     if (!sheet) return;
-    commitMutation(() => appendRow(sheet));
+    commitRowMutation(sheet, () => appendRow(sheet));
   }
 
   function deleteRow(sheet, index) {
@@ -67,7 +77,7 @@
       message: "This row will be removed from the sheet.",
       confirmLabel: "Delete row",
       onConfirm: () => {
-        commitMutation(() => deleteRowAt(sheet, index));
+        commitRowMutation(sheet, () => deleteRowAt(sheet, index));
       }
     });
     return true;
@@ -80,7 +90,7 @@
     }
     const selected = selectedRowIndex(sheet);
     const index = selected === null ? (Array.isArray(sheet.lines) ? sheet.lines.length : 0) : selected + 1;
-    commitMutation(() => {
+    commitRowMutation(sheet, () => {
       insertRowAt(sheet, index);
       selectRow(sheet, index);
     });
@@ -97,7 +107,7 @@
       CDBVS.setStatus("Select a row before deleting it.", true);
       return false;
     }
-    commitMutation(() => {
+    commitRowMutation(sheet, () => {
       selected.slice().sort((left, right) => right - left).forEach((index) => deleteRowAt(sheet, index));
       const remaining = Array.isArray(sheet.lines) ? sheet.lines.length : 0;
       selectRow(sheet, remaining ? Math.min(selected[0], remaining - 1) : null);

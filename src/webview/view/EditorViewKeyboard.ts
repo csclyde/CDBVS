@@ -206,6 +206,8 @@
     if (!modified) {
       if (key === "insert") {
         event.preventDefault();
+        if (typeof event.stopPropagation === "function") event.stopPropagation();
+        if (typeof event.stopImmediatePropagation === "function") event.stopImmediatePropagation();
         documentActions.insertSelectedRow(sheet);
         return;
       }

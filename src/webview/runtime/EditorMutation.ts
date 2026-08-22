@@ -18,12 +18,15 @@
     const result = typeof mutator === "function" ? mutator() : undefined;
     if (result === false) return result;
     if (config.persist !== false) persist();
-    if (config.render !== false) render();
+    if (config.render !== false) {
+      if (typeof config.render === "function") config.render();
+      else render();
+    }
     return result;
   }
 
-  function commitMutation(mutator) {
-    return applyMutation(mutator);
+  function commitMutation(mutator, options) {
+    return applyMutation(mutator, options);
   }
 
   function persistMutation(mutator) {

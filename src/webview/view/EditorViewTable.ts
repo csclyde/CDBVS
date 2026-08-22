@@ -7,6 +7,44 @@
   const makeButton = CDBVS.makeButton;
   const documentText = CDBVS.documentText;
   const replaceDocumentText = CDBVS.replaceDocumentText;
+  let cancelActiveBodyRender = null;
+
+  function cancelBodyRender() {
+    if (typeof cancelActiveBodyRender === "function") cancelActiveBodyRender();
+    cancelActiveBodyRender = null;
+  }
+
+  function refreshTableBody(sheet) {
+    if (!sheet || !CDBVS.app || typeof CDBVS.app.querySelector !== "function") return false;
+    const tableWrap = CDBVS.app.querySelector(".table-wrap");
+    if (!tableWrap || !tableWrap.querySelector) return false;
+    const expectedKey = typeof CDBVS.viewportKeyForSheet === "function"
+      ? CDBVS.viewportKeyForSheet(sheet.name) : null;
+    if (expectedKey && tableWrap.dataset && tableWrap.dataset.cdbvsViewportKey !== expectedKey) return false;
+    const table = tableWrap.querySelector("table");
+    const previousBody = table && table.querySelector("tbody");
+    if (!table || !previousBody) return false;
+
+    const scrollLeft = tableWrap.scrollLeft;
+    const scrollTop = tableWrap.scrollTop;
+    cancelBodyRender();
+    const body = document.createElement("tbody");
+    const finish = () => {
+      if (previousBody.parentNode === table) table.removeChild(previousBody);
+      table.appendChild(body);
+      if (tableWrap._cdbvsUpdateHorizontalScrollSize) tableWrap._cdbvsUpdateHorizontalScrollSize();
+      tableWrap.scrollLeft = scrollLeft;
+      tableWrap.scrollTop = scrollTop;
+      cancelActiveBodyRender = null;
+    };
+    if (typeof tableCapabilities.renderBodyProgressive === "function") {
+      cancelActiveBodyRender = tableCapabilities.renderBodyProgressive(body, sheet, { onComplete: finish });
+    } else {
+      body.replaceChildren(tableCapabilities.renderBody(sheet));
+      finish();
+    }
+    return true;
+  }
 
   function renderRaw(container) {
     const raw = document.createElement("textarea");
@@ -30,6 +68,7 @@
       container.appendChild(makeElement("p", "No visible sheets. Create one to begin.", "empty"));
       return;
     }
+    cancelBodyRender();
     const config = options || {};
     const tableWrap = makeElement("div", null, "table-wrap");
     tableWrap.dataset.cdbvsViewportKey = CDBVS.viewportKeyForSheet(sheet.name);
@@ -58,6 +97,7 @@
       const tableWidth = Math.max(table.scrollWidth, table.offsetWidth, Math.ceil(table.getBoundingClientRect().width), tableWrap.scrollWidth);
       horizontalScrollContent.style.width = `${Math.max(tableWidth, tableWrap.clientWidth)}px`;
     };
+    tableWrap._cdbvsUpdateHorizontalScrollSize = updateHorizontalScrollSize;
     const syncTableToHorizontalScroll = () => { if (horizontalScroll.scrollLeft !== tableWrap.scrollLeft) horizontalScroll.scrollLeft = tableWrap.scrollLeft; };
     const syncHorizontalScrollToTable = () => { if (tableWrap.scrollLeft !== horizontalScroll.scrollLeft) tableWrap.scrollLeft = horizontalScroll.scrollLeft; };
     tableWrap.addEventListener("scroll", syncTableToHorizontalScroll);
@@ -75,5 +115,5 @@
 
   CDBVS.capabilities.views.renderRaw = renderRaw;
   CDBVS.capabilities.views.renderTable = renderTable;
-  Object.assign(CDBVS, { renderRaw, renderTable });
+  Object.assign(CDBVS, { renderRaw, renderTable, refreshTableBody, cancelBodyRender });
 })(window);
