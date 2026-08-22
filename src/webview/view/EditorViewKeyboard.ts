@@ -33,6 +33,41 @@
     return true;
   }
 
+  function isPrintableKey(event) {
+    if (!event || event.ctrlKey || event.metaKey || event.altKey) return false;
+    const key = String(event.key || "");
+    // Array.from also treats a single Unicode code point (for example an
+    // emoji) as one printable key, even though it can contain two UTF-16
+    // code units.
+    return Array.from(key).length === 1;
+  }
+
+  function startCellEditWithKey(sheet, selection, event) {
+    if (!sheet || !selection || !isPrintableKey(event)
+      || typeof CDBVS.findRenderedCell !== "function"
+      || typeof CDBVS.activateRenderedCell !== "function") return false;
+    const cell = CDBVS.findRenderedCell(selection.rowIndex, selection.columnIndex);
+    if (!cell || typeof cell.querySelector !== "function") return false;
+    const control = cell.querySelector("input, textarea");
+    if (!control) return false;
+    const controlType = String(control.type || "text").toLowerCase();
+    const editable = control.tagName === "TEXTAREA"
+      || (control.tagName === "INPUT" && ["text", "number", "search", "email", "url", "tel", "password"].includes(controlType));
+    if (!editable) return false;
+
+    event.preventDefault();
+    CDBVS.activateRenderedCell(sheet, selection.rowIndex, selection.columnIndex, event);
+    const activeControl = cell.querySelector("input, textarea");
+    if (!activeControl) return true;
+    activeControl.value = String(event.key);
+    activeControl.dispatchEvent(new Event("input", { bubbles: false }));
+    if (typeof activeControl.setSelectionRange === "function") {
+      const caret = String(activeControl.value || "").length;
+      try { activeControl.setSelectionRange(caret, caret); } catch (_) {}
+    }
+    return true;
+  }
+
   function handleKeydown(event) {
     if (event.__cdbvsKeyboardHandled) return;
     event.__cdbvsKeyboardHandled = true;
@@ -60,6 +95,7 @@
       || (typeof selectFilter.contains === "function" && selectFilter.contains(event.target))));
     const selectMenuTarget = !!(selectMenu && (event.target === selectMenu
       || (typeof selectMenu.contains === "function" && selectMenu.contains(event.target))));
+    if (!activeSelection && cellSelection && startCellEditWithKey(sheet, cellSelection, event)) return;
     if (!modified && !event.altKey && key === "tab" && cellSelection) {
       const tableTarget = event.target && event.target.closest && event.target.closest("td");
       if (tableTarget || selectMenuTarget) {

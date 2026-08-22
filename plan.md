@@ -4,6 +4,11 @@
 
 The first working editor baseline is in place. The repository now contains a desktop VS Code extension with a custom `.cdb` editor, a spreadsheet-style webview, schema-aware primitive/reference controls, row/column/sheet editing, quick search, per-column filtering and sorting, and a raw JSON fallback. The reusable CastleDB Haxe `cdb` sources from `Cursemark\.haxelib\castle\git` are vendored under `vendor/castledb/cdb`, while the legacy level-editor sources are intentionally excluded. Marketplace release metadata and packaging exclusions are also prepared; publisher registration, authentication, and final VSIX validation remain external steps.
 
+## Type-to-edit cell entry (2026-08-22)
+
+- Printable, unmodified input now starts editing for a selected text-like cell, replaces the existing value with the first key, and places the caret after that key.
+- Added a webview regression test covering activation, replacement, model synchronization, and caret placement.
+
 ## Cell clipboard locality (2026-08-20)
 
 - Cell paste now persists the changed value and refreshes only the target cell, preserving the table DOM and its horizontal/vertical scroll position.

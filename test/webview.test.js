@@ -566,6 +566,40 @@ test("cells select first and activate on the second click or Enter", () => {
   assert.equal(harness.CDBVS.activeCell(target), null);
 });
 
+test("typing into a selected text cell starts editing and replaces its value", () => {
+  const target = sheet("Players");
+  target.columns = [{ name: "title", typeStr: "1" }];
+  target.lines = [{ title: "existing" }];
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target] });
+  harness.context.innerWidth = 1200;
+  harness.context.innerHeight = 800;
+  harness.context.Event = class { constructor(type) { this.type = type; } };
+  harness.CDBVS.app = harness.document.createElement("div");
+  harness.CDBVS.rememberViewport = () => {};
+  harness.CDBVS.restoreViewport = () => {};
+  loadScript(harness.context, "EditorCells.js");
+  loadScript(harness.context, "EditorView.js");
+  harness.CDBVS.render();
+
+  const cell = harness.CDBVS.app.querySelectorAll("td").find((item) => item.dataset.columnIndex === "0");
+  const input = cell.querySelector("input");
+  cell.dispatchEvent({ type: "click" });
+  let prevented = false;
+  harness.document.dispatchEvent({
+    type: "keydown",
+    key: "a",
+    target: cell,
+    preventDefault() { prevented = true; }
+  });
+
+  assert.equal(prevented, true);
+  assert.equal(harness.CDBVS.activeCell(target).columnIndex, 0);
+  assert.equal(input.value, "a");
+  assert.equal(input.selectionStart, 1);
+  assert.equal(input.selectionEnd, 1);
+  assert.equal(target.lines[0].title, "a");
+});
+
 test("dropdown teardown commits outside clicks, cancels on Escape, and protects filter editing", () => {
   const target = sheet("Players");
   target.columns = [{ name: "kind", typeStr: "5:Basic,Advanced" }];
