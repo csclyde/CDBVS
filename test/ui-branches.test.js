@@ -274,6 +274,28 @@ test("context menus position safely, expose disabled actions, and close on selec
   assert.equal(menu.querySelectorAll("button")[4].disabled, true);
 });
 
+test("separator context menu removes the separator and refreshes the sheet", () => {
+  const target = sheet("Players");
+  target.columns = [{ name: "id", typeStr: "0" }];
+  target.lines = [{ id: "a" }];
+  target.separators = [{ index: 0, title: "First" }];
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target] });
+  harness.CDBVS.showSeparatorContextMenu({ clientX: 10, clientY: 10 }, target, 0);
+  let menu = harness.document.querySelector(".context-menu");
+  assert.deepEqual(menu.querySelectorAll("button").map((button) => button.textContent), ["Collapse All", "Expand All", "Remove Separator"]);
+  click(buttonByText(menu, "Collapse All"));
+  assert.equal(harness.CDBVS.isSeparatorCollapsed(target, 0), true);
+  harness.CDBVS.showSeparatorContextMenu({ clientX: 10, clientY: 10 }, target, 0);
+  menu = harness.document.querySelector(".context-menu");
+  click(buttonByText(menu, "Expand All"));
+  assert.equal(harness.CDBVS.isSeparatorCollapsed(target, 0), false);
+  harness.CDBVS.showSeparatorContextMenu({ clientX: 10, clientY: 10 }, target, 0);
+  menu = harness.document.querySelector(".context-menu");
+  click(buttonByText(menu, "Remove Separator"));
+  assert.deepEqual(target.separators, []);
+  assert.equal(harness.updates.length, 1);
+});
+
 test("clipboard actions handle system clipboard success, malformed data, and rejected reads", async () => {
   const target = { name: "Players", columns: [{ name: "id", typeStr: "0" }, { name: "name", typeStr: "1" }], lines: [{ id: "p1", name: "Alice" }] };
   const harness = createWebviewHarness({ customTypes: [], sheets: [target] });
@@ -356,8 +378,72 @@ test("table body renders empty states, separators, selected rows, and collapsed 
   assert.equal(body.querySelectorAll(".separator-row").length, 2);
   assert.equal(body.querySelectorAll("tr").filter((row) => row.dataset.rowIndex !== undefined).length, 2);
   assert.equal(body.querySelectorAll("tr").find((row) => row.dataset.rowIndex === "1").className, "row-selected");
-  harness.CDBVS.toggleSeparatorCollapsed(target, 0);
-  body = harness.CDBVS.renderTableBody(target);
-  assert.equal(body.querySelectorAll("tr").filter((row) => row.dataset.rowIndex !== undefined).length, 1);
-  assert.equal(body.querySelectorAll("tr").some((row) => row.dataset.rowIndex === "0"), false);
+  const firstToggle = body.querySelectorAll(".separator-toggle")[0];
+  const firstSection = body.querySelectorAll(".separator-row")[0];
+  firstSection.dispatchEvent({ type: "dblclick", preventDefault() {} });
+  assert.equal(harness.CDBVS.isSeparatorCollapsed(target, 0), true);
+  assert.equal(body.querySelectorAll("tr").find((row) => row.dataset.rowIndex === "0").hidden, true);
+  firstSection.dispatchEvent({ type: "dblclick", preventDefault() {} });
+  assert.equal(harness.CDBVS.isSeparatorCollapsed(target, 0), false);
+  click(firstToggle);
+  assert.equal(body.querySelectorAll("tr").filter((row) => row.dataset.rowIndex !== undefined && !row.hidden).length, 1);
+  assert.equal(body.querySelectorAll("tr").find((row) => row.dataset.rowIndex === "0").hidden, true);
+  click(firstToggle);
+  assert.equal(body.querySelectorAll("tr").filter((row) => row.dataset.rowIndex !== undefined && !row.hidden).length, 2);
+  assert.equal(body.querySelectorAll("tr").find((row) => row.dataset.rowIndex === "0").hidden, false);
+  assert.equal(harness.renders.length, 0);
+});
+
+test("section title editing persists inline without rebuilding the table", () => {
+  const target = {
+    name: "Players",
+    columns: [{ name: "id", typeStr: "0" }],
+    lines: [{ id: "a" }],
+    separators: [{ index: 0, title: "First" }],
+    props: {}
+  };
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target] });
+  harness.CDBVS.makeCellEditor = () => {};
+  const body = harness.CDBVS.renderTableBody(target);
+  const section = body.querySelector(".separator-row");
+  const titleSpan = section.querySelector(".separator-title");
+  titleSpan.dispatchEvent({ type: "dblclick", preventDefault() {}, stopPropagation() {} });
+  const input = section.querySelector("input");
+  input.value = "Updated";
+  input.dispatchEvent({ type: "keydown", key: "Enter", preventDefault() {} });
+  assert.equal(target.separators[0].title, "Updated");
+  assert.equal(section.querySelector("input"), null);
+  assert.equal(section.querySelectorAll("span").find((span) => span.textContent === "Updated") !== undefined, true);
+  assert.equal(harness.updates.length, 1);
+  assert.equal(harness.renders.length, 0);
+
+  titleSpan.dispatchEvent({ type: "dblclick", preventDefault() {}, stopPropagation() {} });
+  section.querySelector("input").value = "";
+  section.querySelector("input").dispatchEvent({ type: "keydown", key: "Enter", preventDefault() {} });
+  assert.equal(target.separators.length, 1);
+  assert.equal(target.separators[0].title, "");
+  assert.equal(section.querySelector(".separator-title").textContent, "");
+
+  section.querySelector(".separator-title").dispatchEvent({ type: "dblclick", preventDefault() {}, stopPropagation() {} });
+  section.querySelector("input").value = "Renamed after blank";
+  section.querySelector("input").dispatchEvent({ type: "keydown", key: "Enter", preventDefault() {} });
+  assert.equal(target.separators[0].title, "Renamed after blank");
+});
+
+test("filtered rows retain the header for their matching section", () => {
+  const target = {
+    name: "Players",
+    columns: [{ name: "id", typeStr: "0" }, { name: "name", typeStr: "1" }],
+    lines: [{ id: "a", name: "Hidden" }, { id: "b", name: "Keep me" }],
+    separators: [{ index: 0, title: "Players" }],
+    props: {}
+  };
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target] });
+  harness.CDBVS.makeCellEditor = () => {};
+  harness.CDBVS.viewState.setFilter("Keep me");
+  assert.deepEqual(harness.CDBVS.rowsForView(target).map((entry) => entry.rowIndex), [1]);
+  const body = harness.CDBVS.renderTableBody(target);
+  assert.equal(body.querySelectorAll(".separator-row").length, 1);
+  assert.equal(body.querySelector(".separator-row").textContent.includes("Players"), true);
+  assert.equal(body.querySelectorAll("tr").find((row) => row.dataset.rowIndex === "1") !== undefined, true);
 });

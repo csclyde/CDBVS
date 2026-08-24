@@ -247,6 +247,16 @@
       collapsed[key] = !view.isSeparatorCollapsed(sheetName, index);
       return collapsed[key];
     },
+    setAllSeparatorsCollapsed(sheetName, indexes, collapsed) {
+      const target = view.collapsedSeparators(sheetName);
+      const uniqueIndexes = [...new Set((Array.isArray(indexes) ? indexes : [])
+        .filter((index) => Number.isInteger(index)))];
+      uniqueIndexes.forEach((index) => {
+        if (collapsed) target[String(index)] = true;
+        else delete target[String(index)];
+      });
+      return uniqueIndexes;
+    },
     shiftCollapsedSeparators(sheetName, change) {
       const collapsed = view.readCollapsedSeparators(sheetName);
       if (!collapsed || typeof change !== "function") return;
@@ -329,6 +339,7 @@
     isSeparatorCollapsed: view.isSeparatorCollapsed,
     readCollapsedSeparators: view.readCollapsedSeparators,
     toggleSeparatorCollapsed: view.toggleSeparatorCollapsed,
+    setAllSeparatorsCollapsed: view.setAllSeparatorsCollapsed,
     shiftCollapsedSeparators: view.shiftCollapsedSeparators,
     removeCollapsedSeparator: view.removeCollapsedSeparator,
     setFilters: view.setFilters,
@@ -368,6 +379,7 @@
     setSelectedListItems, selectListItems, setSelectedListCell,
     clearSelectedListCell, clearSelectedListItems, clearSelectedListSelection,
     isSeparatorCollapsed: (sheet, index) => sheetState.isSeparatorCollapsed(sheet && sheet.name, index),
-    toggleSeparatorCollapsed: (sheet, index) => sheetState.toggleSeparatorCollapsed(sheet && sheet.name, index)
+    toggleSeparatorCollapsed: (sheet, index) => sheetState.toggleSeparatorCollapsed(sheet && sheet.name, index),
+    setAllSeparatorsCollapsed: (sheet, indexes, collapsed) => sheetState.setAllSeparatorsCollapsed(sheet && sheet.name, indexes, collapsed)
   });
 })(window);

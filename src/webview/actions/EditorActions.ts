@@ -15,7 +15,7 @@
   const moveRowAt = model.rows.move;
   const appendRow = model.rows.append;
   const addSeparatorAt = model.rows.addSeparator;
-  const removeSeparatorAt = model.rows.remove;
+  const removeSeparatorAt = model.rows.removeSeparator;
   const rowsForView = services.sheetView.rowsForView;
   const deleteColumnAt = services.application.columnActions.deleteColumn;
   const deleteSheetAction = CDBVS.services.application.sheetActions.deleteSheet;

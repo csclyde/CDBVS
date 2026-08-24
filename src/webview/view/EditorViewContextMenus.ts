@@ -5,6 +5,7 @@
   const documentActions = services.application.documentActions;
   const clipboardActions = services.application.clipboardActions;
   const columnActions = services.application.columnActions;
+  const sheetViewState = services.sheetState.view;
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
 
@@ -99,7 +100,25 @@
   }
 
   function showSeparatorContextMenu(event, sheet, index) {
-    showContextMenu(event, [{ label: "Remove Separator", action: () => documentActions.removeSeparator(sheet, index) }]);
+    const indexes = (sheet && Array.isArray(sheet.separators) ? sheet.separators : [])
+      .map((separator) => CDBVS.separatorIndex(separator))
+      .filter((separatorIndex) => Number.isInteger(separatorIndex));
+    const setAllCollapsed = (collapsed) => {
+      sheetViewState.setAllSeparatorsCollapsed(sheet.name, indexes, collapsed);
+      let refreshed = false;
+      indexes.forEach((separatorIndex) => {
+        if (typeof CDBVS.updateRenderedSeparatorSection === "function") {
+          refreshed = CDBVS.updateRenderedSeparatorSection(sheet, separatorIndex, collapsed) || refreshed;
+        }
+      });
+      if (!refreshed && typeof CDBVS.renderNow === "function") CDBVS.renderNow();
+    };
+    showContextMenu(event, [
+      { label: "Collapse All", action: () => setAllCollapsed(true) },
+      { label: "Expand All", action: () => setAllCollapsed(false) },
+      { separator: true },
+      { label: "Remove Separator", action: () => documentActions.removeSeparator(sheet, index) }
+    ]);
   }
 
   function showSheetContextMenu(event, sheet) {

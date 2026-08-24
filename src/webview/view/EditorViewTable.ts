@@ -95,14 +95,20 @@
     horizontalScroll.appendChild(horizontalScrollContent);
     const updateHorizontalScrollSize = () => {
       const tableWidth = Math.max(table.scrollWidth, table.offsetWidth, Math.ceil(table.getBoundingClientRect().width), tableWrap.scrollWidth);
-      horizontalScrollContent.style.width = `${Math.max(tableWidth, tableWrap.clientWidth)}px`;
+      const availableWidth = Math.max(tableWrap.clientWidth, tableWrap.offsetWidth, horizontalScroll.clientWidth);
+      horizontalScrollContent.style.width = `${Math.max(tableWidth, availableWidth)}px`;
+      if (availableWidth > 0) horizontalScroll.hidden = tableWidth <= availableWidth + 1;
     };
     tableWrap._cdbvsUpdateHorizontalScrollSize = updateHorizontalScrollSize;
     const syncTableToHorizontalScroll = () => { if (horizontalScroll.scrollLeft !== tableWrap.scrollLeft) horizontalScroll.scrollLeft = tableWrap.scrollLeft; };
     const syncHorizontalScrollToTable = () => { if (tableWrap.scrollLeft !== horizontalScroll.scrollLeft) tableWrap.scrollLeft = horizontalScroll.scrollLeft; };
     tableWrap.addEventListener("scroll", syncTableToHorizontalScroll);
     horizontalScroll.addEventListener("scroll", syncHorizontalScrollToTable);
-    if (typeof ResizeObserver === "function") new ResizeObserver(updateHorizontalScrollSize).observe(table);
+    if (typeof ResizeObserver === "function") {
+      const resizeObserver = new ResizeObserver(updateHorizontalScrollSize);
+      resizeObserver.observe(table);
+      resizeObserver.observe(tableWrap);
+    }
     requestAnimationFrame(updateHorizontalScrollSize);
     container.appendChild(horizontalScroll);
     if (typeof tableCapabilities.renderBodyProgressive === "function") {

@@ -17,7 +17,7 @@
 
   function findRenderedRow(rowIndex) {
     return Array.from(renderedRoot().querySelectorAll(".table-wrap tr"))
-      .filter((row) => row.dataset && row.dataset.rowIndex !== undefined)
+      .filter((row) => !row.hidden && row.dataset && row.dataset.rowIndex !== undefined)
       .find((row) => Number.parseInt(row.dataset.rowIndex, 10) === rowIndex) || null;
   }
 

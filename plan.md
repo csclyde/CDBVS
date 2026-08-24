@@ -4,6 +4,20 @@
 
 The first working editor baseline is in place. The repository now contains a desktop VS Code extension with a custom `.cdb` editor, a spreadsheet-style webview, schema-aware primitive/reference controls, row/column/sheet editing, quick search, per-column filtering and sorting, and a raw JSON fallback. The reusable CastleDB Haxe `cdb` sources from `Cursemark\.haxelib\castle\git` are vendored under `vendor/castledb/cdb`, while the legacy level-editor sources are intentionally excluded. Marketplace release metadata and packaging exclusions are also prepared; publisher registration, authentication, and final VSIX validation remain external steps.
 
+## Smooth section browsing (2026-08-24)
+
+- Section collapse/expand no longer calls the global renderer, which previously replaced the entire webview and caused the table to reload and jitter.
+- Existing section rows stay in the table DOM and are toggled with the native `hidden` state; only the affected section rows and arrow accessibility state change in place, preserving focus, scroll position, and the surrounding sheet UI.
+- Raised the sticky column-header stacking layer above section labels so scrolling cannot paint names over the header, and restored the table's native vertical scrollbar while retaining the dedicated horizontal scrollbar dock.
+- Section title edits now persist without the full renderer: the active title input is replaced by the updated label in place, preserving the table and scroll context. Removed the label's blue right border.
+- The horizontal scrollbar dock now uses conditional overflow and is hidden when the table fits the viewport; when needed, its track, thumb, colors, and dimensions match the vertical scrollbar.
+- Section labels now fill the separator bar instead of appearing as a content-sized segment; removed their remaining edge/shadow and increased the label text size.
+- The table viewport now owns vertical scrolling only; horizontal scrolling is exclusively provided by the conditional dock, preventing browser-specific duplicate horizontal bars.
+- Fixed separator context-menu removal: the action now uses the registered `removeSeparator` row operation instead of the nonexistent generic `remove` key, and added a regression test through the actual menu click path.
+- Filtered views now project each section header onto the first matching row in that section, so headers remain visible even when the separator's own row is filtered out; empty sections stay hidden.
+- Separator double-clicks now toggle collapse/expand, while the full name area enters inline editing; blank titles remain valid and render as an unnamed bar that can still be renamed.
+- Added regression coverage for local collapse and expansion without reconstructing the table body. The broader Extension Development Host visual check remains outstanding.
+
 ## Smooth row mutations (2026-08-22)
 
 - Insert, append, and delete row actions now persist through the normal mutation boundary but refresh only the existing table body, avoiding full-app replacement and the transient loading overlay.

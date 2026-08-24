@@ -8,7 +8,7 @@
   const insertRowModel = model.insert;
   const appendRowModel = model.append;
   const deleteRowModel = model.delete;
-  const removeSeparatorModel = model.remove;
+  const removeSeparatorModel = model.removeSeparator;
 
   function insertRow(sheet, index, row) {
     if (!sheet) return false;

@@ -55,6 +55,16 @@ class FakeElement {
     return child;
   }
 
+  replaceChild(next, previous) {
+    const index = this.children.indexOf(previous);
+    if (index < 0) return previous;
+    if (next.parentNode) next.parentNode.removeChild(next);
+    this.children[index] = next;
+    next.parentNode = this;
+    previous.parentNode = null;
+    return previous;
+  }
+
   remove() {
     if (this.parentNode) this.parentNode.removeChild(this);
   }
