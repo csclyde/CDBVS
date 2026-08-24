@@ -16,6 +16,8 @@ The first working editor baseline is in place. The repository now contains a des
 - Fixed separator context-menu removal: the action now uses the registered `removeSeparator` row operation instead of the nonexistent generic `remove` key, and added a regression test through the actual menu click path.
 - Filtered views now project each section header onto the first matching row in that section, so headers remain visible even when the separator's own row is filtered out; empty sections stay hidden.
 - Separator double-clicks now toggle collapse/expand, while the full name area enters inline editing; blank titles remain valid and render as an unnamed bar that can still be renamed.
+- Search and other text controls are now excluded before grid type-to-edit handling, so typing in the sheet search cannot overwrite the selected cell.
+- Search, column-filter application/removal, and view sorting now refresh only the existing table body and view summary, preserving the page shell, input focus, and viewport; full rendering remains a fallback when no active table is available.
 - Added regression coverage for local collapse and expansion without reconstructing the table body. The broader Extension Development Host visual check remains outstanding.
 
 ## Smooth row mutations (2026-08-22)

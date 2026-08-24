@@ -83,7 +83,12 @@
       return;
     }
     const modified = event.ctrlKey || event.metaKey;
-    const editorTarget = event.target && event.target.closest && event.target.closest("input, textarea, select, [contenteditable=\"true\"]");
+    const editorTarget = event.target && event.target.closest && (
+      event.target.closest("input")
+      || event.target.closest("textarea")
+      || event.target.closest("select")
+      || event.target.closest("[contenteditable=\"true\"]")
+    );
     const cellSelection = CDBVS.selectedCell(sheet);
     const activeSelection = CDBVS.activeCell(sheet);
     const arrowKey = key === "arrowup" || key === "arrowdown" || key === "arrowleft" || key === "arrowright";
@@ -95,7 +100,7 @@
       || (typeof selectFilter.contains === "function" && selectFilter.contains(event.target))));
     const selectMenuTarget = !!(selectMenu && (event.target === selectMenu
       || (typeof selectMenu.contains === "function" && selectMenu.contains(event.target))));
-    if (!activeSelection && cellSelection && startCellEditWithKey(sheet, cellSelection, event)) return;
+    if (!editorTarget && !activeSelection && cellSelection && startCellEditWithKey(sheet, cellSelection, event)) return;
     if (!modified && !event.altKey && key === "tab" && cellSelection) {
       const tableTarget = event.target && event.target.closest && event.target.closest("td");
       if (tableTarget || selectMenuTarget) {

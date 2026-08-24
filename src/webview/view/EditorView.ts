@@ -75,8 +75,8 @@
     search.addEventListener("input", () => {
       const value = search.value;
       setFilter(value);
-      render();
-      const nextSearch = document.querySelector(".search");
+      if (!refreshView()) render();
+      const nextSearch = app.querySelector && app.querySelector(".search");
       if (nextSearch) {
         nextSearch.focus();
         nextSearch.setSelectionRange(value.length, value.length);
@@ -86,8 +86,8 @@
     if (getFilter().trim()) searchWrap.classList.add("has-value");
     const clearSearch = makeButton("x", () => {
       setFilter("");
-      render();
-      const nextSearch = document.querySelector(".search");
+      if (!refreshView()) render();
+      const nextSearch = app.querySelector && app.querySelector(".search");
       if (nextSearch) nextSearch.focus();
     }, "search-clear");
     clearSearch.title = "Clear search";
@@ -125,6 +125,38 @@
     else requestAnimationFrame(() => restoreViewport(target));
   }
 
+  function refreshView(options) {
+    const selectedSheet = sheetViewModel.currentSheet();
+    if (isRawMode() || !hasDocument() || !selectedSheet) return false;
+    if (typeof CDBVS.refreshTableBody !== "function" || !CDBVS.refreshTableBody(selectedSheet)) return false;
+
+    const config = options || {};
+    if (config.refreshHeader) {
+      const tableWrap = app.querySelector && app.querySelector(".table-wrap");
+      const table = tableWrap && tableWrap.querySelector && tableWrap.querySelector("table");
+      const previousHeader = table && table.querySelector("thead");
+      if (table && previousHeader && typeof CDBVS.renderTableHeader === "function") {
+        table.replaceChild(CDBVS.renderTableHeader(selectedSheet), previousHeader);
+        if (tableWrap._cdbvsUpdateHorizontalScrollSize) tableWrap._cdbvsUpdateHorizontalScrollSize();
+      }
+    }
+
+    const summary = app.querySelector && app.querySelector(".sheet-view-summary");
+    if (summary && typeof viewCapabilities.renderViewSummary === "function") {
+      viewCapabilities.renderViewSummary(summary, selectedSheet);
+    }
+    const filterButton = app.querySelector && app.querySelector(".filter-button");
+    if (filterButton) filterButton.className = CDBVS.activeViewItems(selectedSheet).length ? "button active filter-button" : "button filter-button";
+    const search = app.querySelector && app.querySelector(".search");
+    const searchWrap = search && search.parentNode;
+    if (searchWrap) {
+      if (getFilter().trim()) searchWrap.classList.add("has-value");
+      else searchWrap.classList.remove("has-value");
+    }
+    return true;
+  }
+
   CDBVS.render = render;
+  CDBVS.refreshView = refreshView;
   if (typeof CDBVS.installKeyboardNavigation === "function") CDBVS.installKeyboardNavigation();
 })(window);

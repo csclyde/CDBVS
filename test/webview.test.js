@@ -600,6 +600,99 @@ test("typing into a selected text cell starts editing and replaces its value", (
   assert.equal(target.lines[0].title, "a");
 });
 
+test("typing in the sheet search does not edit the selected cell", () => {
+  const target = sheet("Players");
+  target.columns = [{ name: "title", typeStr: "1" }];
+  target.lines = [{ title: "existing" }];
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target] });
+  harness.context.innerWidth = 1200;
+  harness.context.innerHeight = 800;
+  harness.context.Event = class { constructor(type) { this.type = type; } };
+  harness.CDBVS.app = harness.document.createElement("div");
+  harness.CDBVS.rememberViewport = () => {};
+  harness.CDBVS.restoreViewport = () => {};
+  loadScript(harness.context, "EditorCells.js");
+  loadScript(harness.context, "EditorView.js");
+  harness.CDBVS.render();
+
+  const cell = harness.CDBVS.app.querySelectorAll("td").find((item) => item.dataset.columnIndex === "0");
+  const search = harness.CDBVS.app.querySelector(".search");
+  cell.dispatchEvent({ type: "click", target: cell });
+  let prevented = false;
+  harness.document.dispatchEvent({
+    type: "keydown",
+    key: "a",
+    target: search,
+    preventDefault() { prevented = true; }
+  });
+
+  assert.equal(prevented, false);
+  assert.equal(harness.CDBVS.activeCell(target), null);
+  assert.equal(target.lines[0].title, "existing");
+});
+
+test("sheet search refreshes the table body without rebuilding the view", () => {
+  const target = sheet("Players");
+  target.columns = [{ name: "title", typeStr: "1" }];
+  target.lines = [{ title: "keep" }, { title: "other" }];
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target] });
+  harness.context.innerWidth = 1200;
+  harness.context.innerHeight = 800;
+  harness.context.Event = class { constructor(type) { this.type = type; } };
+  harness.CDBVS.app = harness.document.createElement("div");
+  harness.CDBVS.rememberViewport = () => {};
+  harness.CDBVS.restoreViewport = () => {};
+  loadScript(harness.context, "EditorCells.js");
+  loadScript(harness.context, "EditorView.js");
+  harness.CDBVS.render();
+
+  const app = harness.CDBVS.app;
+  const tableWrap = app.querySelector(".table-wrap");
+  const table = tableWrap.querySelector("table");
+  const search = app.querySelector(".search");
+  tableWrap.scrollTop = 48;
+  search.value = "keep";
+  search.dispatchEvent({ type: "input" });
+
+  assert.equal(harness.CDBVS.app, app);
+  assert.equal(app.querySelector(".table-wrap"), tableWrap);
+  assert.equal(tableWrap.querySelector("table"), table);
+  assert.equal(app.querySelector(".search"), search);
+  assert.equal(tableWrap.scrollTop, 48);
+  assert.equal(table.querySelectorAll("tr").filter((row) => row.dataset.rowIndex !== undefined).length, 1);
+  assert.equal(app.querySelector(".sheet-view-summary").textContent.includes('Search: "keep"'), true);
+  assert.equal(harness.renders.length, 0);
+});
+
+test("applying a column filter refreshes the table body without rebuilding the view", () => {
+  const target = sheet("Players");
+  target.columns = [{ name: "score", typeStr: "3" }];
+  target.lines = [{ score: 1 }, { score: 5 }];
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target] });
+  harness.context.innerWidth = 1200;
+  harness.context.innerHeight = 800;
+  harness.CDBVS.app = harness.document.createElement("div");
+  harness.CDBVS.rememberViewport = () => {};
+  harness.CDBVS.restoreViewport = () => {};
+  loadScript(harness.context, "EditorCells.js");
+  loadScript(harness.context, "EditorView.js");
+  harness.CDBVS.render();
+
+  const app = harness.CDBVS.app;
+  const tableWrap = app.querySelector(".table-wrap");
+  harness.CDBVS.openFilterModal(target);
+  const overlay = harness.document.querySelector(".filter-modal");
+  const min = overlay.querySelector("input");
+  min.value = "3";
+  min.dispatchEvent({ type: "input" });
+  click(buttonByText(overlay, "Apply"));
+
+  assert.equal(app.querySelector(".table-wrap"), tableWrap);
+  assert.equal(tableWrap.querySelectorAll("tr").filter((row) => row.dataset.rowIndex !== undefined).length, 1);
+  assert.equal(app.querySelector(".sheet-view-summary").textContent.includes("score >= 3"), true);
+  assert.equal(harness.renders.length, 0);
+});
+
 test("dropdown teardown commits outside clicks, cancels on Escape, and protects filter editing", () => {
   const target = sheet("Players");
   target.columns = [{ name: "kind", typeStr: "5:Basic,Advanced" }];

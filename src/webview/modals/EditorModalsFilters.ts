@@ -141,7 +141,8 @@
     });
     form.appendChild(controls);
     const apply = () => {
-      renderMutation(() => { setColumnFilters(sheet.name, draftFilters); });
+      setColumnFilters(sheet.name, draftFilters);
+      if (!(typeof CDBVS.refreshView === "function" && CDBVS.refreshView())) renderMutation();
       close();
     };
     CDBVS.appendModalActions(footer, close, apply, { saveLabel: "Apply" });

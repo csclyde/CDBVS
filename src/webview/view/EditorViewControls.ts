@@ -12,6 +12,11 @@
   const getFilter = viewState.getFilter;
   const setFilter = viewState.setFilter;
 
+  function refreshView(options) {
+    if (typeof CDBVS.refreshView === "function" && CDBVS.refreshView(options)) return;
+    renderMutation();
+  }
+
   function activeViewItems(sheet) {
     if (!sheet) return [];
     const view = { filters: sheetViewState.readFilters(sheet.name), sort: sheetViewState.readSort(sheet.name) };
@@ -19,7 +24,7 @@
     if (getFilter().trim()) {
       items.push({
         label: `Search: "${getFilter().trim()}"`,
-        remove: () => { setFilter(""); renderMutation(); }
+        remove: () => { setFilter(""); refreshView(); }
       });
     }
     Object.keys(view.filters).forEach((columnName) => {
@@ -49,7 +54,7 @@
         label,
         remove: () => {
           sheetState.removeFilter(sheet.name, columnName);
-          renderMutation();
+          refreshView();
         }
       });
     });
@@ -57,7 +62,7 @@
       label: `Sort: ${view.sort.column} (${view.sort.direction})`,
       remove: () => {
         sheetState.clearSort(sheet.name);
-        renderMutation();
+        refreshView();
       }
     });
     return items;
@@ -83,7 +88,7 @@
 
   function cycleColumnSort(sheet, columnName) {
     sheetViewState.cycleSort(sheet.name, columnName);
-    renderMutation();
+    refreshView({ refreshHeader: true });
   }
 
   CDBVS.capabilities.views.renderViewSummary = renderViewSummary;
