@@ -18,7 +18,14 @@ The first working editor baseline is in place. The repository now contains a des
 - Separator double-clicks now toggle collapse/expand, while the full name area enters inline editing; blank titles remain valid and render as an unnamed bar that can still be renamed.
 - Search and other text controls are now excluded before grid type-to-edit handling, so typing in the sheet search cannot overwrite the selected cell.
 - Search, column-filter application/removal, and view sorting now refresh only the existing table body and view summary, preserving the page shell, input focus, and viewport; full rendering remains a fallback when no active table is available.
+- Search clearing now empties the existing input and removes its active-value styling before refreshing, so the clear button cannot leave stale text or a yellow active border.
+- Removing the search summary pill now synchronizes the visible search input as part of the same local refresh.
 - Added regression coverage for local collapse and expansion without reconstructing the table body. The broader Extension Development Host visual check remains outstanding.
+
+## Save status reliability (2026-08-24)
+
+- Save requests remain queued behind webview edits and treat a `false` result as benign when VS Code reports that the document is no longer dirty, avoiding a misleading first-save/concurrent no-op error without skipping a save while the dirty flag catches up.
+- Added host coverage for clean first-save and no-longer-dirty false-result cases; genuine failures that leave the document dirty still report an error.
 
 ## Smooth row mutations (2026-08-22)
 

@@ -122,8 +122,15 @@ export class CdbEditorProvider implements vscode.CustomTextEditorProvider {
         try {
           await updateQueue.wait();
           if (disposed) return;
+          // Keep the save call after the update queue even when the dirty flag
+          // has not caught up with WorkspaceEdit yet. A concurrent/native
+          // no-op save may return false, so only report failure if the
+          // document is still dirty afterwards.
           const saved = await document.save();
-          if (!saved && !disposed) void webview.postMessage({ type: "error", message: "CDBVS could not save the document." });
+          const stillDirty = document.isDirty === true;
+          if (!saved && stillDirty && !disposed) {
+            void webview.postMessage({ type: "error", message: "CDBVS could not save the document." });
+          }
         } catch (error: unknown) {
           if (!disposed) void webview.postMessage({ type: "error", message: `CDBVS could not save the document: ${errorMessage(error)}` });
         }

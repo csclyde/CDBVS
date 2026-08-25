@@ -145,6 +145,80 @@ test("custom editor waits for queued updates before saving the document", async 
   assert.equal(messages.some((message) => message.type === "error"), false);
 });
 
+test("custom editor ignores a false save result when the document is no longer dirty", async () => {
+  let dirty = true;
+  let saveCalls = 0;
+  const document = {
+    uri: { toString: () => "file:///players.cdb" },
+    getText: () => validDocumentText("initial"),
+    positionAt: (offset) => offset,
+    get isDirty() { return dirty; },
+    save: async () => {
+      saveCalls += 1;
+      dirty = false;
+      return false;
+    }
+  };
+  const vscode = makeVscode(document, async () => true);
+  const CdbEditorProvider = loadProvider(vscode);
+  const messages = [];
+  let receiveMessage;
+  const panel = {
+    active: true,
+    webview: {
+      options: null,
+      html: "",
+      asWebviewUri: (uri) => uri,
+      postMessage: (message) => messages.push(message),
+      onDidReceiveMessage: (handler) => { receiveMessage = handler; return { dispose() {} }; }
+    },
+    onDidChangeViewState: () => ({ dispose() {} }),
+    onDidDispose: () => {}
+  };
+  await new CdbEditorProvider({ extensionUri: "extension" }).resolveCustomTextEditor(document, panel);
+
+  await receiveMessage({ type: "save" });
+
+  assert.equal(saveCalls, 1);
+  assert.equal(messages.some((message) => message.type === "error"), false);
+});
+
+test("custom editor does not report an error for the first save of a clean document", async () => {
+  let saveCalls = 0;
+  const document = {
+    uri: { toString: () => "file:///players.cdb" },
+    getText: () => validDocumentText("initial"),
+    positionAt: (offset) => offset,
+    isDirty: false,
+    save: async () => {
+      saveCalls += 1;
+      return false;
+    }
+  };
+  const vscode = makeVscode(document, async () => true);
+  const CdbEditorProvider = loadProvider(vscode);
+  const messages = [];
+  let receiveMessage;
+  const panel = {
+    active: true,
+    webview: {
+      options: null,
+      html: "",
+      asWebviewUri: (uri) => uri,
+      postMessage: (message) => messages.push(message),
+      onDidReceiveMessage: (handler) => { receiveMessage = handler; return { dispose() {} }; }
+    },
+    onDidChangeViewState: () => ({ dispose() {} }),
+    onDidDispose: () => {}
+  };
+  await new CdbEditorProvider({ extensionUri: "extension" }).resolveCustomTextEditor(document, panel);
+
+  await receiveMessage({ type: "save" });
+
+  assert.equal(saveCalls, 1);
+  assert.equal(messages.some((message) => message.type === "error"), false);
+});
+
 test("custom editor rejects malformed webview updates without changing the document", async () => {
   const originalText = validDocumentText("initial");
   let text = originalText;

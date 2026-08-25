@@ -85,6 +85,8 @@
     searchWrap.appendChild(search);
     if (getFilter().trim()) searchWrap.classList.add("has-value");
     const clearSearch = makeButton("x", () => {
+      search.value = "";
+      searchWrap.classList.remove("has-value");
       setFilter("");
       if (!refreshView()) render();
       const nextSearch = app.querySelector && app.querySelector(".search");
@@ -149,6 +151,7 @@
     if (filterButton) filterButton.className = CDBVS.activeViewItems(selectedSheet).length ? "button active filter-button" : "button filter-button";
     const search = app.querySelector && app.querySelector(".search");
     const searchWrap = search && search.parentNode;
+    if (search && search.value !== getFilter()) search.value = getFilter();
     if (searchWrap) {
       if (getFilter().trim()) searchWrap.classList.add("has-value");
       else searchWrap.classList.remove("has-value");

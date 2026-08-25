@@ -662,6 +662,21 @@ test("sheet search refreshes the table body without rebuilding the view", () => 
   assert.equal(table.querySelectorAll("tr").filter((row) => row.dataset.rowIndex !== undefined).length, 1);
   assert.equal(app.querySelector(".sheet-view-summary").textContent.includes('Search: "keep"'), true);
   assert.equal(harness.renders.length, 0);
+
+  click(app.querySelector(".view-pill-remove"));
+  assert.equal(search.value, "");
+  assert.equal(harness.CDBVS.viewState.getFilter(), "");
+  assert.equal(search.parentNode.classList.contains("has-value"), false);
+  assert.equal(table.querySelectorAll("tr").filter((row) => row.dataset.rowIndex !== undefined).length, 2);
+
+  search.value = "keep";
+  search.dispatchEvent({ type: "input" });
+  click(app.querySelector(".search-clear"));
+  assert.equal(search.value, "");
+  assert.equal(harness.CDBVS.viewState.getFilter(), "");
+  assert.equal(search.parentNode.classList.contains("has-value"), false);
+  assert.equal(table.querySelectorAll("tr").filter((row) => row.dataset.rowIndex !== undefined).length, 2);
+  assert.equal(harness.renders.length, 0);
 });
 
 test("applying a column filter refreshes the table body without rebuilding the view", () => {
