@@ -14,6 +14,8 @@ export interface CdbColumn extends CdbObject {
   kind?: string;
   scope?: number;
   documentation?: string;
+  defaultValue?: JsonValue;
+  editor?: unknown;
 }
 
 export interface CdbRow extends CdbObject {}
@@ -33,7 +35,7 @@ export interface CdbSheetProps extends CdbObject {
   isProps?: boolean;
   hasIndex?: boolean;
   hasGroup?: boolean;
-  dataFiles?: string[];
+  dataFiles?: string;
 }
 
 export interface CdbSheet extends CdbObject {

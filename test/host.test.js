@@ -360,3 +360,63 @@ test("custom editor does not echo a successful self-applied update", async () =>
   assert.equal(env.posted.length, postedBeforeUpdate + 1);
   assert.equal(env.posted.at(-1).type, "document");
 });
+
+test("custom editor does not apply queued updates after the panel is disposed", async () => {
+  let releaseFirstEdit;
+  let firstEditStarted;
+  const firstStarted = new Promise((resolve) => { firstEditStarted = resolve; });
+  const env = makeProviderVscode({
+    onApplyEdit: async (edit) => {
+      if (!releaseFirstEdit) {
+        firstEditStarted();
+        await new Promise((resolve) => { releaseFirstEdit = resolve; });
+      }
+      return true;
+    }
+  });
+  const { CdbEditorProvider } = loadTsModule(source("src/host/CdbEditorProvider.ts"), env.vscode);
+  const uri = new env.Uri("file:///players.cdb");
+  const document = { uri, getText: () => validText(), positionAt: (offset) => offset, save: async () => true };
+  const provider = new CdbEditorProvider({ extensionUri: "extension" });
+  await provider.resolveCustomTextEditor(document, env.panel);
+
+  const first = env.hooks.message({ type: "update", text: validText("first") });
+  await firstStarted;
+  const second = env.hooks.message({ type: "update", text: validText("second") });
+  env.hooks.dispose();
+  releaseFirstEdit();
+  await Promise.all([first, second]);
+
+  assert.equal(env.edits.length, 1);
+});
+
+test("custom editor keeps the file active while another editor panel remains active", async () => {
+  const env = makeProviderVscode();
+  const { CdbEditorProvider } = loadTsModule(source("src/host/CdbEditorProvider.ts"), env.vscode);
+  const uri = new env.Uri("file:///players.cdb");
+  const document = { uri, getText: () => validText(), positionAt: (offset) => offset, save: async () => true };
+  const provider = new CdbEditorProvider({ extensionUri: "extension" });
+  await provider.resolveCustomTextEditor(document, env.panel);
+
+  let secondViewState;
+  const secondPanel = {
+    active: true,
+    webview: {
+      options: null,
+      html: "",
+      asWebviewUri: (value) => value,
+      postMessage: () => Promise.resolve(true),
+      onDidReceiveMessage: () => ({ dispose() {} })
+    },
+    onDidChangeViewState: (handler) => { secondViewState = handler; return { dispose() {} }; },
+    onDidDispose: () => ({ dispose() {} })
+  };
+  await provider.resolveCustomTextEditor(document, secondPanel);
+
+  env.panel.active = false;
+  env.hooks.viewState();
+  assert.equal(provider.activeDocumentUri, uri);
+  secondPanel.active = false;
+  secondViewState();
+  assert.equal(provider.activeDocumentUri, null);
+});

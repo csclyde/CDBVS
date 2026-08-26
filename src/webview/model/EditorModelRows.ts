@@ -38,6 +38,12 @@
     return true;
   }
 
+  function insertSeparatorTitleSlot(sheet, separator) {
+    if (!sheet || !sheet.props || !Array.isArray(sheet.props.separatorTitles)) return;
+    const position = sheet.separators.indexOf(separator);
+    if (position >= 0) sheet.props.separatorTitles.splice(position, 0, undefined);
+  }
+
   function insertRow(sheet, index, row) {
     if (!sheet) return;
     if (!Array.isArray(sheet.lines)) sheet.lines = [];
@@ -79,6 +85,7 @@
     } else {
       sheet.separators.push(index);
       sheet.separators.sort((a, b) => separatorIndex(a) - separatorIndex(b));
+      insertSeparatorTitleSlot(sheet, index);
     }
     return true;
   }
@@ -88,7 +95,9 @@
     if (!Array.isArray(sheet.separators)) sheet.separators = [];
     if (sheet.separators.some((separator) => separatorIndex(separator) === index)) return false;
     sheet.separators.push({ index, title: "Section" });
+    const separator = sheet.separators.at(-1);
     sheet.separators.sort((left, right) => separatorIndex(left) - separatorIndex(right));
+    insertSeparatorTitleSlot(sheet, separator);
     return true;
   }
 
@@ -97,7 +106,7 @@
     const position = sheet.separators.findIndex((separator) => separatorIndex(separator) === index);
     if (position < 0) return false;
     sheet.separators.splice(position, 1);
-    if (sheet.props && Array.isArray(sheet.props.separatorTitles)) sheet.props.separatorTitles.splice(position, 1);
+    removeSeparatorTitles(sheet, [position]);
     return true;
   }
 

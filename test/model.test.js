@@ -28,6 +28,8 @@ test("column value conversion handles primitive, enum, flags, list, and properti
   assert.deepEqual(resultValue(convert(1, typeOf(harness, "1"), typeOf(harness, "5:a,b"))), { ok: true, value: 1 });
   assert.deepEqual(resultValue(convert(2, typeOf(harness, "1"), typeOf(harness, "5:a,b"))), { ok: false });
   assert.deepEqual(resultValue(convert("1", typeOf(harness, "1"), typeOf(harness, "5:a,b"))), { ok: true, value: 1 });
+  assert.deepEqual(resultValue(convert("9007199254740993", typeOf(harness, "1"), typeOf(harness, "3"))), { ok: false });
+  assert.deepEqual(resultValue(convert(Number.MAX_SAFE_INTEGER, typeOf(harness, "1"), typeOf(harness, "3"))), { ok: true, value: Number.MAX_SAFE_INTEGER });
   assert.deepEqual(resultValue(convert(1, typeOf(harness, "5:a,b"), typeOf(harness, "5:b,a"))), { ok: true, value: 1 });
   assert.deepEqual(resultValue(convert(1, typeOf(harness, "5:a,b"), typeOf(harness, "5:a,c"))), { ok: true, value: 1 });
   assert.deepEqual(resultValue(convert(3, typeOf(harness, "10:a,b"), typeOf(harness, "10:b,a,c"))), { ok: true, value: 3 });
@@ -89,6 +91,23 @@ test("document model rejects invalid roots and controls mutation boundaries", ()
   assert.equal(harness.CDBVS.replaceDocumentText("{").ok, false);
   assert.match(harness.CDBVS.replaceDocumentText("{").message, /^Invalid JSON:/);
   assert.equal(harness.CDBVS.replaceDocumentText(JSON.stringify({ customTypes: [], sheets: [] })).ok, true);
+});
+
+test("primary-column changes demote the previous primary column safely", () => {
+  const target = {
+    name: "Players",
+    columns: [
+      { name: "id", typeStr: "0" },
+      { name: "name", typeStr: "1" },
+      { name: "score", typeStr: "3" }
+    ],
+    lines: []
+  };
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target] });
+  harness.CDBVS.setPrimaryColumn(target, "name");
+  assert.deepEqual(target.columns.map((column) => column.typeStr), ["1", "0", "3"]);
+  harness.CDBVS.setPrimaryColumn(target, "");
+  assert.deepEqual(target.columns.map((column) => column.typeStr), ["1", "1", "3"]);
 });
 
 test("cell errors normalize, deduplicate, clear by scope, and report duplicate primary IDs", () => {
@@ -162,6 +181,30 @@ test("schema values parse safely and create rows with references, nested propert
   assert.equal(harness.CDBVS.readValue(input("ignored", true), { typeStr: "2" }), true);
 });
 
+test("schema defaults honor CastleDB column defaultValue metadata", () => {
+  const target = {
+    name: "Items",
+    columns: [
+      { name: "id", typeStr: "0" },
+      { name: "title", typeStr: "1", defaultValue: "Untitled" },
+      { name: "score", typeStr: "3", defaultValue: 7 },
+      { name: "metadata", typeStr: "17", defaultValue: { source: "generated" } }
+    ],
+    lines: []
+  };
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target] });
+
+  assert.equal(harness.CDBVS.defaultValue(target.columns[1], target), "Untitled");
+  assert.equal(harness.CDBVS.defaultValue(target.columns[2], target), 7);
+  const row = harness.CDBVS.createRowForSchema(target, target.lines);
+  assert.deepEqual(JSON.parse(JSON.stringify(row)), {
+    id: "new_1", title: "Untitled", score: 7, metadata: { source: "generated" }
+  });
+
+  target.columns[3].defaultValue.source = "changed after row creation";
+  assert.equal(row.metadata.source, "generated");
+});
+
 test("custom type validation preserves document boundaries and rejects dangling references", () => {
   const sheet = { name: "Players", columns: [{ name: "kind", typeStr: "9:Kind" }], lines: [] };
   const harness = createWebviewHarness({ customTypes: [], sheets: [sheet] });
@@ -175,6 +218,33 @@ test("custom type validation preserves document boundaries and rejects dangling 
   assert.deepEqual(resultValue(harness.CDBVS.updateCustomTypes([{ name: "Kind", cases: [] }, { name: "Kind", cases: [] }])), { ok: false, message: "Each custom type needs a unique name." });
   harness.CDBVS.documentModel.load(null);
   assert.deepEqual(resultValue(harness.CDBVS.updateCustomTypes([])), { ok: false, message: "Load a valid CastleDB document before editing custom types." });
+});
+
+test("custom type validation rejects duplicate cases and malformed arguments before mutation", () => {
+  const harness = createWebviewHarness({ customTypes: [], sheets: [] });
+  const valid = [{ name: "Kind", cases: [{ name: "Basic", args: [] }] }];
+  assert.equal(harness.CDBVS.updateCustomTypes(valid).ok, true);
+
+  const duplicateCases = harness.CDBVS.validateCustomTypes([{
+    name: "Kind",
+    cases: [{ name: "Basic", args: [] }, { name: "Basic", args: [] }]
+  }]);
+  assert.equal(duplicateCases.ok, false);
+  assert.match(duplicateCases.message, /Invalid case/);
+
+  const malformedArgument = harness.CDBVS.validateCustomTypes([{
+    name: "Kind",
+    cases: [{ name: "Basic", args: [{ name: "value", typeStr: "3garbage" }] }]
+  }]);
+  assert.equal(malformedArgument.ok, false);
+  assert.match(malformedArgument.message, /Invalid argument/);
+  assert.deepEqual(JSON.parse(JSON.stringify(harness.CDBVS.documentModel.customTypes())), valid);
+});
+
+test("webview type parsing rejects numeric prefixes with trailing text", () => {
+  const harness = createWebviewHarness({ customTypes: [], sheets: [] });
+  assert.equal(harness.CDBVS.typeOf({ typeStr: "3garbage" }).code, -1);
+  assert.equal(harness.CDBVS.typeOf({ typeStr: "3:integer" }).code, 3);
 });
 
 test("sheet view filtering, sorting, hidden sheets, and filter modes remain deterministic", () => {
@@ -296,6 +366,7 @@ test("row model operations handle invalid inputs, separator variants, and bounda
   assert.equal(sheet.separators.length, 1);
   assert.equal(rows.toggleSeparator(sheet, 1), true);
   assert.deepEqual(JSON.parse(JSON.stringify(sheet.separators)), [1, { index: 2, title: "Object section" }]);
+  assert.deepEqual(sheet.props.separatorTitles, [undefined, "Legacy title"]);
   assert.equal(rows.addSeparator(sheet, 1), false);
   assert.equal(rows.addSeparator(sheet, 3), true);
   assert.equal(rows.removeSeparator(sheet, 99), false);

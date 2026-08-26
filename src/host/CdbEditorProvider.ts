@@ -15,10 +15,19 @@ function normalizedDocumentText(text: string): string {
 
 export class CdbEditorProvider implements vscode.CustomTextEditorProvider {
   private readonly context: vscode.ExtensionContext;
+  private readonly editorPanels = new Map<vscode.WebviewPanel, vscode.Uri>();
   public activeDocumentUri: vscode.Uri | null = null;
 
   constructor(context: vscode.ExtensionContext) {
     this.context = context;
+  }
+
+  private refreshActiveDocumentUri(): void {
+    let activeUri: vscode.Uri | null = null;
+    for (const [panel, uri] of this.editorPanels) {
+      if (panel.active) activeUri = uri;
+    }
+    this.activeDocumentUri = activeUri;
   }
 
   static register(context: vscode.ExtensionContext): { provider: CdbEditorProvider; disposable: vscode.Disposable } {
@@ -41,9 +50,10 @@ export class CdbEditorProvider implements vscode.CustomTextEditorProvider {
     let pendingDocumentRefresh = false;
     const selfAppliedTexts = new Set<string>();
     const updateQueue = new DocumentUpdateQueue();
+    this.editorPanels.set(webviewPanel, document.uri);
     const markActive = () => {
       if (webviewPanel.active) this.activeDocumentUri = document.uri;
-      else if (this.activeDocumentUri?.toString() === document.uri.toString()) this.activeDocumentUri = null;
+      else this.refreshActiveDocumentUri();
     };
     const viewStateSubscription = webviewPanel.onDidChangeViewState(markActive);
     markActive();
@@ -79,14 +89,19 @@ export class CdbEditorProvider implements vscode.CustomTextEditorProvider {
       }
       if (message.type === "update") {
         await updateQueue.enqueue(async () => {
-          if (normalizedDocumentText(message.text) === normalizedDocumentText(document.getText())) return;
+          if (disposed) return;
+          const normalizedMessageText = normalizedDocumentText(message.text);
+          if (normalizedMessageText === normalizedDocumentText(document.getText())) {
+            selfAppliedTexts.delete(normalizedMessageText);
+            return;
+          }
           const parsed = parseEditableCdb(message.text);
           if (!parsed.valid) {
             if (!disposed) void webview.postMessage({ type: "error", message: parsed.issues.join("\n") });
             return;
           }
+          if (disposed) return;
           applyingEdit = true;
-          const normalizedMessageText = normalizedDocumentText(message.text);
           selfAppliedTexts.add(normalizedMessageText);
           let applied = false;
           try {
@@ -145,7 +160,8 @@ export class CdbEditorProvider implements vscode.CustomTextEditorProvider {
       configurationSubscription.dispose();
       messageSubscription.dispose();
       viewStateSubscription.dispose();
-      if (this.activeDocumentUri?.toString() === document.uri.toString()) this.activeDocumentUri = null;
+      this.editorPanels.delete(webviewPanel);
+      this.refreshActiveDocumentUri();
     });
   }
 

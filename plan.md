@@ -27,6 +27,18 @@ The first working editor baseline is in place. The repository now contains a des
 - Save requests remain queued behind webview edits and treat a `false` result as benign when VS Code reports that the document is no longer dirty, avoiding a misleading first-save/concurrent no-op error without skipping a save while the dirty flag catches up.
 - Added host coverage for clean first-save and no-longer-dirty false-result cases; genuine failures that leave the document dirty still report an error.
 
+## Bug audit pass (2026-08-25)
+
+- Aligned webview type parsing with the host parser so malformed numeric prefixes such as `3garbage` cannot be presented or edited as valid integer columns.
+- Corrected the TypeScript sheet-property contract for CastleDB's scalar `dataFiles` field.
+- Honored CastleDB column `defaultValue` metadata when generating rows and required nested values, while cloning object defaults to avoid shared mutable data.
+- Made custom-type validation reject duplicate case names and malformed argument descriptors before mutating the document.
+- Fixed primary-column updates that could throw at runtime while demoting an existing ID column.
+- Kept legacy `separatorTitles` aligned when inserting or removing sorted separator entries.
+- Prevented unsafe integer conversions beyond JavaScript's exact integer range.
+- Prevented queued webview edits from applying after their editor panel is disposed, and kept active-file tracking correct with multiple panels for one document.
+- Added host and model regression coverage for these lifecycle, metadata, and numeric boundaries. A real packaged VS Code Extension Development Host smoke test remains outstanding.
+
 ## Smooth row mutations (2026-08-22)
 
 - Insert, append, and delete row actions now persist through the normal mutation boundary but refresh only the existing table body, avoiding full-app replacement and the transient loading overlay.

@@ -3,8 +3,19 @@
   const CDBVS = global.CDBVS;
 
   function integerValue(value) {
-    if (typeof value === "number") return Number.isInteger(value) ? value : null;
-    if (typeof value === "string" && /^[-+]?\d+$/.test(value.trim())) return Number(value);
+    if (typeof value === "number") return Number.isSafeInteger(value) ? value : null;
+    if (typeof value === "string" && /^[-+]?\d+$/.test(value.trim())) {
+      const text = value.trim();
+      const number = Number(text);
+      if (!Number.isSafeInteger(number)) return null;
+      try {
+        const exact = BigInt(text);
+        if (exact < BigInt(Number.MIN_SAFE_INTEGER) || exact > BigInt(Number.MAX_SAFE_INTEGER)) return null;
+      } catch (_error) {
+        return null;
+      }
+      return number;
+    }
     return null;
   }
 
@@ -31,8 +42,10 @@
       return { ok: false };
     }
     if ([3, 4].includes(toType.code)) {
-      const number = typeof value === "boolean" ? (value ? 1 : 0) : numericValue(value);
-      if (number === null || (toType.code === 3 && !Number.isInteger(number))) return { ok: false };
+      const number = typeof value === "boolean"
+        ? (value ? 1 : 0)
+        : (toType.code === 3 ? integerValue(value) : numericValue(value));
+      if (number === null || (toType.code === 3 && !Number.isSafeInteger(number))) return { ok: false };
       return { ok: true, value: toType.code === 3 ? Math.trunc(number) : number };
     }
     if ([5, 10, 11].includes(toType.code)) {

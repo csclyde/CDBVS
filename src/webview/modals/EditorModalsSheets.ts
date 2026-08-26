@@ -111,8 +111,8 @@
       else delete props.hasIndex;
       if (groupInput.checked) props.hasGroup = true;
       else delete props.hasGroup;
-      if (dataFilesInput.value === "") delete props.dataFiles;
-      else props.dataFiles = dataFilesInput.value;
+       if (dataFilesInput.value === "") delete props.dataFiles;
+       else props.dataFiles = dataFilesInput.value;
       const standard = new Set(["displayColumn", "displayIcon", "hide", "isProps", "hasIndex", "hasGroup", "dataFiles"]);
       Object.keys(props).forEach((key) => {
         if (!standard.has(key)) delete props[key];

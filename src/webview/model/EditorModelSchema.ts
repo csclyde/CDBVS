@@ -44,6 +44,10 @@
   }
 
   function defaultValue(column, parentSheet) {
+    if (column && Object.prototype.hasOwnProperty.call(column, "defaultValue")
+      && column.defaultValue !== undefined && column.defaultValue !== null) {
+      return typeof CDBVS.cloneValue === "function" ? CDBVS.cloneValue(column.defaultValue) : column.defaultValue;
+    }
     switch (typeOf(column).code) {
       case 0: case 1: case 7: case 12: case 13: return "";
       case 6: {
@@ -156,10 +160,21 @@
         }
         names.add(customType.name);
         if (!Array.isArray(customType.cases)) throw new Error(`Custom type '${customType.name}' needs a cases array.`);
+        const caseNames = new Set();
         customType.cases.forEach((typeCase) => {
-          if (!typeCase || typeof typeCase !== "object" || !typeCase.name || !Array.isArray(typeCase.args)) {
+          if (!typeCase || typeof typeCase !== "object" || Array.isArray(typeCase)
+            || typeof typeCase.name !== "string" || !typeCase.name || caseNames.has(typeCase.name)
+            || !Array.isArray(typeCase.args)) {
             throw new Error(`Invalid case in custom type '${customType.name}'.`);
           }
+          caseNames.add(typeCase.name);
+          typeCase.args.forEach((argument) => {
+            if (!argument || typeof argument !== "object" || Array.isArray(argument)
+              || typeof CDBVS.getTypeString(argument) !== "string"
+              || CDBVS.typeOf(argument).code < 0) {
+              throw new Error(`Invalid argument in case '${typeCase.name}' of custom type '${customType.name}'.`);
+            }
+          });
         });
       });
       const checkTypeReference = (column) => {

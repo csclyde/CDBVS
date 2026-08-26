@@ -1,6 +1,7 @@
 // @ts-nocheck
 (function (global) {
   const CDBVS = global.CDBVS;
+  const typeOf = CDBVS.typeOf;
   const services = CDBVS.services;
   const documentModel = services.document;
 

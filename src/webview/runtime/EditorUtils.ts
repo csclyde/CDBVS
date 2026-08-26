@@ -25,7 +25,10 @@
   function typeOf(column) {
     const raw = String(getTypeString(column) ?? "");
     const separator = raw.indexOf(":");
-    const code = Number.parseInt(separator < 0 ? raw : raw.slice(0, separator), 10);
+    const numberText = (separator < 0 ? raw : raw.slice(0, separator)).trim();
+    // Keep the webview's interpretation in lockstep with the host parser.
+    // parseInt would incorrectly treat values such as "3garbage" as type 3.
+    const code = /^\d+$/.test(numberText) ? Number(numberText) : NaN;
     const argument = separator < 0 ? "" : raw.slice(separator + 1);
     const validCode = Number.isInteger(code) && code >= 0 && code < CDBVS.TYPE_NAMES.length;
     return {
