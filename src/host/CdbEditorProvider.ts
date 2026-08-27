@@ -13,6 +13,18 @@ function normalizedDocumentText(text: string): string {
   return text.replace(/\r\n?/g, "\n");
 }
 
+async function saveDocumentWithRetry(document: vscode.TextDocument): Promise<boolean> {
+  let saved = await document.save();
+  if (saved || document.isDirty !== true) return saved;
+
+  // WorkspaceEdit can resolve before VS Code has finished settling the text
+  // document's save state. Give that state one turn to settle before treating
+  // a false result as a real failure.
+  await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  saved = await document.save();
+  return saved;
+}
+
 export class CdbEditorProvider implements vscode.CustomTextEditorProvider {
   private readonly context: vscode.ExtensionContext;
   private readonly editorPanels = new Map<vscode.WebviewPanel, vscode.Uri>();
@@ -138,10 +150,9 @@ export class CdbEditorProvider implements vscode.CustomTextEditorProvider {
           await updateQueue.wait();
           if (disposed) return;
           // Keep the save call after the update queue even when the dirty flag
-          // has not caught up with WorkspaceEdit yet. A concurrent/native
-          // no-op save may return false, so only report failure if the
-          // document is still dirty afterwards.
-          const saved = await document.save();
+          // has not caught up with WorkspaceEdit yet. A transient false result
+          // is retried once before reporting a failure.
+          const saved = await saveDocumentWithRetry(document);
           const stillDirty = document.isDirty === true;
           if (!saved && stillDirty && !disposed) {
             void webview.postMessage({ type: "error", message: "CDBVS could not save the document." });

@@ -39,6 +39,12 @@ The first working editor baseline is in place. The repository now contains a des
 - Prevented queued webview edits from applying after their editor panel is disposed, and kept active-file tracking correct with multiple panels for one document.
 - Added host and model regression coverage for these lifecycle, metadata, and numeric boundaries. A real packaged VS Code Extension Development Host smoke test remains outstanding.
 
+## Save retry follow-up (2026-08-27)
+
+- Save requests now retry once on a transient `false` result while the document is still dirty, allowing VS Code's document state to settle after a webview `WorkspaceEdit` before reporting an error.
+- Added regression coverage for transient and persistent dirty save failures, and bumped the extension version to 0.1.32.
+- Packaged and installed `cdbvs-0.1.32.vsix` locally; restart or reload the VS Code window before testing the updated extension.
+
 ## Smooth row mutations (2026-08-22)
 
 - Insert, append, and delete row actions now persist through the normal mutation boundary but refresh only the existing table body, avoiding full-app replacement and the transient loading overlay.
