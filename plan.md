@@ -4,6 +4,11 @@
 
 The first working editor baseline is in place. The repository now contains a desktop VS Code extension with a custom `.cdb` editor, a spreadsheet-style webview, schema-aware primitive/reference controls, row/column/sheet editing, quick search, per-column filtering and sorting, and a raw JSON fallback. The reusable CastleDB Haxe `cdb` sources from `Cursemark\.haxelib\castle\git` are vendored under `vendor/castledb/cdb`, while the legacy level-editor sources are intentionally excluded. Marketplace release metadata and packaging exclusions are also prepared; publisher registration, authentication, and final VSIX validation remain external steps.
 
+## Smooth row movement (2026-08-28)
+
+- Ctrl/Cmd+Arrow row movement now refreshes only the existing table body, preserving the table shell and viewport instead of invoking the full webview renderer.
+- Added regression coverage for row order, selection, DOM identity, and scroll preservation through the keyboard path.
+
 ## Smooth section browsing (2026-08-24)
 
 - Section collapse/expand no longer calls the global renderer, which previously replaced the entire webview and caused the table to reload and jitter.

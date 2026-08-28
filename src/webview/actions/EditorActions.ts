@@ -122,7 +122,7 @@
     const target = selected + delta;
     if (target < 0 || target >= (sheet.lines || []).length) return;
     const cell = selectedCell(sheet);
-    commitMutation(() => {
+    commitRowMutation(sheet, () => {
       moveRowAt(sheet, selected, delta);
       if (cell) selectCell(sheet, target, cell.columnIndex);
       else selectRow(sheet, target);

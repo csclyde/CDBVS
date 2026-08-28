@@ -1434,6 +1434,48 @@ test("insert and delete row actions refresh the table body without rebuilding th
   assert.equal(tableWrap.querySelectorAll("tbody tr").filter((row) => row.dataset.rowIndex !== undefined).length, 2);
 });
 
+test("moving a row with Ctrl+Arrow refreshes only the table body", () => {
+  const target = sheet("Players");
+  target.columns = [{ name: "id", typeStr: "0" }, { name: "name", typeStr: "1" }];
+  target.lines = [{ id: "a", name: "Alice" }, { id: "b", name: "Bob" }, { id: "c", name: "Cara" }];
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target] });
+  harness.context.innerWidth = 1200;
+  harness.context.innerHeight = 800;
+  harness.context.Event = class { constructor(type) { this.type = type; } };
+  harness.CDBVS.app = harness.document.createElement("div");
+  harness.CDBVS.rememberViewport = () => {};
+  harness.CDBVS.restoreViewport = () => {};
+  loadScript(harness.context, "EditorCells.js");
+  loadScript(harness.context, "EditorView.js");
+  harness.CDBVS.render();
+
+  let renderCount = 0;
+  const render = harness.CDBVS.render;
+  harness.CDBVS.render = () => { renderCount += 1; render(); };
+  const tableWrap = harness.CDBVS.app.querySelector(".table-wrap");
+  tableWrap.scrollTop = 120;
+  tableWrap.scrollLeft = 45;
+  harness.CDBVS.selectCell(target, 1, 1);
+  const oldTableWrap = tableWrap;
+
+  let prevented = false;
+  harness.document.dispatchEvent({
+    type: "keydown",
+    key: "ArrowDown",
+    ctrlKey: true,
+    target: harness.CDBVS.findRenderedCell(1, 1),
+    preventDefault() { prevented = true; }
+  });
+
+  assert.equal(prevented, true);
+  assert.deepEqual(target.lines.map((row) => row.id), ["a", "c", "b"]);
+  assert.equal(harness.CDBVS.selectedCell(target).rowIndex, 2);
+  assert.equal(renderCount, 0);
+  assert.strictEqual(harness.CDBVS.app.querySelector(".table-wrap"), oldTableWrap);
+  assert.equal(oldTableWrap.scrollTop, 120);
+  assert.equal(oldTableWrap.scrollLeft, 45);
+});
+
 test("Insert adds a row without propagating into insert-mode shortcuts", () => {
   const target = sheet();
   target.columns = [{ name: "id", typeStr: "0" }];
