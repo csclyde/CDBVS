@@ -16,15 +16,15 @@
   const appendRow = model.rows.append;
   const addSeparatorAt = model.rows.addSeparator;
   const removeSeparatorAt = model.rows.removeSeparator;
-  const rowsForView = services.sheetView.rowsForView;
+  const rowsForView = services.sheetView.rowsForNavigation;
   const deleteColumnAt = services.application.columnActions.deleteColumn;
   const deleteSheetAction = CDBVS.services.application.sheetActions.deleteSheet;
   const ensureSheetColumns = model.columns.ensure;
 
-  function commitRowMutation(sheet, mutator) {
+  function commitRowMutation(sheet, mutator, options) {
     return commitMutation(mutator, {
       render: () => {
-        if (typeof CDBVS.refreshTableBody !== "function" || !CDBVS.refreshTableBody(sheet)) {
+        if (typeof CDBVS.refreshTableBody !== "function" || !CDBVS.refreshTableBody(sheet, options)) {
           CDBVS.renderNow();
         }
       }
@@ -62,8 +62,22 @@
   }
 
   function addRow(sheet) {
-    if (!sheet) return;
-    commitRowMutation(sheet, () => appendRow(sheet));
+    if (!sheet) return false;
+    let index;
+    let visible = false;
+    const result = commitRowMutation(sheet, () => {
+      index = Array.isArray(sheet.lines) ? sheet.lines.length : 0;
+      if (appendRow(sheet) === false) return false;
+      visible = rowsForView(sheet).some((entry) => entry.rowIndex === index);
+      if (visible) {
+        if (sheet.columns && sheet.columns.length) selectCell(sheet, index, 0);
+        else selectRow(sheet, index);
+      }
+      return true;
+    }, { focusSelection: true });
+    if (result === false) return false;
+    CDBVS.setStatus(visible ? `Row ${index + 1} added.` : `Row ${index + 1} added. It is hidden by the current search, filters or collapsed section.`);
+    return true;
   }
 
   function deleteRow(sheet, index) {
@@ -136,7 +150,7 @@
     let rowIndex = selection.rowIndex;
     const columnIndex = selection.columnIndex + columnDelta;
     if (rowDelta) {
-      const rows = rowsForView(sheet);
+      const rows = typeof CDBVS.navigationRows === "function" ? CDBVS.navigationRows(sheet) : rowsForView(sheet);
       const visibleIndex = rows.findIndex((entry) => entry.rowIndex === selection.rowIndex);
       const targetVisibleIndex = visibleIndex + rowDelta;
       if (visibleIndex < 0 || targetVisibleIndex < 0 || targetVisibleIndex >= rows.length) return false;
@@ -144,7 +158,8 @@
     }
     if (columnIndex < 0 || columnIndex >= (sheet.columns || []).length) return false;
     const previous = selection;
-    if (typeof CDBVS.exitRenderedCell === "function") CDBVS.exitRenderedCell(sheet, false);
+    if (CDBVS.activeCell(sheet) && typeof CDBVS.exitRenderedCell === "function"
+      && !CDBVS.exitRenderedCell(sheet, false)) return false;
     selectCell(sheet, rowIndex, columnIndex);
     const next = CDBVS.selectedCell(sheet);
     if (typeof CDBVS.updateRenderedSelection === "function") CDBVS.updateRenderedSelection(sheet, previous, next);

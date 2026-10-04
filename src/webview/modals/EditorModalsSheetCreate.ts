@@ -14,6 +14,11 @@
   const createModal = CDBVS.createModal;
 
   function openNewSheetEditor() {
+    if (!CDBVS.hasDocument()) {
+      CDBVS.setStatus("Repair the document in Raw JSON before adding a sheet.", true);
+      return false;
+    }
+    if (typeof CDBVS.prepareCellTransition === "function" && !CDBVS.prepareCellTransition()) return false;
     const { overlay, dialog, footer, close } = createModal({ className: "sheet-modal", title: "New sheet" });
     const form = makeElement("div", null, "sheet-form");
     const nameInput = document.createElement("input");
@@ -25,6 +30,7 @@
     nameInput.value = suggestedName;
     form.appendChild(modalField("Name", nameInput));
     const error = makeElement("div", null, "column-form-error");
+    error.setAttribute("role", "alert");
     form.appendChild(error);
     const save = () => {
       const name = nameInput.value.trim();
@@ -47,7 +53,11 @@
     dialog.appendChild(form);
     dialog.appendChild(footer);
     overlay.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" && event.target === nameInput) save();
+      if (event.key === "Enter" && event.target === nameInput && !event.isComposing && event.keyCode !== 229
+        && !event.repeat && !event.__cdbvsModalHandled && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        event.preventDefault();
+        save();
+      }
     });
     nameInput.focus();
     nameInput.select();

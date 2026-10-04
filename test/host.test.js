@@ -330,6 +330,7 @@ test("custom editor reports failed applications and ignores redundant or malform
   await env.hooks.message({ type: "update", text: validText("Changed") });
   assert.equal(env.edits.length, 1);
   assert.equal(env.posted.at(-2).type, "error");
+  assert.equal(env.posted.at(-2).rejectedText, validText("Changed"));
   assert.equal(env.posted.at(-1).type, "document");
 });
 
@@ -388,6 +389,43 @@ test("custom editor does not apply queued updates after the panel is disposed", 
   await Promise.all([first, second]);
 
   assert.equal(env.edits.length, 1);
+});
+
+test("stale webview updates preserve external edits and stop saving a different document snapshot", async () => {
+  let text = validText("External");
+  let saves = 0;
+  const env = makeProviderVscode({ onApplyEdit: (edit) => { text = edit.text; } });
+  const { CdbEditorProvider } = loadTsModule(source("src/host/CdbEditorProvider.ts"), env.vscode);
+  const document = { uri: new env.Uri("file:///players.cdb"), getText: () => text, positionAt: (offset) => offset, save: async () => { saves++; return true; } };
+  await new CdbEditorProvider({ extensionUri: "extension" }).resolveCustomTextEditor(document, env.panel);
+  await env.hooks.message({ type: "update", text: validText("Stale edit"), baseText: validText("Alice") });
+  assert.equal(env.edits.length, 0);
+  assert.equal(text, validText("External"));
+  assert.equal(env.posted.at(-2).rejectedText, validText("Stale edit"));
+  assert.match(env.posted.at(-2).message, /file changed/);
+  assert.equal(env.posted.at(-1).text, text);
+  await env.hooks.message({ type: "save", expectedText: validText("Stale edit") });
+  assert.equal(saves, 0);
+  assert.match(env.posted.at(-2).message, /Save stopped/);
+  await env.hooks.message({ type: "update", text: validText("Reviewed"), baseText: text });
+  await env.hooks.message({ type: "save", expectedText: text });
+  assert.equal(saves, 1);
+  assert.equal(text, validText("Reviewed"));
+});
+
+test("document baseline comparisons tolerate line endings and reject updates after a failed predecessor", async () => {
+  let text = validText("Alice") + "\r\n";
+  const env = makeProviderVscode({ applyEditResult: false });
+  const { CdbEditorProvider } = loadTsModule(source("src/host/CdbEditorProvider.ts"), env.vscode);
+  const document = { uri: new env.Uri("file:///players.cdb"), getText: () => text, positionAt: (offset) => offset };
+  await new CdbEditorProvider({ extensionUri: "extension" }).resolveCustomTextEditor(document, env.panel);
+  const firstText = validText("First");
+  await env.hooks.message({ type: "update", text: firstText, baseText: validText("Alice") + "\n" });
+  assert.equal(env.edits.length, 1);
+  await env.hooks.message({ type: "update", text: validText("Second"), baseText: firstText });
+  assert.equal(env.edits.length, 1);
+  assert.equal(text, validText("Alice") + "\r\n");
+  assert.equal(env.posted.at(-2).rejectedText, validText("Second"));
 });
 
 test("custom editor keeps the file active while another editor panel remains active", async () => {

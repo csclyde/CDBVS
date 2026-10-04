@@ -24,6 +24,7 @@
   const columnField = modalField;
 
   function openColumnEditor(sheet, column, columnIndex, isNew = false) {
+    if (typeof CDBVS.prepareCellTransition === "function" && !CDBVS.prepareCellTransition()) return false;
     const { dialog, heading, footer, close } = createModal({
       className: "column-modal column-editor-modal",
       title: `${isNew ? "Add" : "Edit"} column${isNew ? "" : `: ${column.name}`}`
@@ -75,13 +76,18 @@
     updateTypeControls();
     typeSelect.addEventListener("change", updateTypeControls);
     const error = makeElement("div", null, "column-form-error");
+    error.setAttribute("role", "alert");
     form.appendChild(error);
     footer.className = "text-modal-footer column-modal-footer";
     const showError = (message) => { error.textContent = message; };
     const removeColumn = () => {
-      if (isNew) { close(); return; }
-      commitMutation(() => deleteColumnAt(sheet, columnIndex));
-      close();
+      if (isNew) { close.requestClose(); return; }
+      CDBVS.openConfirmDialog({
+        title: `Delete column: ${column.name}`,
+        message: `Delete '${column.name}' and its values in every row? Nested data in this column will also be removed.`,
+        confirmLabel: "Delete column", restorePrevious: true,
+        onConfirm: () => { if (commitMutation(() => deleteColumnAt(sheet, columnIndex)) === true) close(); }
+      });
     };
     const save = () => {
       const newName = nameInput.value.trim();
@@ -97,10 +103,19 @@
       close();
       commitMutation();
     };
-    const moveLeft = makeButton("Move left", () => { close(); moveColumn(sheet, columnIndex, -1); });
-    moveLeft.disabled = isNew || columnIndex <= 0;
-    const moveRight = makeButton("Move right", () => { close(); moveColumn(sheet, columnIndex, 1); });
-    moveRight.disabled = isNew || columnIndex >= sheet.columns.length - 1;
+    const move = (delta) => {
+      if (!moveColumn(sheet, columnIndex, delta)) return;
+      columnIndex = sheet.columns.indexOf(column);
+      updateMoveButtons();
+      dialog.querySelector(".modal-status").textContent = "Column order updated. Unapplied settings remain in this dialog.";
+    };
+    const moveLeft = makeButton("Move left", () => move(-1));
+    const moveRight = makeButton("Move right", () => move(1));
+    const updateMoveButtons = () => {
+      moveLeft.disabled = isNew || columnIndex <= 0;
+      moveRight.disabled = isNew || columnIndex >= sheet.columns.length - 1;
+    };
+    updateMoveButtons();
     footer.appendChild(moveLeft);
     footer.appendChild(moveRight);
     footer.appendChild(makeButton(isNew ? "Discard column" : "Delete column", removeColumn, "danger-button"));

@@ -102,9 +102,19 @@
         const nextIndex = separatorIndexes(sheet).find((separatorIndex) => separatorIndex > index);
         if (active && active.rowIndex >= index && (nextIndex === undefined || active.rowIndex < nextIndex)
           && typeof CDBVS.exitRenderedCell === "function") {
-          CDBVS.exitRenderedCell(sheet, false);
+          if (!CDBVS.exitRenderedCell(sheet, false)) return;
         }
         const nextCollapsed = sheetViewState.toggleSeparatorCollapsed(sheet.name, index);
+        if (nextCollapsed) {
+          const inSection = (rowIndex) => rowIndex >= index && (nextIndex === undefined || rowIndex < nextIndex);
+          const selectedCell = CDBVS.selectedCell(sheet);
+          const selectedRows = CDBVS.selectedRowIndices(sheet);
+          if (selectedRows.some(inSection)) {
+            CDBVS.selectRows(sheet, selectedRows.filter((rowIndex) => !inSection(rowIndex)));
+            CDBVS.updateRenderedSelection(sheet, selectedCell, null);
+            CDBVS.markRenderedRowSelected();
+          }
+        }
         updateRenderedSeparatorSection(sheet, index, nextCollapsed, body);
       };
       const toggle = makeButton(collapsed ? "\u25B6" : "\u25BC", toggleSeparator, "separator-toggle");
@@ -134,6 +144,7 @@
   }
 
   function prepareTableBody(sheet) {
+    CDBVS.reconcileVisibleSelection(sheet);
     const rows = sheetView.rowsForView(sheet);
     const separatorPositionsByIndex = new Map();
     const separatorIndexes = [];
@@ -214,7 +225,23 @@
 
   function appendEmptyTableRow(body, sheet) {
     const emptyRow = document.createElement("tr");
-    const emptyCell = makeElement("td", "No rows match the current search and filters.", "empty");
+    const empty = !sheet.lines || !sheet.lines.length;
+    const emptyCell = makeElement("td", empty ? "No rows yet. Use + Row to add your first row." : "No rows match the current search and filters.", "empty");
+    if (!empty) {
+      const clear = makeButton("Clear search and filters", () => {
+        if (!CDBVS.prepareCellTransition()) return;
+        CDBVS.services.viewState.setFilter("");
+        sheetViewState.setFilters(sheet.name, {});
+        const firstRow = sheetView.rowsForNavigation(sheet)[0];
+        if (firstRow) {
+          if (sheet.columns && sheet.columns.length) CDBVS.selectCell(sheet, firstRow.rowIndex, 0);
+          else CDBVS.selectRow(sheet, firstRow.rowIndex);
+        }
+        CDBVS.refreshView({ focusSelection: true });
+        CDBVS.setStatus("Search and filters cleared.");
+      }, "button empty-view-reset");
+      emptyCell.appendChild(clear);
+    }
     emptyCell.colSpan = Math.max(1, (sheet.columns || []).length + 1);
     emptyRow.appendChild(emptyCell);
     body.appendChild(emptyRow);

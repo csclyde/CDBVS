@@ -10,8 +10,10 @@
     if (!sheet || !Array.isArray(sheet.columns) || !Number.isInteger(index)) return false;
     const column = sheet.columns[index];
     if (!column) return false;
+    const source = CDBVS.schemaRows(sheet);
+    if (!source.ok) return false;
     sheet.columns.splice(index, 1);
-    (sheet.lines || []).forEach((line) => { if (line) delete line[column.name]; });
+    source.rows.forEach((line) => { delete line[column.name]; });
     if (sheet.props && sheet.props.displayColumn === column.name) delete sheet.props.displayColumn;
     if (sheet.props && sheet.props.displayIcon === column.name) delete sheet.props.displayIcon;
     if (isNestedType(CDBVS.typeOf(column))) removeNestedSheet(sheet, column.name);

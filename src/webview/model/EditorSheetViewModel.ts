@@ -37,6 +37,7 @@
       return rule.value === "true" ? booleanValue : !booleanValue;
     }
     if (type.code === 3 || type.code === 4) {
+      if (value === null || value === undefined || value === "") return false;
       const number = Number(value);
       if (!Number.isFinite(number)) return false;
       if (rule.min !== "" && rule.min !== undefined && number < Number(rule.min)) return false;
@@ -49,7 +50,7 @@
       const query = String(rule.value).toLowerCase();
       return colorText(value).toLowerCase().includes(query) || String(value).toLowerCase().includes(query);
     }
-    if (type.code === 5) {
+    if (type.code === 5 || type.code === 6) {
       if (rule.value === undefined || rule.value === null || String(rule.value) === "") return true;
       return String(value) === String(rule.value);
     }
@@ -85,13 +86,32 @@
       let comparison;
       if (type.code === 2 || type.code === 3 || type.code === 4 || type.code === 5 || type.code === 10 || type.code === 11) comparison = Number(a) - Number(b);
       else comparison = valueText(a).toLowerCase().localeCompare(valueText(b).toLowerCase());
-      return (comparison || (left.rowIndex - right.rowIndex)) * direction;
+      return comparison ? comparison * direction : left.rowIndex - right.rowIndex;
     });
     return rows;
   }
 
+  function rowsForNavigation(sheet) {
+    const separators = (sheet && Array.isArray(sheet.separators) ? sheet.separators : [])
+      .map((separator) => CDBVS.separatorIndex(separator))
+      .filter(Number.isInteger).sort((left, right) => left - right);
+    return rowsForView(sheet).filter((entry) => {
+      let section = null;
+      let low = 0;
+      let high = separators.length - 1;
+      while (low <= high) {
+        const middle = Math.floor((low + high) / 2);
+        if (separators[middle] <= entry.rowIndex) {
+          section = separators[middle];
+          low = middle + 1;
+        } else high = middle - 1;
+      }
+      return section === null || !sheetViewState.isSeparatorCollapsed(sheet.name, section);
+    });
+  }
+
   const sheetViewModel = services.sheetView;
-  Object.assign(sheetViewModel, { visibleSheets, currentSheet, viewForSheet, filterMatches, rowsForView });
+  Object.assign(sheetViewModel, { visibleSheets, currentSheet, viewForSheet, filterMatches, rowsForView, rowsForNavigation });
   Object.freeze(sheetViewModel);
   Object.assign(CDBVS, { sheetViewModel, visibleSheets, currentSheet, viewForSheet, filterMatches, rowsForView });
 })(window);

@@ -41,8 +41,10 @@ import { createEditorState, TYPE_NAMES } from "./EditorState";
     const document = CDBVS.documentModel ? CDBVS.documentModel.get() : state.data;
     if (!document) return;
     const text = `${JSON.stringify(document, null, "\t")}\n`;
+    const baseText = CDBVS.documentText();
+    state.lastDocumentError = null;
     state.text = text;
-    CDBVS.vscode.postMessage({ type: "update", text });
+    CDBVS.vscode.postMessage({ type: "update", text, baseText });
   };
 
   CDBVS.scheduleUpdate = function (delay = 120) {
@@ -58,7 +60,7 @@ import { createEditorState, TYPE_NAMES } from "./EditorState";
   };
 
   CDBVS.requestSave = function () {
-    CDBVS.vscode.postMessage({ type: "save" });
+    CDBVS.vscode.postMessage({ type: "save", expectedText: CDBVS.documentText() });
   };
 
   global.addEventListener("beforeunload", () => {

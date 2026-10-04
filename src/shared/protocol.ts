@@ -9,19 +9,21 @@ export type HostToWebviewMessage =
       rawMode: boolean;
       showHiddenSheets: boolean;
     }
-  | { type: "error"; message: string };
+  | { type: "error"; message: string; rejectedText?: string };
 
 export type WebviewToHostMessage =
   | { type: "ready" }
-  | { type: "update"; text: string }
-  | { type: "save" }
+  | { type: "update"; text: string; baseText?: string }
+  | { type: "save"; expectedText?: string }
   | { type: "showMessage"; message: string };
 
 export function isWebviewToHostMessage(value: unknown): value is WebviewToHostMessage {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const message = value as Record<string, unknown>;
-  if (message.type === "ready" || message.type === "save") return true;
-  if (message.type === "update") return typeof message.text === "string";
+  if (message.type === "ready") return true;
+  if (message.type === "save") return message.expectedText === undefined || typeof message.expectedText === "string";
+  if (message.type === "update") return typeof message.text === "string"
+    && (message.baseText === undefined || typeof message.baseText === "string");
   if (message.type === "showMessage") return typeof message.message === "string";
   return false;
 }
@@ -29,7 +31,8 @@ export function isWebviewToHostMessage(value: unknown): value is WebviewToHostMe
 export function isHostToWebviewMessage(value: unknown): value is HostToWebviewMessage {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const message = value as Record<string, unknown>;
-  if (message.type === "error") return typeof message.message === "string";
+  if (message.type === "error") return typeof message.message === "string"
+    && (message.rejectedText === undefined || typeof message.rejectedText === "string");
   if (message.type !== "document") return false;
   return typeof message.text === "string"
     && (message.data === null || (typeof message.data === "object" && !Array.isArray(message.data)))

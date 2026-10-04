@@ -26,6 +26,7 @@
   }
 
   function commitMutation(mutator, options) {
+    if (typeof CDBVS.prepareCellTransition === "function" && !CDBVS.prepareCellTransition()) return false;
     return applyMutation(mutator, options);
   }
 
@@ -34,6 +35,7 @@
   }
 
   function renderMutation(mutator) {
+    if (typeof CDBVS.prepareCellTransition === "function" && !CDBVS.prepareCellTransition()) return false;
     return applyMutation(mutator, { persist: false });
   }
 

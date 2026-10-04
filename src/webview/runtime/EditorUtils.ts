@@ -73,8 +73,7 @@
   function commitEditorTarget(editorTarget) {
     if (!editorTarget || typeof editorTarget.dispatchEvent !== "function") return;
     if (typeof editorTarget._cdbvsCommit === "function") {
-      editorTarget._cdbvsCommit();
-      return;
+      return editorTarget._cdbvsCommit();
     }
     editorTarget.dispatchEvent(new Event("change", { bubbles: false }));
   }

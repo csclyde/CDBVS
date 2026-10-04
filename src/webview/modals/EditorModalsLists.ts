@@ -41,7 +41,14 @@
 
   function openListEditor(parentSheet, parentRow, parentColumn, schema, options) {
     const config = options || {};
+    if (!config.deferChanges && typeof CDBVS.prepareCellTransition === "function" && !CDBVS.prepareCellTransition()) return false;
     if (!parentRow || !parentColumn || !schema || !Array.isArray(schema.columns)) return false;
+    const original = parentRow[parentColumn.name];
+    if ((original !== null && original !== undefined && !Array.isArray(original))
+      || (Array.isArray(original) && original.some((item) => !isRecord(item)))) {
+      CDBVS.setStatus("This list must contain object rows. Use Raw JSON to repair it before editing.", true);
+      return false;
+    }
     const draftRows = cloneRows(parentRow[parentColumn.name], schema);
     const modalSheet = Object.assign({}, schema, { lines: draftRows });
     const modalKey = `${schema.name || parentColumn.name}-list-modal-${++modalId}`;
@@ -70,6 +77,13 @@
       onClose: () => removeDocumentKeydown()
     });
     const { overlay, dialog, footer } = modal;
+    const inputDrafts = overlay._cdbvsDrafts;
+    const originalRowsText = JSON.stringify(draftRows);
+    overlay._cdbvsDrafts = () => {
+      const drafts = inputDrafts();
+      if (JSON.stringify(draftRows) !== originalRowsText) drafts.unshift({ label: `${parentSheet.name} / ${parentColumn.name} list draft`, text: JSON.stringify(draftRows, null, "\t") });
+      return drafts;
+    };
     const close = modal.close;
 
     function syncGlobalSelection() {
@@ -92,6 +106,7 @@
 
     function setRowSelection(index, event) {
       if (!Number.isInteger(index) || index < 0 || index >= draftRows.length) return false;
+      if (activeCell && !exitCell(false)) return false;
       const modified = !!(event && (event.ctrlKey || event.metaKey));
       if (event && event.shiftKey) {
         const anchor = Number.isInteger(rowAnchor) ? rowAnchor : index;
@@ -116,16 +131,15 @@
     }
 
     function commitActiveEditor() {
-      if (!activeCell) return;
+      if (!activeCell) return true;
       const cell = findCell(grid, activeCell.rowIndex, activeCell.columnIndex);
-      const editor = activeEditorTarget(cell);
-      if (editor) CDBVS.commitEditorTarget(editor);
+      return CDBVS.commitCellEditors(cell);
     }
 
     function exitCell(focusCell) {
       if (!activeCell) return false;
       if (typeof CDBVS.closeSelectMenu === "function") CDBVS.closeSelectMenu();
-      commitActiveEditor();
+      if (!commitActiveEditor()) return false;
       activeCell = null;
       syncGlobalSelection();
       const target = focusCell && selectedCell ? findCell(grid, selectedCell.rowIndex, selectedCell.columnIndex) : null;
@@ -137,13 +151,14 @@
     function selectCell(rowIndex, columnIndex) {
       if (!Number.isInteger(rowIndex) || !Number.isInteger(columnIndex)
         || rowIndex < 0 || rowIndex >= draftRows.length || !schema.columns[columnIndex]) return false;
-      if (activeCell && (!selectedCell || activeCell.rowIndex !== rowIndex || activeCell.columnIndex !== columnIndex)) exitCell(false);
+      if (activeCell && !exitCell(false)) return false;
       selectedCell = { rowIndex, columnIndex };
       selectedRows = new Set([rowIndex]);
       rowAnchor = rowIndex;
       activeCell = null;
       syncGlobalSelection();
       updateSelectionClasses();
+      focusSelectedCell();
       return true;
     }
 
@@ -163,10 +178,19 @@
       }
       activeCell = { rowIndex, columnIndex };
       syncGlobalSelection();
+      cell.querySelectorAll("input, textarea, select").forEach((item) => {
+        if (typeof item._cdbvsBeginEdit === "function") item._cdbvsBeginEdit();
+      });
       if (control.classList && control.classList.contains("list-toggle")) {
-        activeCell = null;
-        syncGlobalSelection();
-        if (typeof cell._cdbvsOpenListEditor === "function") cell._cdbvsOpenListEditor(event);
+        if (typeof cell._cdbvsOpenListEditor === "function") {
+          activeCell = null;
+          syncGlobalSelection();
+          cell._cdbvsOpenListEditor(event);
+        } else if (typeof cell._cdbvsToggleList === "function" && cell._cdbvsToggleList(event) === false) {
+          activeCell = null;
+          syncGlobalSelection();
+        }
+        updateSelectionClasses();
         return true;
       }
       if (control.tagName === "SELECT" && typeof CDBVS.openSelectMenu === "function") {
@@ -203,8 +227,13 @@
         else cell.classList.remove("cell-selected");
         if (isActive) cell.classList.add("cell-active");
         else cell.classList.remove("cell-active");
+        cell.setAttribute("aria-selected", String(isSelected));
+        cell.tabIndex = isSelected ? 0 : -1;
       });
       if (deleteButton) deleteButton.disabled = selectedRows.size === 0;
+      const hint = dialog.querySelector(".list-modal-hint");
+      if (hint) hint.textContent = activeCell ? "Editing cell — Enter: apply · Escape: cancel · Tab: apply and move"
+        : "Select a cell, then click again or press Enter to edit · Escape: close list";
     }
 
     function updateButtons() {
@@ -214,7 +243,7 @@
     }
 
     function insertRows() {
-      exitCell(false);
+      if (activeCell && !exitCell(false)) return false;
       const selected = currentRowIndex();
       const insertAt = selected === null ? draftRows.length : selected + 1;
       const newRow = CDBVS.createRowForSchema(modalSheet, draftRows);
@@ -230,7 +259,7 @@
     }
 
     function deleteRows() {
-      exitCell(false);
+      if (activeCell && !exitCell(false)) return false;
       const indexes = Array.from(selectedRows).sort((left, right) => left - right);
       if (!indexes.length) return false;
       indexes.slice().reverse().forEach((index) => draftRows.splice(index, 1));
@@ -256,7 +285,7 @@
       const index = Array.from(selectedRows)[0];
       const target = index + delta;
       if (target < 0 || target >= draftRows.length) return false;
-      exitCell(false);
+      if (activeCell && !exitCell(false)) return false;
       [draftRows[index], draftRows[target]] = [draftRows[target], draftRows[index]];
       selectedRows = new Set([target]);
       if (selectedCell && selectedCell.rowIndex === index) selectedCell = { rowIndex: target, columnIndex: selectedCell.columnIndex };
@@ -328,7 +357,8 @@
     function showRowMenu(event, rowIndex) {
       event.preventDefault();
       if (typeof event.stopPropagation === "function") event.stopPropagation();
-      if (!selectedRows.has(rowIndex)) setRowSelection(rowIndex, event);
+      if (activeCell && !exitCell(false)) return;
+      if (!selectedRows.has(rowIndex) && !setRowSelection(rowIndex, event)) return;
       CDBVS.showContextMenu(event, [
         { label: "Add row below", action: insertRows },
         { label: "Delete selected rows", action: deleteRows, disabled: selectedRows.size === 0 },
@@ -344,7 +374,7 @@
 
     function showCellMenu(event, rowIndex, columnIndex) {
       event.preventDefault();
-      selectCell(rowIndex, columnIndex);
+      if (!selectCell(rowIndex, columnIndex)) return;
       CDBVS.showContextMenu(event, [
         { label: "Copy cell", action: () => copyCell(false) },
         { label: "Cut cell", action: () => copyCell(true) },
@@ -418,6 +448,7 @@
             select: () => selectCell(rowIndex, columnIndex),
             activate: (event) => activateCell(td, rowIndex, columnIndex, event),
             exit: () => exitCell(true),
+            shouldIgnore: (target) => !!(target && target.closest && target.closest(".properties-editor")),
             showContextMenu: (event) => showCellMenu(event, rowIndex, columnIndex)
           });
           CDBVS.makeCellEditor(td, item, column, {
@@ -428,7 +459,18 @@
             editSheet: modalSheet,
             editRowIndex: rowIndex,
             editColumnIndex: columnIndex,
-            refresh: renderGrid
+            refresh: renderGrid,
+            activateProperties: () => {
+              if (activeCell && activeCell.rowIndex === rowIndex && activeCell.columnIndex === columnIndex) return true;
+              if (!selectCell(rowIndex, columnIndex)) return false;
+              td.querySelectorAll("input, textarea, select").forEach((control) => {
+                if (typeof control._cdbvsBeginEdit === "function") control._cdbvsBeginEdit();
+              });
+              activeCell = { rowIndex, columnIndex };
+              syncGlobalSelection();
+              updateSelectionClasses();
+              return true;
+            }
           });
           if (typeof bind !== "function") td.addEventListener("contextmenu", (event) => showCellMenu(event, rowIndex, columnIndex));
           tr.appendChild(td);
@@ -453,8 +495,7 @@
       const rowIndex = selectedCell.rowIndex + rowDelta;
       const columnIndex = selectedCell.columnIndex + columnDelta;
       if (rowIndex < 0 || rowIndex >= draftRows.length || columnIndex < 0 || columnIndex >= schema.columns.length) return false;
-      commitActiveEditor();
-      exitCell(false);
+      if (activeCell && !exitCell(false)) return false;
       selectCell(rowIndex, columnIndex);
       focusSelectedCell();
       return true;
@@ -465,14 +506,15 @@
       const count = schema.columns.length;
       const position = selectedCell.rowIndex * count + selectedCell.columnIndex + direction;
       if (position < 0 || position >= draftRows.length * count) return false;
-      commitActiveEditor();
-      exitCell(false);
+      if (activeCell && !exitCell(false)) return false;
       selectCell(Math.floor(position / count), position % count);
       focusSelectedCell();
       return true;
     }
 
     function handleKeydown(event) {
+      if (event.__cdbvsModalHandled || overlay._cdbvsDiscardPrompt) return;
+      if (event.target && event.target.closest && event.target.closest(".context-menu")) return;
       if (event.__cdbvsListModalHandled) return;
       event.__cdbvsListModalHandled = true;
       if (event.isComposing || event.keyCode === 229) return;
@@ -480,6 +522,7 @@
       const modified = event.ctrlKey || event.metaKey;
       const editorTarget = event.target && event.target.closest
         ? event.target.closest("input, textarea, select, [contenteditable=\"true\"]") : null;
+      const inGrid = !!(event.target && grid.contains(event.target));
       const selectMenu = document.querySelector && document.querySelector(".cell-select-menu");
       if (selectMenu && typeof CDBVS.handleSelectKeydown === "function" && activeCell) {
         const control = activeEditorTarget(findCell(grid, activeCell.rowIndex, activeCell.columnIndex));
@@ -517,24 +560,62 @@
         }
       }
       if (key === "escape") {
+        event.__cdbvsModalHandled = true;
+        if (typeof event.stopPropagation === "function") event.stopPropagation();
+        if (event.repeat) { event.preventDefault(); return; }
         if (typeof CDBVS.hasContextMenu === "function" && CDBVS.hasContextMenu()) {
           event.preventDefault();
           CDBVS.closeContextMenu();
           return;
         }
-        if (activeCell) { event.preventDefault(); exitCell(true); }
-        else close();
+        if (activeCell) {
+          event.preventDefault();
+          const cell = findCell(grid, activeCell.rowIndex, activeCell.columnIndex);
+          cell.querySelectorAll("input, textarea, select").forEach((control) => {
+            if (typeof control._cdbvsCancel === "function") control._cdbvsCancel();
+          });
+          activeCell = null;
+          CDBVS.setStatus("Cell edit cancelled.");
+          syncGlobalSelection();
+          updateSelectionClasses();
+          focusSelectedCell();
+        }
+        else close.requestClose();
         return;
       }
       if (modified && key === "s") {
         event.preventDefault(); save();
         return;
       }
+      if (editorTarget && (activeCell || !inGrid) && modified && ["c", "x", "v", "a", "z", "y"].includes(key)) return;
+      if (!inGrid && (editorTarget || (event.target && event.target.closest && event.target.closest("button")))) return;
+      if (event.altKey) return;
+      if (!activeCell && selectedCell && !modified && !editorTarget && Array.from(String(event.key || "")).length === 1) {
+        const cell = findCell(grid, selectedCell.rowIndex, selectedCell.columnIndex);
+        const control = activeEditorTarget(cell);
+        if (event.key === " " && typeof cell._cdbvsToggleBoolean === "function") {
+          event.preventDefault();
+          if (!event.repeat) cell._cdbvsToggleBoolean();
+          return;
+        }
+        if (control && ["text", "number"].includes(control.type)
+          && (control.type !== "number" || /^[0-9]$/.test(String(event.key)))) {
+          event.preventDefault();
+          if (!activateCell(cell, selectedCell.rowIndex, selectedCell.columnIndex, event)) return;
+          control.value = String(event.key);
+          control.dispatchEvent(new Event("input", { bubbles: false }));
+          if (typeof control.setSelectionRange === "function") {
+            try { control.setSelectionRange(control.value.length, control.value.length); } catch (_) {}
+          }
+          return;
+        }
+      }
       const arrow = key === "arrowup" || key === "arrowdown" || key === "arrowleft" || key === "arrowright";
       if (activeCell && editorTarget && arrow) return;
       if (!modified && key === "tab" && selectedCell) {
+        if (!commitActiveEditor()) { event.preventDefault(); return; }
         if (moveTab(event.shiftKey ? -1 : 1)) event.preventDefault();
-        else exitCell(true);
+        else exitCell(false);
         return;
       }
       if (!modified && arrow) {
@@ -549,8 +630,9 @@
         }
         return;
       }
-      if (!modified && key === "enter" && selectedCell) {
+      if (!modified && (key === "enter" || key === "f2") && selectedCell) {
         event.preventDefault();
+        if (event.repeat || (key === "f2" && activeCell)) return;
         if (activeCell) exitCell(true);
         else activateCell(findCell(grid, selectedCell.rowIndex, selectedCell.columnIndex), selectedCell.rowIndex, selectedCell.columnIndex, event);
         return;
@@ -590,7 +672,7 @@
 
     function save() {
       if (saved) return;
-      commitActiveEditor();
+      if (!commitActiveEditor()) return;
       const next = CDBVS.cloneValue(draftRows) || [];
       const value = next.length || !parentColumn.opt ? next : null;
       saved = true;
@@ -614,6 +696,7 @@
     toolbar.appendChild(addButton);
     toolbar.appendChild(deleteButton);
     dialog.appendChild(toolbar);
+    dialog.appendChild(makeElement("div", "", "list-modal-hint"));
     const gridWrap = makeElement("div", null, "list-modal-grid table-wrap");
     grid = gridWrap;
     dialog.appendChild(gridWrap);

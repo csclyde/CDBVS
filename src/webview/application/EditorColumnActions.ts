@@ -15,6 +15,8 @@
 
   function applyColumnEdit(sheet, column, columnIndex, options) {
     if (!sheet || !column) return { ok: false, message: "Column is unavailable." };
+    const previousSheet = services.sheetView.currentSheet();
+    const previousIndex = services.sheetView.visibleSheets().indexOf(previousSheet);
     const oldName = column.name;
     const oldNested = isNestedType(CDBVS.typeOf(column));
     const result = applyColumnEditModel(sheet, column, columnIndex, options);
@@ -23,23 +25,30 @@
     if (oldName !== column.name) {
       sheetViewState.renameColumn(sheet.name, oldName, column.name);
       listState.clear();
+      if (oldNested) sheetState.lifecycle.renameSheet(`${sheet.name}@${oldName}`, `${sheet.name}@${column.name}`);
     }
     if (oldNested && !isNestedType(CDBVS.typeOf(column))) {
-      sheetState.removeSheet(`${sheet.name}@${oldName}`);
+      sheetState.removeSheet(`${sheet.name}@${column.name}`);
     }
+    services.application.sheetActions.reconcileActiveSheet(previousSheet, previousIndex);
     return result;
   }
 
   function deleteColumn(sheet, index) {
     if (!sheet || !Array.isArray(sheet.columns)) return false;
+    const source = CDBVS.schemaRows(sheet);
+    if (!source.ok) { CDBVS.setStatus(source.message, true); return false; }
     const column = sheet.columns[index];
     if (!column) return false;
     const nested = isNestedType(CDBVS.typeOf(column));
+    const previousSheet = services.sheetView.currentSheet();
+    const previousIndex = services.sheetView.visibleSheets().indexOf(previousSheet);
     const result = deleteColumnModel(sheet, index);
     if (result) {
       sheetViewState.removeColumn(sheet.name, column.name);
       sheetSelection.adjustAfterColumnRemoval(sheet.name, index, sheet.columns.length);
       if (nested) sheetState.lifecycle.removeSheet(`${sheet.name}@${column.name}`);
+      services.application.sheetActions.reconcileActiveSheet(previousSheet, previousIndex);
     }
     return result;
   }

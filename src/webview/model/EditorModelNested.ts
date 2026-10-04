@@ -9,6 +9,42 @@
     return code === 8 || code === 17;
   }
 
+  function schemaParent(sheet) {
+    if (!sheet || !sheet.props || !sheet.props.hide) return null;
+    const separator = sheet.name.lastIndexOf("@");
+    if (separator < 0) return null;
+    const parent = documentModel.findSheet(sheet.name.slice(0, separator));
+    const column = parent && (parent.columns || []).find((item) => item.name === sheet.name.slice(separator + 1));
+    return column && isNestedType(CDBVS.typeOf(column)) ? { sheet: parent, column } : null;
+  }
+
+  // CastleDB's hidden list/properties sheets describe objects stored in their
+  // ancestors, rather than just the schema sheet's own lines (Sheet.getLines).
+  // Preflight every container before returning live rows for a schema mutation.
+  function schemaRows(sheet) {
+    if (!sheet) return { ok: false, message: "Sheet is unavailable." };
+    const rows = Array.isArray(sheet.lines) ? sheet.lines.slice() : [];
+    const parent = schemaParent(sheet);
+    if (parent) {
+      const source = schemaRows(parent.sheet);
+      if (!source.ok) return source;
+      const containers = source.rows.map((row) => row[parent.column.name]);
+      containers.push(parent.column.defaultValue);
+      for (const value of containers) {
+        if (value === undefined || value === null) continue;
+        const list = CDBVS.typeOf(parent.column).code === 8;
+        if (list ? !Array.isArray(value) : typeof value !== "object" || Array.isArray(value)) {
+          return { ok: false, message: `Cannot safely edit '${sheet.name}': '${parent.column.name}' contains malformed ${list ? "list" : "properties"} data. Repair it in Raw JSON first.` };
+        }
+        rows.push(...(list ? value : [value]));
+      }
+    }
+    if (rows.some((row) => !row || typeof row !== "object" || Array.isArray(row))) {
+      return { ok: false, message: `Cannot safely edit '${sheet.name}': it contains malformed objects. Repair them in Raw JSON first.` };
+    }
+    return { ok: true, rows: Array.from(new Set(rows)) };
+  }
+
   function nestedSheetPrefix(sheet, columnName) {
     return `${sheet.name}@${columnName}`;
   }
@@ -67,5 +103,5 @@
     return true;
   }
 
-  Object.assign(CDBVS, { isNestedType, nestedSheetBlock, ensureNestedSheet, removeNestedSheet });
+  Object.assign(CDBVS, { isNestedType, schemaParent, schemaRows, nestedSheetBlock, ensureNestedSheet, removeNestedSheet });
 })(window);

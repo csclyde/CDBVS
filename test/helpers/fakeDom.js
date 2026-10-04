@@ -5,6 +5,7 @@ class FakeElement {
     this.parentNode = null;
     this.children = [];
     this.listeners = {};
+    this.listenerCaptures = new WeakMap();
     this.attributes = {};
     this.id = "";
     this.dataset = {};
@@ -83,7 +84,8 @@ class FakeElement {
     children.forEach((child) => this.appendChild(child));
   }
 
-  addEventListener(type, listener) {
+  addEventListener(type, listener, options) {
+    this.listenerCaptures.set(listener, options === true || !!(options && options.capture));
     (this.listeners[type] || (this.listeners[type] = [])).push(listener);
   }
 
@@ -95,8 +97,12 @@ class FakeElement {
     const nextEvent = event || {};
     if (!nextEvent.type) throw new Error("Fake events need a type.");
     if (!nextEvent.target) nextEvent.target = this;
+    if (!nextEvent.preventDefault) nextEvent.preventDefault = function () { this.defaultPrevented = true; };
+    if (!nextEvent.stopPropagation) nextEvent.stopPropagation = function () { this.cancelBubble = true; };
     nextEvent.currentTarget = this;
-    (this.listeners[nextEvent.type] || []).slice().forEach((listener) => listener.call(this, nextEvent));
+    (this.listeners[nextEvent.type] || []).slice()
+      .sort((left, right) => Number(this.listenerCaptures.get(right)) - Number(this.listenerCaptures.get(left)))
+      .forEach((listener) => listener.call(this, nextEvent));
     return !nextEvent.defaultPrevented;
   }
 

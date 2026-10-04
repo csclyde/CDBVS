@@ -4,10 +4,12 @@
 
   if (typeof CDBVS.setStatus !== "function") {
     CDBVS.setStatus = function (message, error) {
-      const status = document.getElementById("status");
+      const modal = CDBVS.modalState && CDBVS.modalState.active;
+      const status = modal && modal.querySelector(".modal-status") || document.getElementById("status");
       if (!status) return;
       status.textContent = message || "";
-      status.className = error ? "status error" : "status";
+      const isModal = status.classList.contains("modal-status");
+      status.className = `${isModal ? "modal-status" : "status"}${error ? " error" : ""}`;
     };
   }
 })(window);

@@ -15,12 +15,18 @@ test("host protocol accepts only complete document and error messages", () => {
   assert.equal(isHostToWebviewMessage({ type: "document", text: "{}", data: [], issues: [], rawMode: true, showHiddenSheets: false }), false);
   assert.equal(isHostToWebviewMessage({ type: "error", message: "bad JSON" }), true);
   assert.equal(isHostToWebviewMessage({ type: "error", message: 12 }), false);
+  assert.equal(isHostToWebviewMessage({ type: "error", message: "failed", rejectedText: "{}" }), true);
+  assert.equal(isHostToWebviewMessage({ type: "error", message: "failed", rejectedText: {} }), false);
 });
 
 test("webview protocol rejects unknown and malformed commands", () => {
   assert.equal(isWebviewToHostMessage({ type: "ready" }), true);
   assert.equal(isWebviewToHostMessage({ type: "update", text: "{}" }), true);
   assert.equal(isWebviewToHostMessage({ type: "update", text: 12 }), false);
+  assert.equal(isWebviewToHostMessage({ type: "update", text: "{}", baseText: "{}" }), true);
+  assert.equal(isWebviewToHostMessage({ type: "update", text: "{}", baseText: 12 }), false);
+  assert.equal(isWebviewToHostMessage({ type: "save", expectedText: "{}" }), true);
+  assert.equal(isWebviewToHostMessage({ type: "save", expectedText: {} }), false);
   assert.equal(isWebviewToHostMessage({ type: "save", extra: "ignored" }), true);
   assert.equal(isWebviewToHostMessage({ type: "unknown" }), false);
   assert.equal(isWebviewToHostMessage(null), false);

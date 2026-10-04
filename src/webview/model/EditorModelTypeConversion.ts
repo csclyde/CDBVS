@@ -75,6 +75,7 @@
     }
     if (toType.code === 17 && fromType.code === 8) {
       if (!Array.isArray(value)) return { ok: false };
+      if (value.length > 1 || (value.length === 1 && (!value[0] || typeof value[0] !== "object" || Array.isArray(value[0])))) return { ok: false };
       return { ok: true, value: value[0] && typeof value[0] === "object" && !Array.isArray(value[0]) ? value[0] : {} };
     }
     return { ok: false };
@@ -88,9 +89,11 @@
       return { ok: false, message: `Unknown type '${typeString}'.` };
     }
     const values = [];
+    const source = CDBVS.schemaRows(sheet);
+    if (!source.ok) return source;
     if (fromType.code === toType.code) {
       if (fromType.code === 5 && fromType.argument !== toType.argument) {
-        for (const line of (sheet.lines || [])) {
+        for (const line of source.rows) {
           if (!line || !Object.prototype.hasOwnProperty.call(line, column.name)) continue;
           const value = line[column.name];
           if (value === undefined || value === null) continue;
@@ -100,7 +103,7 @@
           values.push({ line, value: next });
         }
       } else if (fromType.code === 10 && fromType.argument !== toType.argument) {
-        for (const line of (sheet.lines || [])) {
+        for (const line of source.rows) {
           if (!line || !Object.prototype.hasOwnProperty.call(line, column.name)) continue;
           const value = line[column.name];
           if (value === undefined || value === null) continue;
@@ -121,7 +124,7 @@
       }
       return { ok: true, type: toType, columnName: column.name, values };
     }
-    for (const line of (sheet.lines || [])) {
+    for (const line of source.rows) {
       if (!line || !Object.prototype.hasOwnProperty.call(line, column.name)) continue;
       const converted = convertColumnValue(line[column.name], fromType, toType);
       if (!converted.ok) return { ok: false, message: `Cannot safely convert '${column.name}' from ${fromType.name} to ${toType.name}.` };

@@ -11,6 +11,7 @@
   const createModal = CDBVS.createModal;
 
   function openTypesEditor() {
+    if (typeof CDBVS.prepareCellTransition === "function" && !CDBVS.prepareCellTransition()) return false;
     if (!hasDocument()) {
       CDBVS.setStatus("Load a valid CastleDB document before editing custom types.", true);
       return;
@@ -22,6 +23,7 @@
     textarea.spellcheck = false;
     textarea.value = JSON.stringify(currentCustomTypes(), null, "\t");
     const error = makeElement("div", null, "column-form-error");
+    error.setAttribute("role", "alert");
     const save = () => {
       let customTypes;
       try {
@@ -36,15 +38,11 @@
       close();
       commitMutation();
     };
-    footer.appendChild(makeButton("Cancel", close));
-    footer.appendChild(makeButton("Save", save, "button primary"));
+    CDBVS.appendModalActions(footer, close, save);
     dialog.appendChild(hint);
     dialog.appendChild(textarea);
     dialog.appendChild(error);
     dialog.appendChild(footer);
-    overlay.addEventListener("keydown", (event) => {
-      if ((event.ctrlKey || event.metaKey) && event.key === "Enter") save();
-    });
     textarea.focus();
   }
 

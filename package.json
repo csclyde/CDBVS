@@ -2,7 +2,7 @@
   "name": "cdbvs",
   "displayName": "CDBVS",
   "description": "A desktop VS Code editor for CastleDB .cdb files.",
-  "version": "0.1.33",
+  "version": "0.1.35",
   "publisher": "CLYDE",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -31,8 +31,11 @@
   "scripts": {
     "check-types": "tsc --noEmit",
     "build": "npm run check-types && node esbuild.js",
+    "vsix": "npm version patch --no-git-tag-version && vsce package",
+    "build:vsix": "npm run vsix",
     "package": "npm run check-types && node esbuild.js --production",
     "test": "npm run build && node --test test/parser.test.js test/protocol.test.js test/domain.test.js test/host.test.js test/bootstrap.test.js test/model.test.js test/ui-branches.test.js test/webview.test.js test/list-modal.test.js test/extension.test.js",
+    "test:browser": "npm run build && node --test test/browser-interactions.test.js",
     "vscode:prepublish": "npm run package"
   },
   "devDependencies": {
@@ -49,8 +52,13 @@
     "languages": [
       {
         "id": "cdb",
-        "aliases": ["CastleDB", "CDB"],
-        "extensions": [".cdb"],
+        "aliases": [
+          "CastleDB",
+          "CDB"
+        ],
+        "extensions": [
+          ".cdb"
+        ],
         "configuration": "./language-configuration.json"
       }
     ],

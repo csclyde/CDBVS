@@ -22,8 +22,15 @@
   const documentIssues = CDBVS.documentIssues;
   const hasDocument = CDBVS.hasDocument;
   let cancelActiveTableRender = null;
+  function cancelTableRender() {
+    if (typeof cancelActiveTableRender === "function") cancelActiveTableRender();
+    cancelActiveTableRender = null;
+    const loading = app.querySelector(".sheet-loading");
+    if (loading) loading.remove();
+  }
 
   function render() {
+    if (typeof CDBVS.prepareCellTransition === "function" && !CDBVS.prepareCellTransition()) return false;
     if (typeof cancelActiveTableRender === "function") cancelActiveTableRender();
     cancelActiveTableRender = null;
     if (typeof CDBVS.finishSelectMenu === "function") CDBVS.finishSelectMenu(true);
@@ -34,12 +41,26 @@
     app.replaceChildren();
     const toolbar = makeElement("div", null, "toolbar");
     toolbar.appendChild(makeElement("strong", "CDBVS", "brand"));
-    toolbar.appendChild(makeButton("+ Sheet", documentActions.addSheet));
-    toolbar.appendChild(makeButton("+ Column", () => documentActions.addColumn(sheetViewModel.currentSheet())));
-    toolbar.appendChild(makeButton("Types", CDBVS.openTypesEditor));
-    toolbar.appendChild(makeButton("Table", () => { setRawMode(false); render(); }, isRawMode() ? "button" : "button active"));
-    toolbar.appendChild(makeButton("Raw JSON", () => { setRawMode(true); render(); }, isRawMode() ? "button active" : "button"));
+    const schemaUnavailable = isRawMode() || !hasDocument();
+    const addSheet = makeButton("+ Sheet", documentActions.addSheet);
+    addSheet.disabled = schemaUnavailable;
+    toolbar.appendChild(addSheet);
+    const addRow = makeButton("+ Row", () => documentActions.addRow(sheetViewModel.currentSheet()));
+    addRow.disabled = isRawMode() || !hasDocument() || !sheetViewModel.currentSheet();
+    addRow.title = "Add a row at the end of this sheet";
+    toolbar.appendChild(addRow);
+    const addColumn = makeButton("+ Column", () => documentActions.addColumn(sheetViewModel.currentSheet()));
+    addColumn.disabled = schemaUnavailable || !sheetViewModel.currentSheet();
+    toolbar.appendChild(addColumn);
+    const types = makeButton("Types", CDBVS.openTypesEditor);
+    types.disabled = schemaUnavailable;
+    toolbar.appendChild(types);
+    toolbar.appendChild(makeButton("Table", () => { if (!CDBVS.prepareCellTransition()) return; setRawMode(false); render(); }, isRawMode() ? "button" : "button active"));
+    toolbar.appendChild(makeButton("Raw JSON", () => { if (!CDBVS.prepareCellTransition()) return; setRawMode(true); render(); }, isRawMode() ? "button active" : "button"));
     app.appendChild(toolbar);
+    if (CDBVS.state.rawDraft && !isRawMode()) {
+      app.appendChild(makeElement("p", "You have an unapplied JSON draft. Return to Raw JSON to review it.", "raw-draft-hint"));
+    }
 
     const sheetsBar = makeElement("div", null, "sheets");
     sheetsBar.addEventListener("contextmenu", (event) => {
@@ -52,8 +73,12 @@
         event.stopPropagation();
         CDBVS.showSheetContextMenu(event, sheet);
       });
-      tab.appendChild(makeButton(sheet.name, () => { setSheetIndex(index); setRawMode(false); render(); }, "sheet"));
-      tab.appendChild(makeButton("\u270E", () => CDBVS.openSheetEditor(sheet), "sheet-edit-button"));
+      tab.appendChild(makeButton(sheet.name, () => { if (!CDBVS.prepareCellTransition()) return; setSheetIndex(index); setRawMode(false); render(); }, "sheet"));
+      const editSheet = makeButton("\u270E", () => CDBVS.openSheetEditor(sheet), "sheet-edit-button");
+      editSheet.setAttribute("aria-label", `Edit sheet: ${sheet.name}`);
+      editSheet.title = `Edit sheet: ${sheet.name}`;
+      editSheet.disabled = schemaUnavailable;
+      tab.appendChild(editSheet);
       sheetsBar.appendChild(tab);
     });
 
@@ -66,13 +91,17 @@
     filterButton.appendChild(makeElement("span", null, "filter-icon"));
     filterButton.title = "Filter this sheet";
     filterButton.setAttribute("aria-label", "Filter this sheet");
+    filterButton.disabled = schemaUnavailable || !selectedSheet;
     viewControls.appendChild(filterButton);
     const searchWrap = makeElement("div", null, "search-wrap");
     const search = document.createElement("input");
     search.className = "search";
     search.placeholder = "Search this sheet...";
+    search.setAttribute("aria-label", "Search this sheet");
+    search.disabled = schemaUnavailable || !selectedSheet;
     search.value = getFilter();
     search.addEventListener("input", () => {
+      if (!CDBVS.prepareCellTransition()) { search.value = getFilter(); return; }
       const value = search.value;
       setFilter(value);
       if (!refreshView()) render();
@@ -85,6 +114,7 @@
     searchWrap.appendChild(search);
     if (getFilter().trim()) searchWrap.classList.add("has-value");
     const clearSearch = makeButton("x", () => {
+      if (!CDBVS.prepareCellTransition()) return;
       search.value = "";
       searchWrap.classList.remove("has-value");
       setFilter("");
@@ -104,9 +134,22 @@
 
     const status = makeElement("div", null, "status");
     status.id = "status";
+    status.setAttribute("role", "status");
+    status.setAttribute("aria-live", "polite");
     const issues = documentIssues();
     if (issues.length) status.textContent = issues.join(" / ");
+    if (CDBVS.state.lastDocumentError) {
+      status.textContent = CDBVS.state.lastDocumentError;
+      status.classList.add("error");
+    }
     app.appendChild(status);
+    const modeHint = makeElement("div", null, "cell-mode-hint");
+    modeHint.setAttribute("role", "status");
+    modeHint.setAttribute("aria-live", "polite");
+    app.appendChild(modeHint);
+    CDBVS.updateCellModeHint();
+    app.appendChild(makeElement("div", null, "draft-recovery-host"));
+    refreshDraftRecovery();
     const content = makeElement("main", null, "content");
     const renderedViewport = () => content.querySelector(".table-wrap") || content.querySelector(".raw-editor");
     if (isRawMode() || !hasDocument()) viewCapabilities.renderRaw(content);
@@ -116,6 +159,7 @@
         // Progressive row construction can clamp scrollTop while the table is
         // still short. Restore after the last batch has established its size.
         const target = renderedViewport();
+        CDBVS.updateCellModeHint();
         if (typeof restoreViewportAfterLayout === "function") restoreViewportAfterLayout(target);
         else restoreViewport(target);
       }
@@ -125,14 +169,41 @@
     const target = renderedViewport();
     if (typeof restoreViewportAfterLayout === "function") restoreViewportAfterLayout(target);
     else requestAnimationFrame(() => restoreViewport(target));
+    return true;
+  }
+
+  function refreshDraftRecovery() {
+    const host = app.querySelector(".draft-recovery-host");
+    if (!host) return;
+    host.replaceChildren();
+    const drafts = CDBVS.state.recoveredDrafts || [];
+    host.hidden = !drafts.length;
+    if (!drafts.length) return;
+    const recovery = makeElement("section", null, "cell-draft-recovery");
+    recovery.setAttribute("role", "region");
+    recovery.setAttribute("aria-label", "Recovered edits");
+    recovery.appendChild(makeElement("strong", "Edits preserved for recovery."));
+    recovery.appendChild(makeElement("p", "These edits were interrupted or could not be applied. Review the current document and copy anything you want to keep."));
+    drafts.forEach((draft) => {
+      const field = makeElement("label", null, "recovered-draft");
+      field.appendChild(makeElement("span", draft.label));
+      const text = document.createElement("textarea");
+      text.readOnly = true;
+      text.value = draft.text;
+      text.setAttribute("aria-label", draft.label);
+      field.appendChild(text);
+      recovery.appendChild(field);
+    });
+    recovery.appendChild(makeButton("Dismiss recovered edits", () => CDBVS.openConfirmDialog({ title: "Discard recovered edits?", message: "Copy anything you want to keep before discarding these recovered edits.", confirmLabel: "Discard recovered edits", onConfirm: () => { CDBVS.state.recoveredDrafts = []; refreshDraftRecovery(); } })));
+    host.appendChild(recovery);
   }
 
   function refreshView(options) {
+    if (!CDBVS.prepareCellTransition()) return true; // Handled: keep the existing editor.
     const selectedSheet = sheetViewModel.currentSheet();
     if (isRawMode() || !hasDocument() || !selectedSheet) return false;
-    if (typeof CDBVS.refreshTableBody !== "function" || !CDBVS.refreshTableBody(selectedSheet)) return false;
-
     const config = options || {};
+    if (typeof CDBVS.refreshTableBody !== "function" || !CDBVS.refreshTableBody(selectedSheet, config)) return false;
     if (config.refreshHeader) {
       const tableWrap = app.querySelector && app.querySelector(".table-wrap");
       const table = tableWrap && tableWrap.querySelector && tableWrap.querySelector("table");
@@ -156,10 +227,13 @@
       if (getFilter().trim()) searchWrap.classList.add("has-value");
       else searchWrap.classList.remove("has-value");
     }
+    CDBVS.updateCellModeHint();
     return true;
   }
 
   CDBVS.render = render;
   CDBVS.refreshView = refreshView;
+  CDBVS.cancelTableRender = cancelTableRender;
+  CDBVS.refreshDraftRecovery = refreshDraftRecovery;
   if (typeof CDBVS.installKeyboardNavigation === "function") CDBVS.installKeyboardNavigation();
 })(window);

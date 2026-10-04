@@ -49,17 +49,24 @@
 
   function updateSheetMetadata(sheet, options) {
     if (!sheet) return { ok: false, message: "Sheet is unavailable." };
+    const previousSheet = sheetViewModel.currentSheet();
+    const previousIndex = sheetViewModel.visibleSheets().indexOf(previousSheet);
     const oldName = sheet.name;
     const result = model.updateMetadata(sheet, options);
     if (result.ok && oldName !== sheet.name) {
       sheetLifecycle.renameSheet(oldName, sheet.name);
       if (typeof renameViewport === "function") renameViewport(oldName, sheet.name);
     }
+    if (result.ok) reconcileActiveSheet(previousSheet, previousIndex);
     return result;
   }
 
   function deleteSheet(sheet) {
     if (!sheet || !documentModel.has()) return false;
+    if (CDBVS.schemaParent(sheet)) {
+      CDBVS.setStatus("Delete a nested sheet through its parent column so its schema and stored values are removed together.", true);
+      return false;
+    }
     const previousSheet = sheetViewModel.currentSheet();
     const previousIndex = sheetViewModel.visibleSheets().indexOf(sheet);
     return commitMutation(() => {
@@ -78,11 +85,17 @@
     const index = roots.indexOf(sheet);
     const target = index + delta;
     if (index < 0 || target < 0 || target >= roots.length) return false;
-    return commitMutation(() => model.moveBlock(sheet, roots[target], delta)) === true;
+    const previousSheet = sheetViewModel.currentSheet();
+    const previousIndex = sheetViewModel.visibleSheets().indexOf(previousSheet);
+    return commitMutation(() => {
+      const result = model.moveBlock(sheet, roots[target], delta);
+      if (result === true) reconcileActiveSheet(previousSheet, previousIndex);
+      return result;
+    }) === true;
   }
 
   const sheetActions = services.application.registerActionGroup(services.application.sheetActions, {
-    createSheet, deleteSheet, moveSheet, rootVisibleSheets
+    createSheet, deleteSheet, moveSheet, rootVisibleSheets, reconcileActiveSheet
   });
   CDBVS.sheetActions = sheetActions;
   Object.assign(CDBVS, { createSheet, updateSheetMetadata, renameSheet, deleteSheet, moveSheet });

@@ -92,14 +92,57 @@ test("custom editor serializes concurrent webview document updates", async () =>
   };
   const provider = new CdbEditorProvider({ extensionUri: "extension" });
   await provider.resolveCustomTextEditor(document, panel);
-  const first = receiveMessage({ type: "update", text: validDocumentText("first") });
-  const second = receiveMessage({ type: "update", text: validDocumentText("second") });
+  const first = receiveMessage({ type: "update", text: validDocumentText("first"), baseText: validDocumentText("initial") });
+  const second = receiveMessage({ type: "update", text: validDocumentText("second"), baseText: validDocumentText("first") });
   await Promise.all([first, second]);
 
   assert.equal(maxActiveEdits, 1);
   assert.deepEqual(applied, [validDocumentText("first"), validDocumentText("second")]);
   assert.equal(text, validDocumentText("second"));
   assert.equal(messages.some((message) => message.type === "error"), false);
+});
+
+test("two panes serialize writes to one file and reject the losing stale edit", async () => {
+  let text = validDocumentText("initial");
+  let releaseFirst;
+  let startFirst;
+  const firstStarted = new Promise((resolve) => { startFirst = resolve; });
+  const applied = [];
+  let saves = 0;
+  const document = { uri: { toString: () => "file:///shared.cdb" }, getText: () => text, positionAt: (offset) => offset, save: async () => { saves++; return true; } };
+  const vscode = makeVscode(document, async (edit) => {
+    if (!applied.length) {
+      startFirst();
+      await new Promise((resolve) => { releaseFirst = resolve; });
+    }
+    applied.push(edit.text);
+    text = edit.text;
+    return true;
+  });
+  const CdbEditorProvider = loadProvider(vscode);
+  const provider = new CdbEditorProvider({ extensionUri: "extension" });
+  const pane = () => {
+    const messages = [];
+    let receive;
+    const panel = { active: true, webview: { asWebviewUri: (uri) => uri, postMessage: (message) => messages.push(message), onDidReceiveMessage: (handler) => { receive = handler; return { dispose() {} }; } }, onDidChangeViewState: () => ({ dispose() {} }), onDidDispose: () => {} };
+    return { panel, messages, send: (message) => receive(message) };
+  };
+  const one = pane(); const two = pane();
+  await provider.resolveCustomTextEditor(document, one.panel);
+  await provider.resolveCustomTextEditor(document, two.panel);
+  const first = one.send({ type: "update", baseText: text, text: validDocumentText("first pane") });
+  await firstStarted;
+  const second = two.send({ type: "update", baseText: text, text: validDocumentText("second pane") });
+  const save = two.send({ type: "save", expectedText: validDocumentText("second pane") });
+  releaseFirst();
+  await Promise.all([first, second, save]);
+  assert.deepEqual(applied, [validDocumentText("first pane")]);
+  assert.equal(saves, 0);
+  assert.equal(two.messages.some((message) => message.rejectedText === validDocumentText("second pane")), true);
+  await two.send({ type: "update", baseText: text, text: validDocumentText("reviewed") });
+  await one.send({ type: "save", expectedText: text });
+  assert.equal(saves, 1);
+  assert.equal(text, validDocumentText("reviewed"));
 });
 
 test("custom editor waits for queued updates before saving the document", async () => {

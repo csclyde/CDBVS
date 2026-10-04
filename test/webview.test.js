@@ -33,6 +33,347 @@ function buttonByText(root, text) {
   return root.querySelectorAll("button").find((button) => button.textContent === text);
 }
 
+function interactionHarness(columns, lines, separators = []) {
+  const target = sheet();
+  Object.assign(target, { columns, lines, separators });
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target] });
+  harness.CDBVS.app = harness.document.createElement("div");
+  loadScript(harness.context, "EditorCells.js");
+  loadScript(harness.context, "EditorView.js");
+  harness.CDBVS.render();
+  return { ...harness, target };
+}
+
+test("active text and flag controls retain native mouse gestures", () => {
+  for (const column of [{ name: "value", typeStr: "1" }, { name: "value", typeStr: "10:A,B" }]) {
+    const harness = interactionHarness([column], [{ value: column.typeStr === "1" ? "hello" : 0 }]);
+    const { CDBVS, target } = harness;
+    const cell = CDBVS.findRenderedCell(0, 0);
+    CDBVS.selectRenderedCell(target, 0, 0);
+    CDBVS.activateRenderedCell(target, 0, 0);
+    const control = cell.querySelector("input");
+    cell.dispatchEvent({ type: "mousedown", target: control, button: 0,
+      preventDefault() { throw new Error("active editor mouse gesture was intercepted"); } });
+    cell.dispatchEvent({ type: "click", target: control });
+    assert.ok(CDBVS.activeCell(target));
+    assert.strictEqual(cell.querySelector("input"), control);
+    if (control.type === "checkbox") {
+      control.checked = true;
+      control.dispatchEvent({ type: "change" });
+    } else {
+      control.value = "changed";
+      control.dispatchEvent({ type: "input" });
+    }
+    CDBVS.exitRenderedCell(target);
+    assert.equal(target.lines[0].value, control.type === "checkbox" ? 1 : "changed");
+    assert.equal(CDBVS.activeCell(target), null);
+    assert.ok(harness.updates.length);
+  }
+});
+
+test("active text clipboard and modified arrows stay native, selected cells still cut", () => {
+  const { CDBVS, document, target } = interactionHarness([{ name: "value", typeStr: "1" }], [{ value: "hello" }]);
+  CDBVS.selectRenderedCell(target, 0, 0);
+  CDBVS.activateRenderedCell(target, 0, 0);
+  const input = CDBVS.findRenderedCell(0, 0).querySelector("input");
+  for (const modifier of ["ctrlKey", "metaKey"]) {
+    for (const key of ["c", "x", "v", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]) {
+      document.dispatchEvent({ type: "keydown", key, target: input, [modifier]: true,
+        preventDefault() { throw new Error(`native ${modifier}+${key} intercepted`); } });
+      assert.equal(target.lines[0].value, "hello");
+      assert.ok(CDBVS.activeCell(target));
+    }
+  }
+  CDBVS.exitRenderedCell(target);
+  let prevented = false;
+  document.dispatchEvent({ type: "keydown", key: "x", ctrlKey: true, target: CDBVS.findRenderedCell(0, 0),
+    preventDefault() { prevented = true; } });
+  assert.ok(prevented);
+  assert.equal(target.lines[0].value, null);
+});
+
+test("retained grid selection cannot steal search, raw editor or toolbar keys", () => {
+  const { CDBVS, document, target } = interactionHarness([{ name: "value", typeStr: "1" }], [{ value: "hello" }]);
+  CDBVS.selectRenderedCell(target, 0, 0);
+  for (const tag of ["input", "textarea", "button"]) {
+    const control = document.createElement(tag);
+    document.body.appendChild(control);
+    control.focus();
+    for (const key of ["Enter", "Escape", "ArrowDown", "ArrowLeft", "Delete", "Insert", "a", " ", "Tab", "c", "x", "v"]) {
+      document.dispatchEvent({ type: "keydown", key, target: control, ctrlKey: ["c", "x", "v"].includes(key),
+        preventDefault() { throw new Error(`${tag} ${key} intercepted`); } });
+      assert.equal(target.lines[0].value, "hello");
+      assert.equal(CDBVS.activeCell(target), null);
+    }
+  }
+});
+
+test("typing a nonnumeric key cannot blank a selected number", () => {
+  const { CDBVS, document, target } = interactionHarness([{ name: "value", typeStr: "3" }], [{ value: 42 }]);
+  CDBVS.selectRenderedCell(target, 0, 0);
+  for (const key of ["a", "+", "-", "."]) {
+    document.dispatchEvent({ type: "keydown", key, target: CDBVS.findRenderedCell(0, 0),
+      preventDefault() { throw new Error("unsupported numeric key intercepted"); } });
+  }
+  assert.equal(target.lines[0].value, 42);
+  assert.equal(CDBVS.activeCell(target), null);
+});
+
+test("invalid drafts block cell exit, Tab, row selection, collapse and save until repaired", () => {
+  for (const testCase of [
+    { typeStr: "3", value: 42, draft: "bad", repaired: "7", expected: 7 },
+    { typeStr: "16", value: { original: true }, draft: "{", repaired: '{"fixed":true}', expected: { fixed: true } },
+    { typeStr: "4", value: 42, draft: "", badInput: true, repaired: "7.5", expected: 7.5 }
+  ]) {
+    const { CDBVS, document, target, statuses } = interactionHarness(
+      [{ name: "value", typeStr: testCase.typeStr }, { name: "other", typeStr: "1" }],
+      [{ value: testCase.value, other: "untouched" }, { value: testCase.value }], [0]);
+    CDBVS.selectRenderedCell(target, 0, 0);
+    CDBVS.activateRenderedCell(target, 0, 0);
+    const cell = CDBVS.findRenderedCell(0, 0);
+    const input = cell.querySelector("input");
+    input.value = testCase.draft;
+    if (testCase.badInput) input.validity = { badInput: true };
+    input.dispatchEvent({ type: "input" });
+    for (const key of ["Enter", "Tab"]) {
+      let prevented = false;
+      document.dispatchEvent({ type: "keydown", key, target: input, preventDefault() { prevented = true; } });
+      assert.ok(prevented);
+      assert.equal(CDBVS.activeCell(target).columnIndex, 0);
+      assert.strictEqual(document.activeElement, input);
+      assert.equal(input.value, testCase.draft);
+    }
+    CDBVS.selectRenderedCell(target, 0, 1);
+    CDBVS.selectRenderedRow(target, 1);
+    click(CDBVS.app.querySelector(".separator-toggle"));
+    assert.equal(CDBVS.activeCell(target).columnIndex, 0);
+    assert.equal(cell.parentNode.hidden, false);
+    let saves = 0;
+    CDBVS.requestSave = () => { saves += 1; };
+    document.dispatchEvent({ type: "keydown", key: "s", ctrlKey: true, target: input, preventDefault() {} });
+    const toolbarInput = document.createElement("input");
+    toolbarInput.focus();
+    document.dispatchEvent({ type: "keydown", key: "s", ctrlKey: true, target: toolbarInput, preventDefault() {} });
+    assert.equal(saves, 0);
+    assert.deepEqual(target.lines[0].value, testCase.value);
+    assert.equal(statuses.at(-1).error, true);
+    input.value = testCase.repaired;
+    input.validity = { badInput: false };
+    input.dispatchEvent({ type: "input" });
+    document.dispatchEvent({ type: "keydown", key: "Tab", target: input, preventDefault() {} });
+    assert.equal(CDBVS.selectedCell(target).columnIndex, 1);
+    assert.equal(JSON.stringify(target.lines[0].value), JSON.stringify(testCase.expected));
+  }
+});
+
+test("right-clicking an active cell commits before returning to selection mode", () => {
+  const { CDBVS, target, updates } = interactionHarness([{ name: "value", typeStr: "3" }], [{ value: 42 }]);
+  CDBVS.selectRenderedCell(target, 0, 0);
+  CDBVS.activateRenderedCell(target, 0, 0);
+  const cell = CDBVS.findRenderedCell(0, 0);
+  cell.querySelector("input").value = "7";
+  cell.dispatchEvent({ type: "contextmenu", target: cell, clientX: 0, clientY: 0, preventDefault() {} });
+  assert.equal(target.lines[0].value, 7);
+  assert.equal(CDBVS.activeCell(target), null);
+  assert.equal(updates.length, 1);
+});
+
+test("shift row ranges follow sorted, filtered view order and reset a hidden anchor", () => {
+  const target = sheet();
+  target.columns = [{ name: "value", typeStr: "3" }];
+  target.lines = [{ value: 3 }, { value: 1 }, { value: 4 }, { value: 2 }];
+  const { CDBVS, state } = createWebviewHarness({ customTypes: [], sheets: [target] });
+  state.sorts[target.name] = { column: "value", direction: "asc" };
+  CDBVS.selectRow(target, 1);
+  CDBVS.selectRowWithModifiers(target, 0, { shiftKey: true });
+  assert.deepEqual(Array.from(CDBVS.selectedRowIndices(target)), [0, 1, 3]);
+  state.columnFilters[target.name] = { value: { min: 2, max: "" } };
+  CDBVS.selectRowWithModifiers(target, 2, { shiftKey: true });
+  assert.deepEqual(Array.from(CDBVS.selectedRowIndices(target)), [2]);
+});
+
+test("Escape restores the edit baseline, including absent fields and the last explicit save", () => {
+  const { CDBVS, document, target } = interactionHarness([{ name: "value", typeStr: "1" }], [{}]);
+  const cell = CDBVS.findRenderedCell(0, 0);
+  CDBVS.selectRenderedCell(target, 0, 0);
+  CDBVS.activateRenderedCell(target, 0, 0);
+  const input = cell.querySelector("input");
+  input.value = "draft"; input.dispatchEvent({ type: "input" });
+  document.dispatchEvent({ type: "keydown", key: "Escape", target: input });
+  assert.equal(Object.hasOwn(target.lines[0], "value"), false);
+  assert.equal(input.value, "");
+  CDBVS.activateRenderedCell(target, 0, 0);
+  input.value = "saved"; input.dispatchEvent({ type: "input" });
+  document.dispatchEvent({ type: "keydown", key: "s", ctrlKey: true, target: input });
+  input.value = "later draft"; input.dispatchEvent({ type: "input" });
+  document.dispatchEvent({ type: "keydown", key: "Escape", target: input });
+  assert.equal(target.lines[0].value, "saved");
+  assert.equal(input.value, "saved");
+});
+
+test("untouched empty and malformed numeric cells preserve their original data", () => {
+  for (const row of [{}, { value: "legacy malformed" }, { value: null }]) {
+    const { CDBVS, target, updates } = interactionHarness([{ name: "value", typeStr: "3" }], [row]);
+    const original = JSON.stringify(row);
+    CDBVS.selectRenderedCell(target, 0, 0);
+    CDBVS.activateRenderedCell(target, 0, 0);
+    assert.equal(CDBVS.exitRenderedCell(target), true);
+    assert.equal(JSON.stringify(row), original);
+    assert.equal(updates.length, 0);
+  }
+});
+
+test("malformed list and properties cells reject editing without normalizing their data", () => {
+  for (const [typeStr, value] of [["8", "legacy"], ["8", [123]], ["17", [123]]]) {
+    const { CDBVS, target, state, document, statuses, updates } = interactionHarness([{ name: "value", typeStr }], [{ value }]);
+    state.data.sheets.push({ name: `${target.name}@value`, columns: [{ name: "name", typeStr: "1" }], lines: [], props: { hide: true } });
+    CDBVS.render();
+    CDBVS.selectRenderedCell(target, 0, 0);
+    const before = JSON.stringify(target.lines[0]);
+    CDBVS.activateRenderedCell(target, 0, 0);
+    assert.equal(JSON.stringify(target.lines[0]), before);
+    assert.equal(CDBVS.activeCell(target), null);
+    assert.equal(document.querySelector(".text-modal-overlay"), null);
+    assert.equal(updates.length, 0);
+    assert.match(statuses.at(-1).message, /Raw JSON to repair/);
+  }
+});
+
+test("selected and editing cells have distinct mode hints, ARIA selection and keyboard stops", () => {
+  const { CDBVS, document, target } = interactionHarness([{ name: "value", typeStr: "1" }], [{ value: "a" }, { value: "b" }]);
+  CDBVS.selectRenderedCell(target, 0, 0);
+  const first = CDBVS.findRenderedCell(0, 0);
+  assert.equal(first.tabIndex, 0);
+  assert.equal(first.getAttribute("aria-selected"), "true");
+  assert.equal(first.querySelector("input").tabIndex, -1);
+  assert.match(CDBVS.app.querySelector(".cell-mode-hint").textContent, /Selected value.*Row 1/);
+  document.dispatchEvent({ type: "keydown", key: "F2", target: first });
+  assert.ok(first.classList.contains("cell-active"));
+  assert.match(CDBVS.app.querySelector(".cell-mode-hint").textContent, /Editing.*Escape: cancel/);
+  document.dispatchEvent({ type: "keydown", key: "Enter", repeat: true, target: first.querySelector("input") });
+  assert.ok(CDBVS.activeCell(target));
+  CDBVS.selectRenderedCell(target, 1, 0);
+  assert.equal(first.tabIndex, -1);
+  assert.equal(first.getAttribute("aria-selected"), "false");
+  assert.equal(first.classList.contains("cell-active"), false);
+});
+
+test("invalid drafts block search, sort, raw mode and sheet switches before state changes", () => {
+  const { CDBVS, target, state } = interactionHarness([{ name: "value", typeStr: "3" }], [{ value: 1 }]);
+  state.data.sheets.push({ name: "Other", columns: [], lines: [], props: {} });
+  CDBVS.render();
+  CDBVS.selectRenderedCell(target, 0, 0);
+  CDBVS.activateRenderedCell(target, 0, 0);
+  const input = CDBVS.findRenderedCell(0, 0).querySelector("input");
+  input.value = "bad";
+  const search = CDBVS.app.querySelector(".search");
+  search.value = "not allowed"; search.dispatchEvent({ type: "input" });
+  CDBVS.cycleColumnSort(target, "value");
+  click(buttonByText(CDBVS.app, "Raw JSON"));
+  click(buttonByText(CDBVS.app, "Other"));
+  assert.equal(state.filter, "");
+  assert.equal(search.value, "");
+  assert.equal(state.rawMode, false);
+  assert.equal(state.sheetIndex, 0);
+  assert.equal(state.sorts[target.name] && state.sorts[target.name].column || "", "");
+  assert.strictEqual(CDBVS.findRenderedCell(0, 0).querySelector("input"), input);
+});
+
+test("filtering a selected row out removes hidden selection targets", () => {
+  const { CDBVS, state, target } = interactionHarness([{ name: "value", typeStr: "1" }], [{ value: "Ada" }, { value: "Grace" }]);
+  CDBVS.selectRenderedCell(target, 0, 0);
+  state.filter = "Grace";
+  CDBVS.refreshView();
+  assert.equal(CDBVS.selectedCell(target), null);
+  assert.deepEqual(Array.from(CDBVS.selectedRowIndices(target)), []);
+  assert.equal(CDBVS.deleteSelectedCell(target), false);
+  assert.equal(target.lines[0].value, "Ada");
+});
+
+test("navigation follows displayed order when editing a sorted column changes its sort key", () => {
+  const { CDBVS, target, state, document } = interactionHarness([{ name: "value", typeStr: "1" }], [{ value: "A" }, { value: "B" }, { value: "C" }]);
+  state.sorts[target.name] = { column: "value", direction: "asc" }; CDBVS.refreshView();
+  CDBVS.selectRenderedCell(target, 1, 0); CDBVS.activateRenderedCell(target, 1, 0);
+  const input = CDBVS.findRenderedCell(1, 0).querySelector("input");
+  input.value = "Z"; input.dispatchEvent({ type: "input" });
+  document.dispatchEvent({ type: "keydown", key: "Tab", target: input });
+  assert.equal(CDBVS.selectedCell(target).rowIndex, 2);
+  assert.equal(target.lines[1].value, "Z");
+});
+
+test("progressive view refresh prevents edits to the body about to be replaced", () => {
+  const { CDBVS, context, target, document } = interactionHarness([{ name: "value", typeStr: "1" }], [{ value: "A" }]);
+  CDBVS.selectRenderedCell(target, 0, 0);
+  const cell = CDBVS.findRenderedCell(0, 0);
+  const previousBody = CDBVS.app.querySelector("tbody");
+  const pending = [];
+  context.setTimeout = (callback) => { pending.push(callback); return pending.length; };
+  CDBVS.refreshTableBody(target);
+  assert.equal(CDBVS.isGridUpdating(), true);
+  assert.equal(previousBody.inert, true);
+  assert.equal(CDBVS.activateRenderedCell(target, 0, 0), false);
+  document.dispatchEvent({ type: "keydown", key: "B", target: cell });
+  assert.equal(target.lines[0].value, "A");
+  assert.equal(CDBVS.activeCell(target), null);
+  pending.splice(0).forEach((callback) => callback());
+  assert.equal(CDBVS.isGridUpdating(), false);
+  assert.notStrictEqual(CDBVS.app.querySelector("tbody"), previousBody);
+  assert.equal(CDBVS.activateRenderedCell(target, 0, 0), true);
+});
+
+test("IME composition blocks view replacement until composition ends", () => {
+  const { CDBVS, target } = interactionHarness([{ name: "value", typeStr: "1" }], [{ value: "original" }]);
+  CDBVS.selectRenderedCell(target, 0, 0); CDBVS.activateRenderedCell(target, 0, 0);
+  const input = CDBVS.findRenderedCell(0, 0).querySelector("input");
+  input.dispatchEvent({ type: "compositionstart" });
+  input.value = "composing";
+  assert.equal(CDBVS.prepareCellTransition(), false);
+  assert.ok(CDBVS.activeCell(target));
+  input.dispatchEvent({ type: "compositionend" });
+  assert.equal(CDBVS.prepareCellTransition(), true);
+  assert.equal(target.lines[0].value, "composing");
+});
+
+test("delayed clipboard reads cannot paste into a moved selection or replaced document", async () => {
+  for (const transition of ["selection", "document", "editing", "rows"]) {
+    const { CDBVS, target, context, state, statuses } = interactionHarness([{ name: "value", typeStr: "1" }], [{ value: "a" }, { value: "b" }]);
+    CDBVS.selectRenderedCell(target, 0, 0);
+    let resolveRead;
+    context.navigator = { clipboard: { readText: () => new Promise((resolve) => { resolveRead = resolve; }) } };
+    assert.equal(CDBVS.pasteSelectedRow(target), true);
+    if (transition === "selection") CDBVS.selectRenderedCell(target, 1, 0);
+    if (transition === "document") state.data = { customTypes: [], sheets: [{ ...target, lines: [{ value: "external" }] }] };
+    if (transition === "editing") CDBVS.activateRenderedCell(target, 0, 0);
+    if (transition === "rows") target.lines.reverse();
+    const before = JSON.stringify(target.lines);
+    resolveRead('CDBVS_CELL\n{"hasValue":true,"value":"late paste"}');
+    await Promise.resolve();
+    assert.equal(JSON.stringify(target.lines), before);
+    assert.match(statuses.at(-1).message, /Paste cancelled/);
+  }
+});
+
+test("collapse removes hidden selections and arrow and Tab navigation skip collapsed rows", () => {
+  const { CDBVS, document, target } = interactionHarness([{ name: "value", typeStr: "1" }],
+    [{ value: "a" }, { value: "b" }, { value: "c" }, { value: "d" }], [1, 3]);
+  CDBVS.selectRenderedCell(target, 1, 0);
+  CDBVS.activateRenderedCell(target, 1, 0);
+  const input = CDBVS.findRenderedCell(1, 0).querySelector("input");
+  input.value = "edited";
+  input.dispatchEvent({ type: "input" });
+  click(CDBVS.app.querySelector(".separator-toggle"));
+  assert.equal(target.lines[1].value, "edited");
+  assert.equal(CDBVS.selectedCell(target), null);
+  assert.deepEqual(Array.from(CDBVS.selectedRowIndices(target)), []);
+  CDBVS.selectRenderedCell(target, 0, 0);
+  CDBVS.moveSelectedCell(target, 1, 0);
+  assert.equal(CDBVS.selectedCell(target).rowIndex, 3);
+  CDBVS.selectRenderedCell(target, 0, 0);
+  document.dispatchEvent({ type: "keydown", key: "Tab", target: CDBVS.findRenderedCell(0, 0), preventDefault() {} });
+  assert.equal(CDBVS.selectedCell(target).rowIndex, 3);
+  assert.equal(CDBVS.activeCell(target).rowIndex, 3);
+});
+
 test("document, sheet-state, and view-state models keep their boundaries", () => {
   const target = sheet();
   target.columns = [{ name: "name", typeStr: "1" }];
@@ -804,6 +1145,17 @@ test("dropdown teardown commits outside clicks, cancels on Escape, and protects 
   assert.equal(target.lines[0].kind, 1);
 });
 
+test("closing a context menu before its delayed listener installs cannot leak the listener", () => {
+  const harness = createWebviewHarness({ customTypes: [], sheets: [sheet()] });
+  const timers = [];
+  harness.context.setTimeout = (callback) => { timers.push(callback); return timers.length; };
+  const before = (harness.document.listeners.pointerdown || []).length;
+  harness.CDBVS.showContextMenu({ clientX: 10, clientY: 10 }, [{ label: "Copy", action: () => {} }]);
+  harness.CDBVS.closeContextMenu();
+  timers.forEach((callback) => callback());
+  assert.equal((harness.document.listeners.pointerdown || []).length, before);
+});
+
 test("dropdowns preserve missing values and invalidate reference options after ID edits", () => {
   const refs = sheet("Refs");
   refs.columns = [{ name: "id", typeStr: "0" }];
@@ -847,6 +1199,15 @@ test("dropdowns preserve missing values and invalidate reference options after I
   assert.deepEqual(harness.CDBVS.referenceOptions(source.columns[0]), ["known"]);
   harness.CDBVS.setCellValue(refs.lines[0], refs.columns[0], "renamed");
   assert.deepEqual(harness.CDBVS.referenceOptions(source.columns[0]), ["renamed"]);
+  harness.CDBVS.openSelectMenu(full, source, () => {});
+  assert.equal(full.querySelectorAll("option").some((option) => option.value === "renamed"), true);
+  assert.equal(full.querySelectorAll("option").some((option) => option.value === "known"), false);
+  harness.CDBVS.closeSelectMenu();
+  harness.CDBVS.setCellValue(refs.lines[0], refs.columns[0], "again");
+  harness.CDBVS.openSelectMenu(full, source, () => {});
+  assert.equal(full.querySelectorAll("option").some((option) => option.value === "again"), true);
+  assert.equal(full.value, "missing");
+  harness.CDBVS.closeSelectMenu();
 });
 
 test("dropdowns close when focus leaves and support native closed-select keys", () => {
@@ -2108,6 +2469,18 @@ test("row-only clipboard commands bypass an active cell selection", () => {
   assert.equal(harness.state.rowClipboard.rows.length, 1);
   assert.equal(harness.CDBVS.pasteSelectedRow(active, true), true);
   assert.deepEqual(target.lines.map((row) => row.id), ["a", "a", "b"]);
+});
+
+test("sheet visibility changes preserve the active sheet and choose a visible fallback when hidden", () => {
+  const first = sheet("First");
+  const second = sheet("Second");
+  const third = sheet("Third");
+  const harness = createWebviewHarness({ customTypes: [], sheets: [first, second, third] });
+  harness.CDBVS.services.sheetState.setActiveIndex(2);
+  assert.equal(harness.CDBVS.updateSheetMetadata(first, { name: "First", props: { hide: true } }).ok, true);
+  assert.equal(harness.CDBVS.currentSheet(), third);
+  assert.equal(harness.CDBVS.updateSheetMetadata(third, { name: "Third", props: { hide: true } }).ok, true);
+  assert.equal(harness.CDBVS.currentSheet(), second);
 });
 
 test("moving a sheet moves its sub-sheet block as a unit", () => {

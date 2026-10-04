@@ -10,6 +10,137 @@ function typeOf(harness, typeStr) {
   return harness.CDBVS.typeOf({ typeStr });
 }
 
+function nestedFixture() {
+  const parent = { name: "Items", props: {}, columns: [{ name: "children", typeStr: "8" }], lines: [
+    { children: [{ amount: "12", details: { title: "first" }, unknown: { keep: true } }, { amount: "7", details: { title: "second" } }] },
+    { children: [{ details: { title: "third" } }] }
+  ] };
+  const child = { name: "Items@children", props: { hide: true }, columns: [{ name: "amount", typeStr: "1" }, { name: "details", typeStr: "17" }], lines: [] };
+  const detail = { name: "Items@children@details", props: { hide: true, isProps: true }, columns: [{ name: "title", typeStr: "1" }], lines: [] };
+  const data = { customTypes: [], sheets: [parent, child, detail] };
+  return { parent, child, detail, data, harness: createWebviewHarness(data) };
+}
+
+test("nested column changes traverse embedded list and properties values and preserve unknown fields", () => {
+  const { parent, child, detail, harness } = nestedFixture();
+  parent.columns[0].defaultValue = [{ amount: "21", details: { title: "default" } }];
+  const edit = harness.CDBVS.applyColumnEdit(child, child.columns[0], 0, { name: "count", typeString: "3", optional: false });
+  assert.equal(edit.ok, true);
+  assert.deepEqual(parent.lines.map(row => row.children.map(item => item.count)), [[12, 7], [0]]);
+  assert.equal(Object.hasOwn(parent.lines[0].children[0], "amount"), false);
+  assert.deepEqual(parent.lines[0].children[0].unknown, { keep: true });
+  assert.equal(parent.columns[0].defaultValue[0].count, 21);
+  assert.equal(harness.CDBVS.applyColumnEdit(detail, detail.columns[0], 0, { name: "label", typeString: "1", optional: true }).ok, true);
+  assert.equal(parent.lines[0].children[1].details.label, "second");
+  assert.equal(parent.lines[1].children[0].details.label, "third");
+  assert.equal(parent.columns[0].defaultValue[0].details.label, "default");
+  assert.equal(harness.CDBVS.services.application.columnActions.deleteColumn(detail, 0), true);
+  assert.deepEqual(parent.lines[0].children[0].details, {});
+  assert.deepEqual(parent.lines[1].children[0].details, {});
+  assert.deepEqual(parent.columns[0].defaultValue[0].details, {});
+});
+
+test("nested conversion failures and malformed containers leave all schema and data untouched", () => {
+  const { data, parent, child, harness } = nestedFixture();
+  parent.lines[0].children[1].amount = "not a number";
+  let before = JSON.stringify(data);
+  assert.equal(harness.CDBVS.applyColumnEdit(child, child.columns[0], 0, { name: "count", typeString: "3" }).ok, false);
+  assert.equal(JSON.stringify(data), before);
+  parent.lines[1].children = [null];
+  before = JSON.stringify(data);
+  assert.equal(harness.CDBVS.applyColumnEdit(child, child.columns[0], 0, { name: "count", typeString: "1" }).ok, false);
+  assert.equal(harness.CDBVS.services.application.columnActions.deleteColumn(child, 0), false);
+  assert.match(harness.statuses.at(-1).message, /malformed/);
+  assert.equal(JSON.stringify(data), before);
+});
+
+test("column renames and creation refuse unknown-field and nested-schema collisions atomically", () => {
+  const { data, parent, child, harness } = nestedFixture();
+  let before = JSON.stringify(data);
+  assert.equal(harness.CDBVS.applyColumnEdit(child, child.columns[0], 0, { name: "unknown", typeString: "1" }).ok, false);
+  assert.equal(JSON.stringify(data), before);
+  assert.equal(harness.CDBVS.applyColumnEdit(child, { name: "unknown", typeStr: "1" }, 2, { name: "unknown", typeString: "1", isNew: true }).ok, false);
+  assert.equal(JSON.stringify(data), before);
+  data.sheets.push({ name: "Items@renamed@details", columns: [], lines: [], props: {} });
+  before = JSON.stringify(data);
+  assert.equal(harness.CDBVS.applyColumnEdit(parent, parent.columns[0], 0, { name: "renamed", typeString: "8" }).ok, false);
+  assert.equal(JSON.stringify(data), before);
+});
+
+test("sheet renames preflight descendant collisions and keep nested schemas connected", () => {
+  const { data, parent, child, harness } = nestedFixture();
+  data.sheets.push({ name: "Renamed@children", columns: [], lines: [], props: {} });
+  const before = JSON.stringify(data);
+  assert.equal(harness.CDBVS.updateSheetMetadata(parent, { name: "Renamed", props: { hide: true } }).ok, false);
+  assert.equal(harness.CDBVS.renameSheet(parent, "Renamed"), false);
+  assert.equal(harness.CDBVS.updateSheetMetadata(child, { name: "Detached", props: {} }).ok, false);
+  assert.equal(harness.CDBVS.updateSheetMetadata(child, { name: child.name, props: {} }).ok, false);
+  assert.equal(harness.CDBVS.deleteSheet(child), false);
+  assert.equal(JSON.stringify(data), before);
+});
+
+test("sheet primary-ID changes cannot silently replace a numeric or nested type", () => {
+  const { data, parent, child, harness } = nestedFixture();
+  let before = JSON.stringify(data);
+  assert.equal(harness.CDBVS.updateSheetMetadata(parent, { name: parent.name, primaryColumn: "children", props: {} }).ok, false);
+  assert.equal(JSON.stringify(data), before);
+  child.columns[0].typeStr = "3";
+  before = JSON.stringify(data);
+  assert.equal(harness.CDBVS.updateSheetMetadata(child, { name: child.name, primaryColumn: "amount", props: { hide: true } }).ok, false);
+  assert.equal(JSON.stringify(data), before);
+});
+
+test("nested schema renames and removals reconcile the active sheet and its view state", () => {
+  const { parent, child, detail, harness } = nestedFixture();
+  harness.state.showHiddenSheets = true;
+  harness.CDBVS.services.sheetState.setActiveIndex(2);
+  harness.CDBVS.services.sheetState.view.setFilters(detail.name, { title: { contains: "first" } });
+  assert.equal(harness.CDBVS.applyColumnEdit(parent, parent.columns[0], 0, { name: "entries", typeString: "8", optional: true }).ok, true);
+  assert.equal(harness.CDBVS.currentSheet(), detail);
+  assert.equal(detail.name, "Items@entries@details");
+  assert.equal(child.name, "Items@entries");
+  assert.ok(harness.state.columnFilters[detail.name]);
+  assert.equal(harness.state.columnFilters["Items@children@details"], undefined);
+  assert.equal(harness.CDBVS.services.application.columnActions.deleteColumn(parent, 0), true);
+  assert.equal(harness.CDBVS.currentSheet(), parent);
+  assert.equal(harness.state.columnFilters[detail.name], undefined);
+});
+
+test("list-to-properties conversion rejects multiple or malformed items without dropping data", () => {
+  const { data, parent, harness } = nestedFixture();
+  const before = JSON.stringify(data);
+  assert.equal(harness.CDBVS.applyColumnEdit(parent, parent.columns[0], 0, { name: "children", typeString: "17" }).ok, false);
+  assert.equal(JSON.stringify(data), before);
+  const convert = harness.CDBVS.convertColumnValue;
+  for (const items of [[null], [7], [[{}]]]) assert.equal(convert(items, typeOf(harness, "8"), typeOf(harness, "17")).ok, false);
+});
+
+test("renaming while removing a nested type removes its renamed schema and repairs references", () => {
+  const parent = { name: "Items", columns: [{ name: "details", typeStr: "17" }], lines: [{ details: null }], props: {} };
+  const child = { name: "Items@details", columns: [], lines: [], props: { hide: true } };
+  const refs = { name: "Refs", columns: [{ name: "ref", typeStr: "6:Items@details" }], lines: [], props: {} };
+  const data = { customTypes: [], sheets: [parent, child, refs] };
+  const harness = createWebviewHarness(data);
+  assert.equal(harness.CDBVS.applyColumnEdit(parent, parent.columns[0], 0, { name: "label", typeString: "1" }).ok, true);
+  assert.deepEqual(data.sheets.map(item => item.name), ["Items", "Refs"]);
+  assert.equal(refs.columns[0].typeStr, "1");
+});
+
+test("type changes convert defaults and reject unsafe defaults before touching live values", () => {
+  const column = { name: "amount", typeStr: "1", defaultValue: "7", unknown: { keep: true } };
+  const sheet = { name: "Items", columns: [column], lines: [{ amount: "12" }, {}] };
+  const data = { customTypes: [], sheets: [sheet] };
+  const harness = createWebviewHarness(data);
+  assert.equal(harness.CDBVS.applyColumnEdit(sheet, column, 0, { name: "amount", typeString: "3", optional: false }).ok, true);
+  assert.equal(column.defaultValue, 7);
+  assert.deepEqual(sheet.lines, [{ amount: 12 }, { amount: 7 }]);
+  assert.deepEqual(column.unknown, { keep: true });
+  column.defaultValue = 1.5;
+  const before = JSON.stringify(data);
+  assert.equal(harness.CDBVS.applyColumnEdit(sheet, column, 0, { name: "amount", typeString: "5:zero,one" }).ok, false);
+  assert.equal(JSON.stringify(data), before);
+});
+
 test("column value conversion handles primitive, enum, flags, list, and properties cases", () => {
   const harness = createWebviewHarness({ customTypes: [], sheets: [] });
   const convert = harness.CDBVS.convertColumnValue;
@@ -281,6 +412,21 @@ test("sheet view filtering, sorting, hidden sheets, and filter modes remain dete
   assert.equal(harness.CDBVS.sheetState.view.readSort("Players").column, "");
   harness.CDBVS.viewState.setFilter("gamma");
   assert.deepEqual(harness.CDBVS.rowsForView(visible).map((item) => item.row.id), ["c"]);
+});
+
+test("numeric filters exclude missing values, references match exact IDs and equal sort values stay stable", () => {
+  const target = { name: "Rows", columns: [{ name: "score", typeStr: "3" }, { name: "ref", typeStr: "6:Targets" }], lines: [{ score: 2, ref: "a" }, { score: 2, ref: "ab" }, { score: null }, {}, { score: "" }, { score: 0 }] };
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target] });
+  const views = harness.CDBVS.sheetState.view;
+  views.setFilters("Rows", { score: { min: "0", max: "0" } });
+  assert.deepEqual(harness.CDBVS.rowsForView(target).map((entry) => entry.rowIndex), [5]);
+  views.setFilters("Rows", { ref: { value: "a" } });
+  assert.deepEqual(harness.CDBVS.rowsForView(target).map((entry) => entry.rowIndex), [0]);
+  views.setFilters("Rows", {});
+  views.cycleSort("Rows", "score");
+  assert.deepEqual(harness.CDBVS.rowsForView(target).map((entry) => entry.rowIndex), [0, 1, 5, 2, 3, 4]);
+  views.cycleSort("Rows", "score");
+  assert.deepEqual(harness.CDBVS.rowsForView(target).map((entry) => entry.rowIndex), [5, 0, 1, 2, 3, 4]);
 });
 
 test("sheet state selection, collapsed separators, and lifecycle keys are cleaned safely", () => {

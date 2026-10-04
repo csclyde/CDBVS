@@ -67,6 +67,13 @@
     const input = document.createElement("select");
     input.className = "lazy-cell-editor";
     input.title = `${column.name} (${type.name})`;
+    if (type.code === 6 && input.tagName === "SELECT") {
+      input._cdbvsRefreshChoices = () => {
+        const selectedValue = input.value;
+        input.replaceChildren();
+        addReferenceOptions(input, referenceOptions(column), selectedValue);
+      };
+    }
     const value = row[column.name];
     if (type.code === 5) {
       const current = choiceValue(value);
@@ -135,6 +142,16 @@
     let input;
     let needsCommit = false;
     let committing = false;
+    let originalPresent = Object.prototype.hasOwnProperty.call(row, column.name);
+    let originalValue = CDBVS.cloneValue(row[column.name]);
+    const rememberValue = () => {
+      originalPresent = Object.prototype.hasOwnProperty.call(row, column.name);
+      originalValue = CDBVS.cloneValue(row[column.name]);
+    };
+    const restoreValue = () => {
+      if (originalPresent) setCellValue(row, column, CDBVS.cloneValue(originalValue));
+      else delete row[column.name];
+    };
     const isActiveCellEditor = () => {
       const editSheet = cellContext.editSheet || cellContext.sheet;
       if (!editSheet || typeof CDBVS.activeCell !== "function") return false;
@@ -175,13 +192,23 @@
         const flagLabel = makeElement("label", null, "flag-item");
         const checkbox = document.createElement("input");
         checkbox.type = "checkbox";
+        checkbox.tabIndex = cellContext.rowEditor ? 0 : -1;
         checkbox.checked = (current & (1 << flagIndex)) !== 0;
         checkbox._cdbvsCommit = () => {
           if (!flagsNeedCommit) return;
           committing = true;
           try { checkbox.dispatchEvent(new Event("change", { bubbles: false })); }
           finally { committing = false; }
+          rememberValue();
         };
+        checkbox._cdbvsBeginEdit = rememberValue;
+        checkbox._cdbvsCancel = () => {
+          restoreValue();
+          current = Number(originalValue) || 0;
+          flagsNeedCommit = false;
+          flags.querySelectorAll("input").forEach((control, index) => { control.checked = (current & (1 << index)) !== 0; });
+        };
+        checkbox._cdbvsDraft = () => flagsNeedCommit ? { label: `${cellContext.sheet.name} / ${column.name}`, text: String(current) } : null;
         checkbox.addEventListener("change", () => {
           if (checkbox.checked) current |= 1 << flagIndex;
           else current &= ~(1 << flagIndex);
@@ -225,14 +252,56 @@
     if (input && typeof input._cdbvsActivateLazyEditor === "function") delete input._cdbvsActivateLazyEditor;
     if (input && input.classList && input.classList.contains("lazy-cell-editor")) input.classList.remove("lazy-cell-editor");
     input.title = `${column.name} (${type.name})`;
+    input.tabIndex = cellContext.rowEditor ? 0 : -1;
+    let originalInputValue = input.type === "checkbox" ? input.checked : input.value;
+    const inputValue = () => input.type === "checkbox" ? input.checked : input.value;
+    const hasDraft = () => needsCommit || inputValue() !== originalInputValue || !!(input.validity && input.validity.badInput);
+    input._cdbvsBeginEdit = () => {
+      rememberValue();
+      originalInputValue = inputValue();
+    };
+    input._cdbvsCancel = () => {
+      restoreValue();
+      if (input.type === "checkbox") input.checked = originalInputValue;
+      else input.value = originalInputValue;
+      needsCommit = false;
+      input.setAttribute("aria-invalid", "false");
+      cell.classList.remove("cell-draft-error");
+    };
+    input._cdbvsDraft = () => hasDraft() ? { label: `${cellContext.sheet && cellContext.sheet.name || "Cell"} / ${column.name}`, text: String(inputValue()) } : null;
+    let composing = false;
+    input.addEventListener("compositionstart", () => { composing = true; });
+    input.addEventListener("compositionend", () => { composing = false; });
+    input._cdbvsValidate = () => {
+      if (composing) {
+        CDBVS.setStatus("Finish composing the value before leaving this cell.", true);
+        return false;
+      }
+      if (!hasDraft()) return true;
+      const next = readValue(input, column);
+      if (next === undefined || (input.validity && input.validity.badInput)) {
+        input.dispatchEvent(new Event("change", { bubbles: false }));
+        return false;
+      }
+      return true;
+    };
     input._cdbvsCommit = () => {
+      // Activating and leaving an untouched cell must preserve absent fields
+      // and malformed existing values rather than normalize them to null.
+      if (!input._cdbvsValidate()) return false;
+      if (!hasDraft()) return true;
       const next = readValue(input, column);
       const current = row[column.name];
       const changed = next !== undefined && JSON.stringify(next) !== JSON.stringify(current);
-      if (!needsCommit && !changed) return;
+      if (!needsCommit && !changed) {
+        input._cdbvsBeginEdit();
+        return true;
+      }
       committing = true;
       try { input.dispatchEvent(new Event("change", { bubbles: false })); }
       finally { committing = false; }
+      input._cdbvsBeginEdit();
+      return true;
     };
     input.addEventListener("input", () => {
       if (cellContext.deferChanges || !canSyncInputValue(type, input)) return;
@@ -244,16 +313,29 @@
       scheduleCellMutation();
     });
     input.addEventListener("change", () => {
+      const invalid = (message) => {
+        input.setAttribute("aria-invalid", "true");
+        cell.classList.add("cell-draft-error");
+        CDBVS.setStatus(`${message} Correct the value or press Escape to cancel.`, true);
+      };
       const next = readValue(input, column);
+      if (input.validity && input.validity.badInput) {
+        invalid(`${column.name} must contain a valid ${type.name} value.`);
+        return;
+      }
       const complex = [8, 9, 14, 15, 16, 17, 18, 19].includes(type.code);
       if (complex && input.value !== "" && next === undefined) {
-        CDBVS.setStatus("Complex values must contain valid JSON before they can be saved.", true);
+        invalid("Complex values must contain valid JSON before they can be saved.");
         return;
       }
       if (next === undefined) {
-        CDBVS.setStatus(`${column.name} must contain a valid ${type.name} value.`, true);
+        invalid(`${column.name} must contain a valid ${type.name} value.`);
         return;
       }
+      input.setAttribute("aria-invalid", "false");
+      const wasInvalid = cell.classList.contains("cell-draft-error");
+      cell.classList.remove("cell-draft-error");
+      if (wasInvalid) CDBVS.setStatus("Cell value applied.");
       if (next !== undefined) setCellValue(row, column, next);
       if (isEditingCell() && !committing) {
         needsCommit = true;
@@ -265,16 +347,14 @@
       }
     });
     if (type.code === 1 && !cellContext.deferChanges) {
-      input.title = `${column.name} (text) - double-click to open the larger editor`;
-      input.addEventListener("dblclick", (event) => {
-        event.preventDefault();
-        CDBVS.openTextEditor(row, column, input);
-      });
+      input.title = `${column.name} (text) - right-click the cell for the larger editor`;
     }
-    if (type.code === 2 && !cellContext.deferChanges) {
-      input.tabIndex = -1;
-      input.style.pointerEvents = "none";
-      input.setAttribute("aria-readonly", "true");
+    if (type.code === 2) {
+      if (!cellContext.rowEditor) {
+        input.tabIndex = -1;
+        input.style.pointerEvents = "none";
+        input.setAttribute("aria-readonly", "true");
+      }
       cell._cdbvsToggleBoolean = () => {
         setCellValue(row, column, row[column.name] !== true);
         input.checked = row[column.name] === true;

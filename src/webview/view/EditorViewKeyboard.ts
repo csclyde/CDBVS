@@ -8,9 +8,9 @@
   let installed = false;
 
   function moveToTabCell(sheet, selection, direction) {
-    if (!sheet || !selection || typeof sheetViewModel.rowsForView !== "function"
+    if (!sheet || !selection || typeof sheetViewModel.rowsForNavigation !== "function"
       || typeof documentActions.moveSelectedCell !== "function") return false;
-    const rows = sheetViewModel.rowsForView(sheet);
+    const rows = CDBVS.navigationRows(sheet);
     const columns = Array.isArray(sheet.columns) ? sheet.columns : [];
     const rowPosition = rows.findIndex((entry) => entry.rowIndex === selection.rowIndex);
     if (rowPosition < 0 || !columns.length) return false;
@@ -28,7 +28,7 @@
       ? CDBVS.findRenderedCell(next.rowIndex, next.columnIndex)
       : null;
     // Boolean cells are selection-owned controls, so Tab should not toggle them.
-    if (nextCell && typeof nextCell._cdbvsToggleBoolean === "function") return true;
+    if (nextCell && (typeof nextCell._cdbvsToggleBoolean === "function" || nextCell.querySelector(".list-toggle"))) return true;
     CDBVS.activateRenderedCell(sheet, next.rowIndex, next.columnIndex);
     return true;
   }
@@ -54,6 +54,9 @@
     const editable = control.tagName === "TEXTAREA"
       || (control.tagName === "INPUT" && ["text", "number", "search", "email", "url", "tel", "password"].includes(controlType));
     if (!editable) return false;
+    // Number inputs sanitize unsupported text to an empty string. Do not
+    // replace a valid stored number with null merely by typing a letter.
+    if (controlType === "number" && !/^[0-9]$/.test(String(event.key))) return false;
 
     event.preventDefault();
     CDBVS.activateRenderedCell(sheet, selection.rowIndex, selection.columnIndex, event);
@@ -71,13 +74,34 @@
   function handleKeydown(event) {
     if (event.__cdbvsKeyboardHandled) return;
     event.__cdbvsKeyboardHandled = true;
-    if (document.querySelector(".text-modal-overlay")) return;
     if (event.isComposing || event.keyCode === 229) return;
+    const modal = CDBVS.modalState && CDBVS.modalState.active;
+    if (modal) {
+      const modalKey = String(event.key || "").toLowerCase();
+      if (modal._cdbvsConfirmation && (event.ctrlKey || event.metaKey) && !event.altKey && (modalKey === "s" || modalKey === "enter")) {
+        event.preventDefault();
+        event.__cdbvsModalHandled = true;
+        if (typeof event.stopPropagation === "function") event.stopPropagation();
+        modal.querySelector(".modal-status").textContent = "Choose an action button or Cancel. Save shortcuts do not confirm this action.";
+        return;
+      }
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && (modalKey === "s" || modalKey === "enter") && typeof modal._cdbvsApply === "function") {
+        event.preventDefault();
+        event.__cdbvsModalHandled = true;
+        if (typeof event.stopPropagation === "function") event.stopPropagation();
+        if (event.repeat || modal._cdbvsDiscardPrompt) return;
+        modal._cdbvsApply();
+        if (CDBVS.modalState.active !== modal && !modal._cdbvsPrevious && !modal._cdbvsViewOnly && modalKey === "s" && typeof CDBVS.requestSave === "function") CDBVS.requestSave();
+      }
+      return;
+    }
     const sheet = sheetViewModel.currentSheet();
     const key = String(event.key || "").toLowerCase();
+    if (key === "escape" && event.repeat) { event.preventDefault(); return; }
     const dropdownOpen = typeof CDBVS.hasOpenSelectMenu === "function" && CDBVS.hasOpenSelectMenu();
     if (key === "escape" && !dropdownOpen
       && typeof CDBVS.hasContextMenu === "function" && CDBVS.hasContextMenu()) {
+      if (event.target && event.target.closest && event.target.closest(".context-menu")) return;
       event.preventDefault();
       CDBVS.closeContextMenu();
       return;
@@ -90,6 +114,11 @@
       || event.target.closest("[contenteditable=\"true\"]")
     );
     const cellSelection = CDBVS.selectedCell(sheet);
+    if (CDBVS.isGridUpdating() && ((event.target && event.target.closest && event.target.closest(".table-wrap"))
+      || event.target === document || event.target === document.body)) {
+      event.preventDefault();
+      return;
+    }
     const activeSelection = CDBVS.activeCell(sheet);
     const arrowKey = key === "arrowup" || key === "arrowdown" || key === "arrowleft" || key === "arrowright";
     const clipboardKey = key === "c" || key === "x" || key === "v";
@@ -100,10 +129,13 @@
       || (typeof selectFilter.contains === "function" && selectFilter.contains(event.target))));
     const selectMenuTarget = !!(selectMenu && (event.target === selectMenu
       || (typeof selectMenu.contains === "function" && selectMenu.contains(event.target))));
-    if (!editorTarget && !activeSelection && cellSelection && startCellEditWithKey(sheet, cellSelection, event)) return;
     if (!modified && !event.altKey && key === "tab" && cellSelection) {
       const tableTarget = event.target && event.target.closest && event.target.closest("td");
       if (tableTarget || selectMenuTarget) {
+        if (activeSelection && editorTarget && CDBVS.commitEditorTarget(editorTarget) === false) {
+          event.preventDefault();
+          return;
+        }
         // Tab is a commit-and-advance action for an open dropdown. Close it
         // through the normal lifecycle before moving the grid selection so the
         // value is never left dependent on a later blur or render.
@@ -118,16 +150,37 @@
     }
     if (modified && key === "s") {
       event.preventDefault();
+      if (document.querySelector(".raw-editor") && typeof CDBVS.applyRawDraft === "function") {
+        CDBVS.applyRawDraft(true);
+        return;
+      }
+      if (activeSelection && !selectMenuTarget && typeof CDBVS.findRenderedCell === "function") {
+        const activeCellElement = CDBVS.findRenderedCell(activeSelection.rowIndex, activeSelection.columnIndex);
+        if (activeCellElement && !CDBVS.commitCellEditors(activeCellElement)) return;
+      }
       if ((selectFilterTarget || selectMenuTarget) && typeof CDBVS.finishSelectMenu === "function") {
         CDBVS.finishSelectMenu(true);
         if (typeof CDBVS.flushUpdate === "function") CDBVS.flushUpdate();
-      } else if (editorTarget) CDBVS.commitEditorTarget(editorTarget);
+      } else if (editorTarget) {
+        if (CDBVS.commitEditorTarget(editorTarget) === false) return;
+      }
       else if (typeof CDBVS.flushUpdate === "function") CDBVS.flushUpdate();
       if (typeof CDBVS.requestSave === "function") CDBVS.requestSave();
       return;
     }
     const editorCell = editorTarget && editorTarget.closest && editorTarget.closest("td");
     const cellEditorTarget = editorCell && editorCell.closest && editorCell.closest("td") ? editorTarget : null;
+    // Selection can outlive focus in the grid. Search, toolbar controls and
+    // raw JSON editors must keep ownership of their keys in that case.
+    if (editorTarget && !cellEditorTarget && !selectMenuTarget) return;
+    const buttonTarget = event.target && event.target.closest && event.target.closest("button");
+    if (buttonTarget && !buttonTarget.closest("td") && !selectMenuTarget) return;
+    if (!editorTarget && !activeSelection && cellSelection && startCellEditWithKey(sheet, cellSelection, event)) return;
+    // Clipboard and modified arrows are native text editing operations while
+    // a cell editor is active, including when focus restored its editor before
+    // the active-cell bookkeeping caught up.
+    if (cellEditorTarget && (activeSelection || document.activeElement === editorTarget)
+      && modified && (clipboardKey || arrowKey)) return;
     const opensSelect = (!event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey
       && (key === " " || key === "f4"))
       || (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey
@@ -141,16 +194,6 @@
         CDBVS.activateRenderedCell(sheet, cellSelection.rowIndex, cellSelection.columnIndex, event);
         return;
       }
-    }
-    const directListToggle = event.target && event.target.closest && event.target.closest(".list-toggle");
-    const directToggleCell = directListToggle && directListToggle.closest
-      ? directListToggle.closest(".list-cell")
-      : null;
-    if (!modified && !event.altKey && key === "enter" && directListToggle
-      && directToggleCell && typeof directToggleCell._cdbvsToggleList === "function") {
-      event.preventDefault();
-      directToggleCell._cdbvsToggleList(event);
-      return;
     }
     // Once a cell is active, its editor owns arrow keys so text cursors, number
     // inputs, selects, and nested editors can navigate their own value without
@@ -168,10 +211,11 @@
     // Keep its editing keys and clipboard shortcuts away from grid navigation.
     if (selectFilterTarget && ((arrowKey || key === "home" || key === "end")
       || (modified && clipboardKey))) return;
+    if (event.altKey) return;
     if (activeSelection && cellEditorTarget && arrowKey) return;
     if (!modified && !event.altKey && arrowKey && (!editorTarget || cellEditorTarget || cellSelection)) {
       if (!cellSelection) {
-        const rows = sheet ? sheetViewModel.rowsForView(sheet) : [];
+        const rows = sheet ? CDBVS.navigationRows(sheet) : [];
         const columns = sheet && Array.isArray(sheet.columns) ? sheet.columns : [];
         if (!rows.length || !columns.length) return;
         const rowIndex = key === "arrowup" ? rows[rows.length - 1].rowIndex : rows[0].rowIndex;
@@ -186,7 +230,9 @@
       documentActions.moveSelectedCell(sheet, key === "arrowup" ? -1 : (key === "arrowdown" ? 1 : 0), key === "arrowleft" ? -1 : (key === "arrowright" ? 1 : 0));
       return;
     }
-    if (!modified && !event.altKey && cellSelection && key === "enter") {
+    if (!modified && !event.altKey && cellSelection && (key === "enter" || key === "f2")) {
+      if (event.repeat) { event.preventDefault(); return; }
+      if (key === "f2" && activeSelection) { event.preventDefault(); return; }
       if (activeSelection) {
         event.preventDefault();
         CDBVS.exitRenderedCell(sheet);
@@ -203,8 +249,16 @@
     }
     if (!modified && !event.altKey && activeSelection && key === "escape") {
       event.preventDefault();
-      CDBVS.exitRenderedCell(sheet);
+      CDBVS.cancelRenderedCell(sheet);
       return;
+    }
+    if (!modified && !event.altKey && !activeSelection && cellSelection && key === " ") {
+      const cell = CDBVS.findRenderedCell(cellSelection.rowIndex, cellSelection.columnIndex);
+      if (cell && typeof cell._cdbvsToggleBoolean === "function") {
+        event.preventDefault();
+        if (!event.repeat) cell._cdbvsToggleBoolean();
+        return;
+      }
     }
     if (!modified && !event.altKey && activeSelection && editorTarget && deleteKey) return;
     if (editorTarget && !((!modified && (arrowKey || deleteKey) && cellSelection) || (modified && clipboardKey && cellSelection))) return;

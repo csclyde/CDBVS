@@ -74,6 +74,61 @@ test("list modal keeps edits draft-only and supports add/delete buttons", () => 
   assert.equal(harness.renders.length, 0);
 });
 
+test("invalid list-cell drafts block selection, row actions and Save; Escape cancels the cell first", () => {
+  const { harness, parent, cell } = makeFixture();
+  harness.state.data.sheets[1].columns[0].typeStr = "3";
+  parent.lines[0].members = [{ name: 1 }, { name: 2 }];
+  click(cell.querySelector(".list-toggle"));
+  const { overlay, dialog } = modalParts(harness);
+  const cells = dialog.querySelectorAll("td").filter((item) => item.dataset.columnIndex === "0");
+  overlay.dispatchEvent({ type: "keydown", key: "Enter", target: cells[0] });
+  const input = cells[0].querySelector("input");
+  input.value = "bad";
+  cells[1].dispatchEvent({ type: "click" });
+  click(dialog.querySelectorAll("button").find((button) => button.textContent === "Add row"));
+  click(dialog.querySelectorAll("button").find((button) => button.textContent === "Save"));
+  assert.strictEqual(modalParts(harness).overlay, overlay);
+  assert.equal(dialog.querySelectorAll("tbody tr").length, 2);
+  assert.ok(cells[0].classList.contains("cell-active"));
+  assert.strictEqual(harness.document.activeElement, input);
+  assert.equal(input.getAttribute("aria-invalid"), "true");
+  assert.equal(harness.updates.length, 0);
+  overlay.dispatchEvent({ type: "keydown", key: "Escape", target: input });
+  assert.equal(input.value, "1");
+  assert.strictEqual(modalParts(harness).overlay, overlay);
+  assert.equal(cells[0].classList.contains("cell-active"), false);
+  overlay.dispatchEvent({ type: "keydown", key: "Escape", target: cells[0] });
+  assert.equal(modalParts(harness).overlay, null);
+  assert.deepEqual(parent.lines[0].members, [{ name: 1 }, { name: 2 }]);
+});
+
+test("active list text editors keep native clipboard shortcuts", () => {
+  const { harness, parent, cell } = makeFixture();
+  click(cell.querySelector(".list-toggle"));
+  const { overlay, dialog } = modalParts(harness);
+  const selected = dialog.querySelectorAll("td").find((item) => item.classList.contains("cell-selected"));
+  overlay.dispatchEvent({ type: "keydown", key: "Enter", target: selected });
+  const input = selected.querySelector("input");
+  for (const key of ["c", "x", "v"]) overlay.dispatchEvent({ type: "keydown", key, ctrlKey: true, target: input,
+    preventDefault() { throw new Error(`Native text ${key} was intercepted`); } });
+  assert.equal(input.value, "Ada");
+  assert.equal(harness.state.cellClipboard, null);
+  assert.equal(parent.lines[0].members[0].name, "Ada");
+});
+
+test("list selection typing starts editing and modal disposal removes keyboard handlers", () => {
+  const { harness, cell } = makeFixture();
+  const listenersBefore = (harness.document.listeners.keydown || []).length;
+  click(cell.querySelector(".list-toggle"));
+  const { overlay, dialog } = modalParts(harness);
+  const selected = dialog.querySelectorAll("td").find((item) => item.classList.contains("cell-selected"));
+  overlay.dispatchEvent({ type: "keydown", key: "B", target: selected });
+  assert.equal(selected.querySelector("input").value, "B");
+  assert.ok(selected.classList.contains("cell-active"));
+  harness.CDBVS.closeAllModals();
+  assert.equal((harness.document.listeners.keydown || []).length, listenersBefore);
+});
+
 test("list modal keyboard navigation and row context menu use the modal grid", () => {
   const { harness, cell } = makeFixture();
   click(cell.querySelector(".list-toggle"));

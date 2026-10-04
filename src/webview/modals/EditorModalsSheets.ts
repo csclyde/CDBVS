@@ -4,7 +4,6 @@
   const commitMutation = CDBVS.services.application.commitMutation;
   const makeElement = CDBVS.makeElement;
   const makeButton = CDBVS.makeButton;
-  const visibleSheets = CDBVS.services.sheetView.visibleSheets;
   const updateSheetMetadata = CDBVS.updateSheetMetadata;
   const moveSheet = CDBVS.moveSheet;
   const idColumn = CDBVS.idColumn;
@@ -14,6 +13,7 @@
   const appendModalActions = CDBVS.appendModalActions;
 
   function openSheetEditor(sheet) {
+    if (typeof CDBVS.prepareCellTransition === "function" && !CDBVS.prepareCellTransition()) return false;
     const { dialog, footer, close } = createModal({ className: "column-modal", title: `Edit sheet: ${sheet.name}` });
 
     const props = sheet.props && typeof sheet.props === "object" && !Array.isArray(sheet.props)
@@ -23,11 +23,17 @@
     const nameInput = document.createElement("input");
     nameInput.type = "text";
     nameInput.value = sheet.name || "";
+    const parent = CDBVS.schemaParent(sheet);
+    if (parent) {
+      nameInput.readOnly = true;
+      form.appendChild(makeElement("p", "This nested sheet's name and kind follow its parent column. Rename or change the parent column to update them."));
+    }
     form.appendChild(modalField("Name", nameInput));
 
     const primaryInput = document.createElement("select");
     primaryInput.add(new Option("None", ""));
-    (sheet.columns || []).forEach((column) => primaryInput.add(new Option(column.name || "?", column.name || "")));
+    (sheet.columns || []).filter((column) => [0, 1].includes(CDBVS.typeOf(column).code))
+      .forEach((column) => primaryInput.add(new Option(column.name || "?", column.name || "")));
     const currentPrimary = idColumn(sheet);
     primaryInput.value = currentPrimary ? currentPrimary.name : "";
     form.appendChild(modalField("Primary ID column", primaryInput));
@@ -45,11 +51,13 @@
     const hiddenInput = document.createElement("input");
     hiddenInput.type = "checkbox";
     hiddenInput.checked = props.hide === true;
+    if (parent) { hiddenInput.checked = true; hiddenInput.disabled = true; }
     form.appendChild(modalField("Hidden sheet", hiddenInput, "checkbox-field"));
 
     const propsInput = document.createElement("input");
     propsInput.type = "checkbox";
     propsInput.checked = props.isProps === true;
+    if (parent) { propsInput.checked = CDBVS.typeOf(parent.column).code === 17; propsInput.disabled = true; }
     form.appendChild(modalField("Properties sheet", propsInput, "checkbox-field"));
 
     const indexInput = document.createElement("input");
@@ -75,12 +83,12 @@
     form.appendChild(modalField("Advanced properties (JSON)", extraInput));
 
     const error = makeElement("div", null, "column-form-error");
+    error.setAttribute("role", "alert");
     form.appendChild(error);
     footer.className = "text-modal-footer column-modal-footer";
     const showError = (message) => { error.textContent = message; };
     const removeSheet = () => {
-      close();
-      CDBVS.openDeleteSheetConfirmation(sheet);
+      CDBVS.openDeleteSheetConfirmation(sheet, { restorePrevious: true, onDeleted: close });
     };
     const save = () => {
       const newName = nameInput.value.trim();
@@ -130,15 +138,26 @@
       close();
       commitMutation();
     };
-    const moveLeft = makeButton("Move left", () => { close(); moveSheet(sheet, -1); });
-    const moveRight = makeButton("Move right", () => { close(); moveSheet(sheet, 1); });
-    const visible = visibleSheets();
-    const sheetIndex = visible.indexOf(sheet);
-    moveLeft.disabled = sheetIndex <= 0;
-    moveRight.disabled = sheetIndex < 0 || sheetIndex >= visible.length - 1;
+    const move = (delta) => {
+      if (!moveSheet(sheet, delta)) return;
+      updateMoveButtons();
+      dialog.querySelector(".modal-status").textContent = "Sheet order updated. Unapplied settings remain in this dialog.";
+    };
+    const moveLeft = makeButton("Move left", () => move(-1));
+    const moveRight = makeButton("Move right", () => move(1));
+    const updateMoveButtons = () => {
+      const roots = CDBVS.services.application.sheetActions.rootVisibleSheets();
+      const sheetIndex = roots.indexOf(sheet);
+      moveLeft.disabled = sheetIndex <= 0;
+      moveRight.disabled = sheetIndex < 0 || sheetIndex >= roots.length - 1;
+    };
+    updateMoveButtons();
     footer.appendChild(moveLeft);
     footer.appendChild(moveRight);
-    footer.appendChild(makeButton("Delete sheet", removeSheet, "danger-button"));
+    const deleteButton = makeButton("Delete sheet", removeSheet, "danger-button");
+    deleteButton.disabled = !!parent;
+    if (parent) deleteButton.title = "Delete the parent column to remove this nested schema and its values";
+    footer.appendChild(deleteButton);
     appendModalActions(footer, close, save);
     dialog.appendChild(form);
     dialog.appendChild(footer);

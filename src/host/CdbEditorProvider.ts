@@ -28,6 +28,7 @@ async function saveDocumentWithRetry(document: vscode.TextDocument): Promise<boo
 export class CdbEditorProvider implements vscode.CustomTextEditorProvider {
   private readonly context: vscode.ExtensionContext;
   private readonly editorPanels = new Map<vscode.WebviewPanel, vscode.Uri>();
+  private readonly documentQueues = new Map<string, { queue: DocumentUpdateQueue; panels: number }>();
   public activeDocumentUri: vscode.Uri | null = null;
 
   constructor(context: vscode.ExtensionContext) {
@@ -61,7 +62,15 @@ export class CdbEditorProvider implements vscode.CustomTextEditorProvider {
     let applyingEdit = false;
     let pendingDocumentRefresh = false;
     const selfAppliedTexts = new Set<string>();
-    const updateQueue = new DocumentUpdateQueue();
+    const documentKey = document.uri.toString();
+    let sharedQueue = this.documentQueues.get(documentKey);
+    if (!sharedQueue) {
+      sharedQueue = { queue: new DocumentUpdateQueue(), panels: 0 };
+      this.documentQueues.set(documentKey, sharedQueue);
+    }
+    sharedQueue.panels++;
+    const queueEntry = sharedQueue;
+    const updateQueue = queueEntry.queue;
     this.editorPanels.set(webviewPanel, document.uri);
     const markActive = () => {
       if (webviewPanel.active) this.activeDocumentUri = document.uri;
@@ -107,9 +116,14 @@ export class CdbEditorProvider implements vscode.CustomTextEditorProvider {
             selfAppliedTexts.delete(normalizedMessageText);
             return;
           }
+          if (typeof message.baseText === "string" && normalizedDocumentText(message.baseText) !== normalizedDocumentText(document.getText())) {
+            void webview.postMessage({ type: "error", message: "The file changed before your edit could be applied. The current file is loaded and your submitted edits are preserved for recovery.", rejectedText: message.text });
+            sendDocument();
+            return;
+          }
           const parsed = parseEditableCdb(message.text);
           if (!parsed.valid) {
-            if (!disposed) void webview.postMessage({ type: "error", message: parsed.issues.join("\n") });
+            if (!disposed) void webview.postMessage({ type: "error", message: parsed.issues.join("\n"), rejectedText: message.text });
             return;
           }
           if (disposed) return;
@@ -120,7 +134,7 @@ export class CdbEditorProvider implements vscode.CustomTextEditorProvider {
             applied = await replaceDocument(vscode, document, message.text);
             if (!applied) {
               selfAppliedTexts.delete(normalizedMessageText);
-              if (!disposed) void webview.postMessage({ type: "error", message: "CDBVS could not apply the document update." });
+              if (!disposed) void webview.postMessage({ type: "error", message: "CDBVS could not apply the document update. Your submitted edits have been preserved for recovery.", rejectedText: message.text });
               sendDocument();
             }
           } finally {
@@ -140,7 +154,7 @@ export class CdbEditorProvider implements vscode.CustomTextEditorProvider {
           }
         }).catch((error: unknown) => {
           selfAppliedTexts.delete(normalizedDocumentText(message.text));
-          if (!disposed) void webview.postMessage({ type: "error", message: `CDBVS could not apply the document update: ${errorMessage(error)}` });
+          if (!disposed) void webview.postMessage({ type: "error", message: `CDBVS could not apply the document update: ${errorMessage(error)}. Your submitted edits have been preserved for recovery.`, rejectedText: message.text });
           sendDocument();
         });
         return;
@@ -149,6 +163,11 @@ export class CdbEditorProvider implements vscode.CustomTextEditorProvider {
         try {
           await updateQueue.wait();
           if (disposed) return;
+          if (typeof message.expectedText === "string" && normalizedDocumentText(message.expectedText) !== normalizedDocumentText(document.getText())) {
+            void webview.postMessage({ type: "error", message: "Save stopped because the file differs from the edits you requested to save. Review the current document and recovered edits, then save again.", rejectedText: message.expectedText });
+            sendDocument();
+            return;
+          }
           // Keep the save call after the update queue even when the dirty flag
           // has not caught up with WorkspaceEdit yet. A transient false result
           // is retried once before reporting a failure.
@@ -172,6 +191,10 @@ export class CdbEditorProvider implements vscode.CustomTextEditorProvider {
       messageSubscription.dispose();
       viewStateSubscription.dispose();
       this.editorPanels.delete(webviewPanel);
+      queueEntry.panels--;
+      void updateQueue.wait().then(() => {
+        if (queueEntry.panels === 0 && this.documentQueues.get(documentKey) === queueEntry) this.documentQueues.delete(documentKey);
+      });
       this.refreshActiveDocumentUri();
     });
   }

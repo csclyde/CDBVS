@@ -13,6 +13,7 @@
   const createModal = CDBVS.createModal;
 
   function openFilterModal(sheet) {
+    if (typeof CDBVS.prepareCellTransition === "function" && !CDBVS.prepareCellTransition()) return false;
     if (!sheet) {
       CDBVS.setStatus("Select a sheet before configuring filters.", true);
       return;
@@ -23,7 +24,11 @@
       sort: sheetViewState.readSort(sheet.name)
     };
     const draftFilters = CDBVS.cloneValue(view.filters) || {};
+    const validators = [];
+    let composing = false;
     const form = makeElement("div", null, "filter-form");
+    form.addEventListener("compositionstart", () => { composing = true; });
+    form.addEventListener("compositionend", () => { composing = false; });
     form.appendChild(makeElement("h3", "Column filters", "filter-section-heading"));
     const controls = makeElement("div", null, "filter-controls");
     (sheet.columns || []).forEach((column) => {
@@ -57,7 +62,30 @@
         max.step = type.code === 3 ? "1" : "any";
         max.placeholder = "Maximum";
         max.value = rule.max === undefined ? "" : rule.max;
+        const validateRange = () => {
+          for (const [input, bound] of [[min, "Minimum"], [max, "Maximum"]]) {
+            input.setAttribute("aria-invalid", "false");
+            const value = Number(input.value);
+            if ((input.validity && input.validity.badInput) || (input.value !== "" && (!Number.isFinite(value) || (type.code === 3 && !Number.isSafeInteger(value))))) {
+              input.setAttribute("aria-invalid", "true");
+              CDBVS.setStatus(`${column.name}: ${bound} must be a valid ${type.code === 3 ? "whole number" : "number"}. Correct it before applying filters.`, true);
+              input.focus();
+              return false;
+            }
+          }
+          if (min.value !== "" && max.value !== "" && Number(min.value) > Number(max.value)) {
+            min.setAttribute("aria-invalid", "true");
+            max.setAttribute("aria-invalid", "true");
+            CDBVS.setStatus(`${column.name}: Minimum cannot exceed Maximum. Correct the range before applying filters.`, true);
+            min.focus();
+            return false;
+          }
+          return true;
+        };
+        validators.push(validateRange);
         const updateRange = () => {
+          min.setAttribute("aria-invalid", "false");
+          max.setAttribute("aria-invalid", "false");
           if (min.value === "" && max.value === "") delete draftFilters[column.name];
           else draftFilters[column.name] = { min: min.value, max: max.value };
         };
@@ -129,7 +157,7 @@
       } else {
         const input = document.createElement("input");
         input.type = "text";
-        input.placeholder = type.code === 8 || type.code === 17 ? "Contains JSON text..." : "Contains...";
+        input.placeholder = type.code === 6 ? "Exact reference ID..." : type.code === 8 || type.code === 17 ? "Contains JSON text..." : "Contains...";
         input.value = rule.value === undefined ? "" : String(rule.value);
         input.addEventListener("input", () => {
           if (input.value.trim() === "") delete draftFilters[column.name];
@@ -137,15 +165,22 @@
         });
         field.appendChild(input);
       }
+      field.querySelectorAll("input, select").forEach((control) => {
+        const flagLabel = control.type === "checkbox" && control.parentNode.querySelector("span");
+        control.setAttribute("aria-label", `${column.name}: ${flagLabel ? flagLabel.textContent : control.placeholder || "filter"}`);
+      });
       controls.appendChild(field);
     });
     form.appendChild(controls);
     const apply = () => {
+      if (composing) { CDBVS.setStatus("Finish composing the filter value before applying.", true); return; }
+      if (validators.some((validate) => !validate())) return;
       setColumnFilters(sheet.name, draftFilters);
       if (!(typeof CDBVS.refreshView === "function" && CDBVS.refreshView())) renderMutation();
       close();
+      CDBVS.setStatus("Filters applied to this view. The document data is unchanged.");
     };
-    CDBVS.appendModalActions(footer, close, apply, { saveLabel: "Apply" });
+    CDBVS.appendModalActions(footer, close, apply, { saveLabel: "Apply", viewOnly: true });
     dialog.appendChild(form);
     dialog.appendChild(footer);
     const firstControl = controls.querySelector("input, select");

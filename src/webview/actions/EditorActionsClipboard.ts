@@ -169,8 +169,10 @@
     const clipboard = clipboardState.getCell();
     if (clipboard) return pasteCellData(sheet, clipboard, targetSelection);
     if (typeof navigator === "undefined" || !navigator.clipboard || typeof navigator.clipboard.readText !== "function") return false;
+    const stillCurrent = pasteTargetGuard(sheet);
     try {
       navigator.clipboard.readText().then((text) => {
+        if (!stillCurrent()) return;
         const cell = parseCellClipboard(text);
         if (!cell) {
           CDBVS.setStatus("Clipboard does not contain a CDBVS cell.", true);
@@ -191,8 +193,10 @@
     const clipboard = clipboardState.getRow();
     if (clipboard && (clipboard.rows || clipboard.row)) return insertPastedRows(sheet, clipboard.rows || [clipboard.row]);
     if (typeof navigator === "undefined" || !navigator.clipboard || typeof navigator.clipboard.readText !== "function") return false;
+    const stillCurrent = pasteTargetGuard(sheet);
     try {
       navigator.clipboard.readText().then((text) => {
+        if (!stillCurrent()) return;
         const row = parseRowClipboard(text);
         if (!row) {
           CDBVS.setStatus("Clipboard does not contain a CDBVS row.", true);
@@ -205,6 +209,24 @@
     } catch (_) {
       return false;
     }
+  }
+
+  function pasteTargetGuard(sheet) {
+    const document = services.document.get();
+    const rows = sheet.lines.slice();
+    const schema = JSON.stringify(sheet.columns);
+    const selectionKey = () => JSON.stringify({ cell: selectedCell(sheet), rows: selectedRowIndices(sheet) });
+    const selection = selectionKey();
+    const values = JSON.stringify(sheet.lines);
+    return () => {
+      const current = services.document.get() === document && services.sheetView.currentSheet() === sheet
+        && !CDBVS.state.rawMode && !CDBVS.activeCell(sheet)
+        && JSON.stringify(sheet.columns) === schema && selectionKey() === selection
+        && sheet.lines.length === rows.length && rows.every((row, index) => sheet.lines[index] === row)
+        && JSON.stringify(sheet.lines) === values;
+      if (!current) CDBVS.setStatus("Paste cancelled because the selection or file changed. Select the destination and paste again.", true);
+      return current;
+    };
   }
 
   const clipboardActions = services.application.registerActionGroup(services.application.clipboardActions, {

@@ -34,8 +34,13 @@
     const toggleProperties = (event) => {
       if (event && typeof event.stopPropagation === "function") event.stopPropagation();
       const wasExpanded = listState.isExpanded(key);
+      if (wasExpanded && typeof CDBVS.commitCellEditors === "function" && !CDBVS.commitCellEditors(cell)) return false;
       const rawValue = row[column.name];
       const needsObject = !rawValue || typeof rawValue !== "object" || Array.isArray(rawValue);
+      if (!wasExpanded && rawValue !== undefined && rawValue !== null && needsObject) {
+        CDBVS.setStatus("This properties value is not an object. Use Raw JSON to repair it before editing.", true);
+        return false;
+      }
       const documentChanged = wasExpanded ? column.opt && Object.keys(properties).length === 0 : needsObject;
       applyPropertyMutation(() => {
         listState.setExpanded(key, !wasExpanded);
@@ -58,6 +63,25 @@
     if (!expanded) return;
 
     const editor = makeElement("div", null, "list-editor properties-editor");
+    editor.addEventListener("focusin", (event) => {
+      if (!event.target || !event.target.closest("input, textarea, select")) return;
+      if (context && typeof context.activateProperties === "function") {
+        if (context.activateProperties() !== false && document.activeElement !== event.target) event.target.focus();
+        return;
+      }
+      const active = CDBVS.activeCell(editSheet);
+      if (deferChanges || (active && active.rowIndex === editRowIndex && active.columnIndex === editColumnIndex)) return;
+      const selected = CDBVS.selectedCell(editSheet);
+      if ((!selected || selected.rowIndex !== editRowIndex || selected.columnIndex !== editColumnIndex)
+        && CDBVS.selectRenderedCell(editSheet, editRowIndex, editColumnIndex) === false) return;
+      cell.querySelectorAll("input, textarea, select").forEach((control) => {
+        if (typeof control._cdbvsBeginEdit === "function") control._cdbvsBeginEdit();
+      });
+      CDBVS.activateCell(editSheet, editRowIndex, editColumnIndex);
+      cell.classList.add("cell-active");
+      CDBVS.updateCellModeHint();
+      if (document.activeElement !== event.target) event.target.focus();
+    });
     const editorToolbar = makeElement("div", null, "nested-toolbar");
     editorToolbar.appendChild(makeElement("span", `${schema.name} properties`, "nested-title"));
     editor.appendChild(editorToolbar);
@@ -81,6 +105,7 @@
         rowIndex: 0,
         path: `${context.path}/${column.name}/properties`,
         deferChanges,
+        rowEditor: !!(context && context.rowEditor),
         editSheet,
         editRowIndex,
         editColumnIndex

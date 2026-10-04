@@ -37,6 +37,10 @@
   function closeSelectMenu() {
     if (!openSelectState) return null;
     const state = openSelectState;
+    // Removing the focused filter synchronously fires blur in Chromium. Make
+    // teardown re-entrant before DOM removal so blur cannot commit a cancelled
+    // menu or attempt to remove the same node a second time.
+    openSelectState = null;
     const { control, menu, cleanup } = state;
     if (typeof cleanup === "function") cleanup();
     if (menu && typeof menu.remove === "function") menu.remove();
@@ -46,7 +50,6 @@
       control.removeAttribute("aria-controls");
       control.removeAttribute("aria-activedescendant");
     }
-    openSelectState = null;
     return state;
   }
 
@@ -229,6 +232,7 @@
       finishSelectMenu(true);
       if (openSelectState) return false;
     }
+    if (control && typeof control._cdbvsRefreshChoices === "function") control._cdbvsRefreshChoices();
     const options = selectOptions(control);
     if (!control || control.disabled || !options.length || !document.body || typeof document.createElement !== "function") return false;
     const menu = document.createElement("div");

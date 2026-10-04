@@ -182,6 +182,26 @@ test("row editor keeps a draft until Save and text editor supports cancel and sa
   assert.equal(renderCount, 0);
 });
 
+test("invalid numeric filter ranges keep the draft open without changing the active view", () => {
+  const target = { name: "Rows", columns: [{ name: "score", typeStr: "3" }], lines: [{ score: 2 }] };
+  const harness = createWebviewHarness({ customTypes: [], sheets: [target] });
+  harness.CDBVS.openFilterModal(target);
+  const modal = harness.document.querySelector(".filter-modal");
+  const [min, max] = modal.querySelectorAll("input");
+  const apply = buttonByText(modal, "Apply");
+  min.value = "5"; max.value = "2";
+  min.dispatchEvent({ type: "input" }); max.dispatchEvent({ type: "input" });
+  click(apply);
+  assert.equal(min.getAttribute("aria-invalid"), "true");
+  assert.match(harness.statuses.at(-1).message, /Minimum cannot exceed Maximum/);
+  assert.deepEqual(JSON.parse(JSON.stringify(harness.state.columnFilters.Rows)), {});
+  min.value = "1.5"; min.dispatchEvent({ type: "input" }); click(apply);
+  assert.match(harness.statuses.at(-1).message, /whole number/);
+  min.value = "1"; min.dispatchEvent({ type: "input" }); click(apply);
+  assert.equal(harness.state.columnFilters.Rows.score.min, "1");
+  assert.equal(harness.document.querySelector(".filter-modal"), null);
+});
+
 test("filter modal renders all specialized controls and applies a draft atomically", () => {
   const target = {
     name: "Players",
@@ -332,12 +352,12 @@ test("sheet deletion confirmation cancels without mutation and deletes only afte
   const second = sheet("Second");
   const harness = createWebviewHarness({ customTypes: [], sheets: [first, second] });
   harness.CDBVS.openDeleteSheetConfirmation(first);
-  let overlay = harness.document.querySelector(".column-modal");
+  let overlay = harness.document.querySelector(".confirm-modal");
   assert.match(overlay.textContent, /Delete 'First'/);
   click(buttonByText(overlay, "Cancel"));
   assert.deepEqual(harness.state.data.sheets.map((item) => item.name), ["First", "Second"]);
   harness.CDBVS.openDeleteSheetConfirmation(first);
-  overlay = harness.document.querySelector(".column-modal");
+  overlay = harness.document.querySelector(".confirm-modal");
   click(buttonByText(overlay, "Delete sheet"));
   assert.deepEqual(harness.state.data.sheets.map((item) => item.name), ["Second"]);
 });
@@ -363,7 +383,7 @@ test("table body renders empty states, separators, selected rows, and collapsed 
   const harness = createWebviewHarness({ customTypes: [], sheets: [empty] });
   harness.CDBVS.makeCellEditor = () => {};
   let body = harness.CDBVS.renderTableBody(empty);
-  assert.equal(body.querySelector(".empty").textContent, "No rows match the current search and filters.");
+  assert.equal(body.querySelector(".empty").textContent, "No rows yet. Use + Row to add your first row.");
 
   const target = {
     name: "Players",

@@ -66,6 +66,52 @@ const validData = {
   sheets: [{ name: "Players", columns: [{ name: "id", typeStr: "0" }], lines: [{ id: "p1" }] }]
 };
 
+test("external refresh recovers unfinished cell input and clears stale selection without writing it back", () => {
+  const harness = makeProductionWebview();
+  const CDBVS = harness.context.CDBVS;
+  const data = { customTypes: [], sheets: [{ name: "People", columns: [{ name: "name", typeStr: "1" }], lines: [{ name: "Old" }] }] };
+  const message = (data) => ({ type: "document", text: JSON.stringify(data), data, issues: [], rawMode: false, showHiddenSheets: false });
+  harness.listeners.message[0]({ data: message(data) });
+  harness.runTimers();
+  const sheet = CDBVS.currentSheet();
+  CDBVS.selectRenderedCell(sheet, 0, 0); CDBVS.activateRenderedCell(sheet, 0, 0);
+  const input = CDBVS.findRenderedCell(0, 0).querySelector("input");
+  input.value = "unfinished"; input.dispatchEvent({ type: "input" });
+  const before = harness.posted.length;
+  const replacement = structuredClone(data); replacement.sheets[0].lines[0].name = "External";
+  harness.listeners.message[0]({ data: message(replacement) });
+  harness.runTimers();
+  assert.equal(CDBVS.currentSheet().lines[0].name, "External");
+  assert.equal(CDBVS.selectedCell(CDBVS.currentSheet()), null);
+  assert.equal(harness.app.querySelector(".recovered-draft textarea").value, "unfinished");
+  assert.equal(harness.posted.length, before);
+});
+
+test("external refresh preserves list-modal drafts and disposes their listeners", () => {
+  const harness = makeProductionWebview();
+  const CDBVS = harness.context.CDBVS;
+  const data = { customTypes: [], sheets: [
+    { name: "People", columns: [{ name: "items", typeStr: "8" }], lines: [{ items: [{ value: "old" }] }] },
+    { name: "People@items", columns: [{ name: "value", typeStr: "1" }], lines: [], props: { hide: true } }
+  ] };
+  const message = (data) => ({ type: "document", text: JSON.stringify(data), data, issues: [], rawMode: false, showHiddenSheets: false });
+  harness.listeners.message[0]({ data: message(data) }); harness.runTimers();
+  const listeners = harness.document.listeners.keydown.length;
+  const sheet = CDBVS.currentSheet();
+  CDBVS.selectRenderedCell(sheet, 0, 0); CDBVS.activateRenderedCell(sheet, 0, 0);
+  const modal = harness.document.querySelector(".text-modal-overlay");
+  const input = modal.querySelector("input");
+  input.value = "modal draft"; input.dispatchEvent({ type: "change" });
+  const replacement = structuredClone(data); replacement.sheets[0].lines[0].items = [{ value: "external" }];
+  const before = harness.posted.length;
+  harness.listeners.message[0]({ data: message(replacement) }); harness.runTimers();
+  assert.equal(harness.document.querySelector(".text-modal-overlay"), null);
+  assert.equal(harness.document.listeners.keydown.length, listeners);
+  assert.equal(CDBVS.currentSheet().lines[0].items[0].value, "external");
+  assert.match(harness.app.querySelector(".recovered-draft textarea").value, /modal draft/);
+  assert.equal(harness.posted.length, before);
+});
+
 test("production webview bootstrap creates state, renders, and announces readiness", () => {
   const harness = makeProductionWebview();
   assert.ok(harness.context.CDBVS);
@@ -131,6 +177,7 @@ test("webview update scheduling is debounced, serializes the document, and flush
   harness.runTimers();
   assert.equal(harness.posted.length, 1);
   assert.equal(harness.posted[0].type, "update");
+  assert.equal(harness.posted[0].baseText, "");
   assert.deepEqual(JSON.parse(harness.posted[0].text), validData);
   assert.equal(harness.context.CDBVS.documentText(), harness.posted[0].text);
 
@@ -151,6 +198,7 @@ test("webview save requests and document replacement use the host protocol", () 
   harness.context.CDBVS.requestSave();
   assert.equal(harness.posted.length, 1);
   assert.equal(harness.posted[0].type, "save");
+  assert.equal(harness.posted[0].expectedText, harness.context.CDBVS.documentText());
 
   harness.context.CDBVS.setDocument({
     type: "document",

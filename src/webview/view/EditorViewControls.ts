@@ -24,7 +24,7 @@
     if (getFilter().trim()) {
       items.push({
         label: `Search: "${getFilter().trim()}"`,
-        remove: () => { setFilter(""); refreshView(); }
+        remove: () => { if (!CDBVS.prepareCellTransition()) return; setFilter(""); refreshView(); }
       });
     }
     Object.keys(view.filters).forEach((columnName) => {
@@ -47,12 +47,15 @@
         label = `${columnName} = ${validIndex ? values[index] : `Missing value: ${rule.value}`}`;
       } else if (type.code === 10 && rule.mask !== undefined) {
         label = `${columnName} flags mask ${rule.mask}`;
+      } else if (type.code === 6 && rule.value !== undefined && String(rule.value) !== "") {
+        label = `${columnName} = "${rule.value}"`;
       } else if (rule.value !== undefined && String(rule.value) !== "") {
         label = `${columnName} contains "${rule.value}"`;
       }
       if (label) items.push({
         label,
         remove: () => {
+          if (!CDBVS.prepareCellTransition()) return;
           sheetState.removeFilter(sheet.name, columnName);
           refreshView();
         }
@@ -61,6 +64,7 @@
     if (view.sort.column) items.push({
       label: `Sort: ${view.sort.column} (${view.sort.direction})`,
       remove: () => {
+        if (!CDBVS.prepareCellTransition()) return;
         sheetState.clearSort(sheet.name);
         refreshView();
       }
@@ -87,6 +91,7 @@
   }
 
   function cycleColumnSort(sheet, columnName) {
+    if (!CDBVS.prepareCellTransition()) return false;
     sheetViewState.cycleSort(sheet.name, columnName);
     refreshView({ refreshHeader: true });
   }

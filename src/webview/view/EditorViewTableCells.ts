@@ -14,23 +14,32 @@
     const exit = options.exit;
     const showContextMenu = options.showContextMenu;
     const stopPropagation = options.stopPropagation === true;
-    const shouldIgnore = typeof options.shouldIgnore === "function" ? options.shouldIgnore : () => false;
+    const shouldIgnore = (target, event) => {
+      const wrap = td.closest(".table-wrap");
+      if (wrap && wrap.getAttribute("aria-busy") === "true") {
+        if (event && typeof event.preventDefault === "function") event.preventDefault();
+        if (event && typeof event.stopImmediatePropagation === "function") event.stopImmediatePropagation();
+        else if (event && typeof event.stopPropagation === "function") event.stopPropagation();
+        return true;
+      }
+      return typeof options.shouldIgnore === "function" && options.shouldIgnore(target, event);
+    };
     const matchesSelection = (selection) => !!selection
       && selection.rowIndex === rowIndex && selection.columnIndex === columnIndex;
     let selectionOnlyClick = false;
     td.addEventListener("mousedown", (event) => {
+      selectionOnlyClick = false;
       if (shouldIgnore(event.target, event)) return;
       if (event.button !== undefined && event.button !== 0) return;
       const alreadySelected = matchesSelection(getSelection());
-      const listToggleTarget = event.target && event.target.closest && event.target.closest(".list-toggle");
-      if (listToggleTarget) {
-        if (!alreadySelected) select(event);
-        if (!isActive()) activate(event);
-        selectionOnlyClick = false;
-        return;
-      }
       const selectTarget = event.target && event.target.closest && event.target.closest("select");
       if (alreadySelected && isActive()) {
+        // Native editor gestures (caret placement, text selection, number
+        // spinners and flag labels) belong to the active editor. Only a click
+        // on the cell surface exits editing; selects retain their menu toggle.
+        const editorTarget = event.target && event.target.closest
+          && event.target.closest("input, textarea, label, [contenteditable=\"true\"]");
+        if (editorTarget && td.contains(editorTarget)) return;
         event.preventDefault();
         exit(event);
         selectionOnlyClick = true;
@@ -51,16 +60,22 @@
     td.addEventListener("pointercancel", () => { selectionOnlyClick = false; });
     td.addEventListener("click", (event) => {
       if (shouldIgnore(event.target, event)) return;
-      if (!selectionOnlyClick) return;
-      event.preventDefault();
-      if (typeof event.stopPropagation === "function") event.stopPropagation();
+      if (selectionOnlyClick || (matchesSelection(getSelection()) && !isActive())) {
+        event.__cdbvsCellClickHandled = true;
+        event.preventDefault();
+        if (typeof event.stopPropagation === "function") event.stopPropagation();
+        if (!selectionOnlyClick) activate(event);
+      }
     }, true);
     td.addEventListener("click", (event) => {
       if (shouldIgnore(event.target, event)) return;
+      if (event.__cdbvsCellClickHandled) { selectionOnlyClick = false; return; }
       if (!event.target.closest || event.target.closest("tr") !== tr) return;
       if (stopPropagation && typeof event.stopPropagation === "function") event.stopPropagation();
       if (selectionOnlyClick) { selectionOnlyClick = false; return; }
-      if (matchesSelection(getSelection())) activate(event);
+      if (matchesSelection(getSelection())) {
+        if (!isActive()) activate(event);
+      }
       else select(event);
     });
     td.addEventListener("contextmenu", (event) => {
@@ -68,8 +83,7 @@
       if (!event.target.closest || event.target.closest("tr") !== tr) return;
       event.preventDefault();
       if (stopPropagation && typeof event.stopPropagation === "function") event.stopPropagation();
-      select(event);
-      showContextMenu(event);
+      if (select(event) !== false) showContextMenu(event);
     });
     return td;
   }
@@ -81,8 +95,7 @@
     td.setAttribute("role", "gridcell");
     td.dataset.columnIndex = String(columnIndex);
     if (CDBVS.typeOf(column).code === 0) {
-      td.title = "Double-click to edit this row";
-      td.addEventListener("dblclick", (event) => { event.preventDefault(); CDBVS.openRowEditor(sheet, rowIndex); });
+      td.title = "Click to select; Enter or F2 to edit. Double-click the row number to edit the row.";
     }
     const errors = cellErrors[CDBVS.cellErrorKey(rowIndex, column.name)] || [];
     if (errors.length) {
@@ -91,7 +104,9 @@
       td.setAttribute("aria-invalid", "true");
       td.dataset.errorMessage = td.title;
     }
-    if (selectedCellValue && selectedCellValue.rowIndex === rowIndex && selectedCellValue.columnIndex === columnIndex) td.classList.add("cell-selected");
+    const selected = selectedCellValue && selectedCellValue.rowIndex === rowIndex && selectedCellValue.columnIndex === columnIndex;
+    td.setAttribute("aria-selected", String(!!selected));
+    if (selected) { td.classList.add("cell-selected"); td.tabIndex = 0; }
     bindCellInteractions(td, {
       sheet,
       rowIndex,

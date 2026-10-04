@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { isEditorShapeValid, validateData } from "../../cdb/Validation";
 (function (global) {
   const CDBVS = global.CDBVS;
   const state = CDBVS.state;
@@ -55,6 +56,9 @@
       document = JSON.parse(text);
     } catch (error) {
       return { ok: false, message: `Invalid JSON: ${error.message}` };
+    }
+    if (!isEditorShapeValid(document)) {
+      return { ok: false, message: `Invalid CastleDB structure: ${validateData(document).join(" / ") || "Check sheet, column, row and custom type definitions."}` };
     }
     return replaceDocument(document);
   }

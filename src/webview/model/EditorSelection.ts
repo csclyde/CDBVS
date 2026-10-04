@@ -55,9 +55,17 @@
       const anchor = Number.isInteger(savedAnchor) && savedAnchor >= 0 && savedAnchor < (sheet.lines || []).length
         ? savedAnchor
         : (current.length ? current[current.length - 1] : index);
-      const start = Math.min(anchor, index);
-      const end = Math.max(anchor, index);
-      selectRows(sheet, Array.from({ length: end - start + 1 }, (_, offset) => start + offset), index, anchor);
+      const rows = typeof CDBVS.navigationRows === "function" ? CDBVS.navigationRows(sheet) : CDBVS.services.sheetView.rowsForNavigation(sheet);
+      const anchorPosition = rows.findIndex((entry) => entry.rowIndex === anchor);
+      const endPosition = rows.findIndex((entry) => entry.rowIndex === index);
+      if (endPosition < 0) return;
+      if (anchorPosition < 0) {
+        selectRows(sheet, [index], index, index);
+        return;
+      }
+      const start = Math.min(anchorPosition, endPosition);
+      const end = Math.max(anchorPosition, endPosition);
+      selectRows(sheet, rows.slice(start, end + 1).map((entry) => entry.rowIndex), index, anchor);
     } else if (modified) {
       selectRows(sheet, current.includes(index) ? current.filter((item) => item !== index) : current.concat(index), index);
     } else {
@@ -112,6 +120,16 @@
     delete selectionState.activeCells()[sheet.name];
   }
 
+  function reconcileVisibleSelection(sheet) {
+    if (!sheet) return;
+    const visible = new Set(CDBVS.services.sheetView.rowsForNavigation(sheet).map((entry) => entry.rowIndex));
+    const selected = selectedCell(sheet);
+    const rows = selectedRowIndices(sheet);
+    if ((selected && !visible.has(selected.rowIndex)) || rows.some((index) => !visible.has(index))) {
+      selectRows(sheet, rows.filter((index) => visible.has(index)));
+    }
+  }
+
   Object.assign(CDBVS, {
     selectedRowIndex,
     selectedRowIndices,
@@ -123,6 +141,6 @@
     activeCell,
     selectCell,
     activateCell,
-    deactivateCell
+    deactivateCell, reconcileVisibleSelection
   });
 })(window);
